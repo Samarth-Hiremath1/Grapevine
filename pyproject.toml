@@ -1,0 +1,83 @@
+[project]
+name = "grapevine"
+version = "0.0.1"
+description = "A research toolkit for studying and training against the Hidden Profile failure mode in multi-agent LLM teams."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Samarth Hiremath" }]
+keywords = [
+    "llm",
+    "multi-agent",
+    "reinforcement-learning",
+    "grpo",
+    "hidden-profile",
+    "reward-hacking",
+]
+dependencies = [
+    "httpx>=0.27",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Provider SDKs are optional: the rollout engine talks to an OpenAI-compatible
+# HTTP endpoint by default and only needs these if you use the SDK clients.
+openai = ["openai>=1.40"]
+anthropic = ["anthropic>=0.34"]
+# Training stack. Heavy; only needed for the GRPO loop.
+train = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "trl>=0.11",
+    "datasets>=2.20",
+    "accelerate>=0.33",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-pyyaml>=6.0",
+]
+
+[project.scripts]
+grapevine = "grapevine.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["grapevine"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["grapevine"]
+strict = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+# Optional heavy deps that may be absent in a lint-only environment.
+[[tool.mypy.overrides]]
+module = [
+    "trl.*",
+    "transformers.*",
+    "datasets.*",
+    "torch.*",
+    "openai.*",
+    "anthropic.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
