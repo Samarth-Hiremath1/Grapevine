@@ -1,11 +1,13 @@
 """Task families behind a common :class:`~grapevine.envs.base.Env` interface."""
 
+from typing import Any
+
 from grapevine.envs.base import Env, Task
 from grapevine.envs.hidden_profile import HiddenProfileConfig, HiddenProfileEnv
 from grapevine.envs.split_evidence import SplitEvidenceConfig, SplitEvidenceEnv
 
 #: Registry mapping a family name to its ``(Env, Config)`` classes.
-REGISTRY = {
+REGISTRY: dict[str, tuple[type[Env], type[Any]]] = {
     HiddenProfileEnv.family: (HiddenProfileEnv, HiddenProfileConfig),
     SplitEvidenceEnv.family: (SplitEvidenceEnv, SplitEvidenceConfig),
 }

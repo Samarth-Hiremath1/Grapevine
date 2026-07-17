@@ -123,6 +123,34 @@ class Episode:
         """Serialise to a single JSON line."""
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Episode:
+        """Reconstruct an :class:`Episode` from :meth:`to_dict` output."""
+        messages = [
+            TranscriptMessage(
+                round_no=int(m["round_no"]),
+                agent_id=int(m["agent_id"]),
+                role=str(m["role"]),
+                content=str(m["content"]),
+            )
+            for m in data.get("messages", [])
+        ]
+        return cls(
+            task_id=data["task_id"],
+            family=data.get("family", "unknown"),
+            question=data["question"],
+            options=list(data["options"]),
+            gold_answer=data["gold_answer"],
+            team_answer=data.get("team_answer"),
+            correct=bool(data["correct"]),
+            messages=messages,
+            required_private_facts=list(data.get("required_private_facts", [])),
+            n_agents=int(data.get("n_agents", 0)),
+            config=dict(data.get("config", {})),
+            usage=dict(data.get("usage", {})),
+            metadata=dict(data.get("metadata", {})),
+        )
+
 
 def _render_history(messages: list[TranscriptMessage]) -> str:
     """Render the discussion so far as plain text for the next prompt."""
