@@ -1,0 +1,36 @@
+# Tiny CPU smoke configuration: proves the GRPO -> rollout -> verifiable-reward
+# loop is wired end to end. It runs TWO optimisation steps on a very small model
+# with scripted auxiliary agents so it completes in seconds and needs no GPU or
+# network model download of the real policy. It is NOT a real training run and
+# reports no accuracy.
+model:
+  # A tiny model keeps the smoke test fast and hermetic. Swap for the real policy
+  # (see train_gpu.yaml) for actual training.
+  name: hf-internal-testing/tiny-random-LlamaForCausalLM
+
+env:
+  family: hidden_profile
+  n_agents: 2
+  n_shared_facts: 2
+  n_private_facts_per_agent: 1
+  n_distractors: 1
+  n_options: 3
+  n_train_tasks: 4
+
+rollout:
+  n_rounds: 1
+  aggregation: aggregator
+  aux_backend: scripted   # deterministic, offline auxiliary agents
+  max_tokens: 16
+
+grpo:
+  learning_rate: 1.0e-6
+  num_generations: 2
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+  max_steps: 2
+  max_completion_length: 16
+  logging_steps: 1
+
+seed: 0
+output_dir: runs/smoke_cpu

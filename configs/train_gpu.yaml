@@ -1,0 +1,34 @@
+# Real GRPO training configuration for a single GPU (e.g. Kaggle T4 or an A100).
+# This is a starting point for actual runs; it requires a GPU and will download
+# the policy model. Grapevine ships this config but does NOT include results from
+# running it -- doing full training runs is future work (see README status).
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+
+env:
+  family: hidden_profile
+  n_agents: 3
+  n_shared_facts: 6
+  n_private_facts_per_agent: 2
+  n_distractors: 4
+  n_options: 4
+  n_train_tasks: 512
+
+rollout:
+  n_rounds: 2
+  aggregation: aggregator
+  aux_backend: model      # auxiliary agents played by the (frozen) policy model
+  max_tokens: 256
+
+grpo:
+  learning_rate: 1.0e-6
+  num_generations: 8
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 2
+  max_steps: 500
+  max_completion_length: 256
+  logging_steps: 10
+  bf16: true
+
+seed: 0
+output_dir: runs/hidden_profile_qwen05b
