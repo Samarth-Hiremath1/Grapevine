@@ -151,6 +151,11 @@ Known scope limits of v0, stated plainly:
 - The surfacing metric is a fuzzy string-match proxy targeting verbatim-to-near-verbatim sharing
   (which the agent prompt explicitly encourages), not a full entailment check.
 
+The training backend choice is documented in
+[`grapevine/train/nemo_rl_notes.md`](grapevine/train/nemo_rl_notes.md): NVIDIA NeMo-RL was actually
+installed and attempted, and the notes record why v0 stays on TRL (NeMo-RL has no CPU generation
+backend, so it cannot run the CI smoke test) along with the friction encountered.
+
 ## Roadmap
 
 The research question this is built to answer:
