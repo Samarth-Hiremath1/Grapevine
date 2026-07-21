@@ -31,6 +31,11 @@ grpo:
   max_steps: 2
   max_completion_length: 16
   logging_steps: 1
+  # Force plain CPU fp32: on a GPU-less machine transformers rejects the default
+  # bf16/accelerated path unless use_cpu is set explicitly.
+  use_cpu: true
+  bf16: false
+  fp16: false
 
 seed: 0
 output_dir: runs/smoke_cpu
