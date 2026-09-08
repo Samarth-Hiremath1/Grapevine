@@ -71,6 +71,48 @@ async def test_run_episode_vote_mode() -> None:
     assert episode.correct is False
 
 
+async def test_per_episode_usage_is_not_corrupted_by_concurrency() -> None:
+    """Concurrent episodes sharing one client must each report only their own usage.
+
+    Regression test: usage was previously computed by diffing the client's running
+    totals before and after an episode. Because every ``await`` lets other
+    episodes interleave, each episode absorbed the others' tokens (four
+    concurrent episodes reported 13-16 calls apiece instead of 4).
+    """
+    import asyncio
+
+    from grapevine.rollout.client import Completion, LLMClient, Pricing
+
+    class YieldingClient(LLMClient):
+        """Client that awaits, so concurrent episodes genuinely interleave."""
+
+        def __init__(self) -> None:
+            super().__init__("yielding")
+            self.price = Pricing(0.001, 0.001)
+
+        async def complete(
+            self, messages: list[Message], *, max_tokens: int = 512, temperature: float = 0.7
+        ) -> Completion:
+            await asyncio.sleep(0.005)
+            completion = Completion("ok", 10, 5, self.price.cost(10, 5))
+            self._record(completion)
+            return completion
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    tasks = env.generate_batch(4, seed=0)
+    client = YieldingClient()
+    cfg = RolloutConfig(n_rounds=1)
+
+    episodes = await asyncio.gather(*(run_episode(t, client, cfg) for t in tasks))
+
+    expected_calls = tasks[0].n_agents + 1  # 1 round of discussion + aggregation
+    for ep in episodes:
+        assert ep.usage["n_calls"] == expected_calls
+        assert ep.usage["prompt_tokens"] == 10 * expected_calls
+    # Per-episode usage must sum to the client's own total, with no double count.
+    assert sum(e.usage["n_calls"] for e in episodes) == client.n_calls
+
+
 async def test_single_agent_sees_full_context() -> None:
     env = HiddenProfileEnv(HiddenProfileConfig())
     task = env.generate(1)

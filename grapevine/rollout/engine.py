@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from grapevine.envs.base import Task
-from grapevine.rollout.client import LLMClient, Message
+from grapevine.rollout.client import Completion, LLMClient, Message
 
 TEAM_SYSTEM_PROMPT = (
     "You are Agent {agent_id} of a {n_agents}-agent team solving a problem together. "
@@ -219,6 +219,41 @@ def _majority_vote(votes: list[str | None], options: list[str]) -> str | None:
     return None
 
 
+class _UsageAccumulator:
+    """Accumulates token/cost usage for exactly one episode.
+
+    Usage must be summed from the completions this episode actually received,
+    not by diffing the client's running totals before and after. A single client
+    is normally shared by many episodes running concurrently, and every ``await``
+    lets those episodes interleave, so a before/after diff silently absorbs other
+    episodes' tokens. (Measured: four concurrent episodes each reported 13-16
+    calls when the true figure was 4.)
+    """
+
+    def __init__(self) -> None:
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.cost_usd = 0.0
+        self.n_calls = 0
+
+    def add(self, completion: Completion) -> Completion:
+        """Record ``completion`` against this episode and return it unchanged."""
+        self.prompt_tokens += completion.prompt_tokens
+        self.completion_tokens += completion.completion_tokens
+        self.cost_usd += completion.cost_usd
+        self.n_calls += 1
+        return completion
+
+    def as_dict(self) -> dict[str, float]:
+        """Return the accumulated usage in the Episode.usage shape."""
+        return {
+            "prompt_tokens": float(self.prompt_tokens),
+            "completion_tokens": float(self.completion_tokens),
+            "cost_usd": self.cost_usd,
+            "n_calls": float(self.n_calls),
+        }
+
+
 def _clients_for(
     clients: LLMClient | list[LLMClient], n_agents: int
 ) -> list[LLMClient]:
@@ -250,12 +285,7 @@ async def run_episode(
     n_agents = task.n_agents
     agent_clients = _clients_for(clients, n_agents)
 
-    # Snapshot usage so we can attribute cost to just this episode.
-    before = [
-        (c.total_prompt_tokens, c.total_completion_tokens, c.total_cost_usd, c.n_calls)
-        for c in agent_clients
-    ]
-
+    usage_acc = _UsageAccumulator()
     messages: list[TranscriptMessage] = []
 
     # --- Discussion rounds --------------------------------------------------
@@ -271,8 +301,10 @@ async def run_episode(
                 Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
                 Message("user", prompt),
             ]
-            completion = await agent_clients[agent_id].complete(
-                convo, max_tokens=cfg.max_tokens, temperature=cfg.temperature
+            completion = usage_acc.add(
+                await agent_clients[agent_id].complete(
+                    convo, max_tokens=cfg.max_tokens, temperature=cfg.temperature
+                )
             )
             messages.append(
                 TranscriptMessage(round_no, agent_id, "discussion", completion.text.strip())
@@ -292,8 +324,10 @@ async def run_episode(
                 Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
                 Message("user", prompt),
             ]
-            completion = await agent_clients[agent_id].complete(
-                convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+            completion = usage_acc.add(
+                await agent_clients[agent_id].complete(
+                    convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+                )
             )
             vote = parse_answer(completion.text, task.options)
             votes.append(vote)
@@ -312,23 +346,15 @@ async def run_episode(
             Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agg, n_agents=n_agents)),
             Message("user", prompt),
         ]
-        completion = await agent_clients[agg].complete(
-            convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+        completion = usage_acc.add(
+            await agent_clients[agg].complete(
+                convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+            )
         )
         team_answer = parse_answer(completion.text, task.options)
         messages.append(TranscriptMessage(cfg.n_rounds + 1, agg, "answer", completion.text.strip()))
 
-    # --- Per-episode usage --------------------------------------------------
-    usage = {"prompt_tokens": 0.0, "completion_tokens": 0.0, "cost_usd": 0.0, "n_calls": 0.0}
-    seen: set[int] = set()
-    for c, (pt, ct, cost, calls) in zip(agent_clients, before, strict=True):
-        if id(c) in seen:  # avoid double counting a shared client
-            continue
-        seen.add(id(c))
-        usage["prompt_tokens"] += c.total_prompt_tokens - pt
-        usage["completion_tokens"] += c.total_completion_tokens - ct
-        usage["cost_usd"] += c.total_cost_usd - cost
-        usage["n_calls"] += c.n_calls - calls
+    usage = usage_acc.as_dict()
 
     return Episode(
         task_id=task.task_id,
@@ -358,7 +384,7 @@ async def run_single_agent(
     evaluation.
     """
     cfg = config or RolloutConfig()
-    before = (client.total_prompt_tokens, client.total_completion_tokens, client.total_cost_usd, client.n_calls)
+    usage_acc = _UsageAccumulator()
 
     prompt = AGGREGATOR_PROMPT.format(
         context="All available information:\n" + task.full_context(),
@@ -369,17 +395,14 @@ async def run_single_agent(
         Message("system", "You are an expert decision-maker. Reason carefully, then answer."),
         Message("user", prompt),
     ]
-    completion = await client.complete(
-        convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+    completion = usage_acc.add(
+        await client.complete(
+            convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+        )
     )
     team_answer = parse_answer(completion.text, task.options)
     messages = [TranscriptMessage(1, 0, "answer", completion.text.strip())]
-    usage = {
-        "prompt_tokens": float(client.total_prompt_tokens - before[0]),
-        "completion_tokens": float(client.total_completion_tokens - before[1]),
-        "cost_usd": client.total_cost_usd - before[2],
-        "n_calls": float(client.n_calls - before[3]),
-    }
+    usage = usage_acc.as_dict()
     return Episode(
         task_id=task.task_id,
         family=str(task.metadata.get("family", "unknown")),

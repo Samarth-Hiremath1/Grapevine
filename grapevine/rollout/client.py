@@ -56,6 +56,10 @@ class Pricing:
 # Published list prices (USD / 1K tokens) for a few inexpensive models, current
 # as of mid-2026. Used only to estimate run cost; override via Pricing if stale.
 DEFAULT_PRICING: dict[str, Pricing] = {
+    # GPT-5.6 tier, list prices as published on developers.openai.com (checked
+    # 2026-09-08): Luna $0.20/MTok in, $1.20/MTok out; Terra $2.00/$12.00.
+    "gpt-5.6-luna": Pricing(0.0002, 0.0012),
+    "gpt-5.6-terra": Pricing(0.002, 0.012),
     "gpt-4o-mini": Pricing(0.00015, 0.0006),
     "gpt-4.1-mini": Pricing(0.0004, 0.0016),
     "gpt-4.1-nano": Pricing(0.0001, 0.0004),
@@ -65,8 +69,28 @@ DEFAULT_PRICING: dict[str, Pricing] = {
 
 
 def pricing_for(model: str) -> Pricing:
-    """Return known pricing for ``model``, or a zero-cost fallback if unknown."""
+    """Return known pricing for ``model``, or a zero-cost fallback if unknown.
+
+    The zero fallback keeps offline/scripted clients cost-free. Experiment code
+    that reports spend should call :func:`require_pricing` instead, so an
+    unpriced model fails loudly rather than reporting $0.00.
+    """
     return DEFAULT_PRICING.get(model, Pricing(0.0, 0.0))
+
+
+def require_pricing(model: str) -> Pricing:
+    """Return pricing for ``model``, raising if it is unknown.
+
+    Use this on any path that reports a dollar figure: silently costing an
+    unpriced model at zero would look like a real measurement of $0.00.
+    """
+    if model not in DEFAULT_PRICING:
+        known = ", ".join(sorted(DEFAULT_PRICING))
+        raise KeyError(
+            f"No pricing entry for model {model!r}, so cost cannot be reported. "
+            f"Add it to DEFAULT_PRICING. Known models: {known}"
+        )
+    return DEFAULT_PRICING[model]
 
 
 @dataclass
