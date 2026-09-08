@@ -1,0 +1,33 @@
+# Primary run for the coordination ablation.
+#
+# 200 episodes per condition on seeds 1000-1199. That range is disjoint from the
+# pilot's (0-19), so no episode used to validate the design can appear in the
+# reported results.
+
+model:
+  name: gpt-5.6-luna       # $0.20 / $1.20 per MTok (developers.openai.com, 2026-09-08)
+  provider: openai
+  max_retries: 5
+  retry_base_delay: 0.5
+
+env:
+  family: hidden_profile   # split_evidence is excluded; see docs/decisions.md
+  n_agents: 3
+  n_shared_facts: 6
+  n_private_facts_per_agent: 2
+  n_distractors: 4
+  n_options: 4             # chance = 25%
+
+rollout:
+  n_rounds: 2              # condition C: two discussion rounds, then aggregation
+  aggregation: aggregator
+  max_tokens: 400
+  temperature: 0.7         # discussion turns
+  final_temperature: 0.0   # every answer-producing turn, in all three conditions
+
+run:
+  label: primary
+  n_episodes: 200
+  seed_start: 1000
+  concurrency: 8
+  output_dir: runs

@@ -1,0 +1,32 @@
+# Pilot for the coordination ablation: small, cheap, used only to validate the
+# design (do the conditions separate? are the logs complete? any reward bug?).
+#
+# Seeds 0-19. The primary run uses seeds 1000+ so no pilot episode can ever
+# appear in the reported results.
+model:
+  name: gpt-5.6-luna       # $0.20 / $1.20 per MTok (developers.openai.com, 2026-09-08)
+  provider: openai
+  max_retries: 5
+  retry_base_delay: 0.5
+
+env:
+  family: hidden_profile   # split_evidence is excluded; see docs/decisions.md
+  n_agents: 3
+  n_shared_facts: 6
+  n_private_facts_per_agent: 2
+  n_distractors: 4
+  n_options: 4             # chance = 25%
+
+rollout:
+  n_rounds: 2              # condition C: two discussion rounds, then aggregation
+  aggregation: aggregator
+  max_tokens: 400
+  temperature: 0.7         # discussion turns
+  final_temperature: 0.0   # every answer-producing turn, in all three conditions
+
+run:
+  label: pilot
+  n_episodes: 20
+  seed_start: 0
+  concurrency: 8
+  output_dir: runs
