@@ -17,6 +17,7 @@ to a single JSONL line, including every message and per-episode cost/usage.
 from __future__ import annotations
 
 import json
+import random
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -45,6 +46,20 @@ AGGREGATOR_PROMPT = (
     "{context}\n\n"
     "Full team discussion:\n{history}\n\n"
     "Based on everything the team surfaced, decide the single best answer. "
+    "Choose exactly one of these options: {options}.\n"
+    'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
+)
+
+SOLO_SYSTEM_PROMPT = (
+    "You are Agent {agent_id} of a {n_agents}-agent group. Each member holds different "
+    "private information. You must decide ALONE: there is no discussion, you cannot ask "
+    "anyone anything, and you will never see what the others hold. Reason carefully over "
+    "the information you have and commit to the best answer you can."
+)
+
+NO_COMM_PROMPT = (
+    "{context}\n\n"
+    "You are deciding alone, with no discussion.\n"
     "Choose exactly one of these options: {options}.\n"
     'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
 )
@@ -369,6 +384,116 @@ async def run_episode(
         n_agents=n_agents,
         config=asdict(cfg),
         usage=usage,
+    )
+
+
+def tally_votes(
+    votes: list[str | None], options: list[str], tie_break_seed: str
+) -> tuple[str | None, bool, dict[str, int]]:
+    """Aggregate independent votes into a group answer.
+
+    The tie-break rule is fixed in advance (see ``docs/methodology.md``): among
+    the options sharing the top vote count, one is chosen uniformly at random by
+    an RNG seeded from ``tie_break_seed`` (the task id). This is deterministic
+    and reproducible, and unbiased with respect to the correct answer -- unlike
+    "first option in the list", which would interact with option ordering.
+
+    Votes that failed to parse (``None``) are recorded but excluded from the
+    tally, so a refusal never counts toward any option.
+
+    Args:
+        votes: One vote per agent; ``None`` for an unparseable response.
+        options: The task's answer options.
+        tie_break_seed: Stable string used to seed the tie-break RNG.
+
+    Returns:
+        ``(answer, was_tie, tally)``. ``answer`` is ``None`` only when no vote
+        parsed at all. ``was_tie`` is True when two or more options shared the
+        top count.
+    """
+    tally = {opt: 0 for opt in options}
+    for vote in votes:
+        if vote in tally:
+            tally[vote] += 1
+    top = max(tally.values())
+    if top == 0:
+        return None, False, tally
+    leaders = [opt for opt in options if tally[opt] == top]
+    was_tie = len(leaders) > 1
+    if not was_tie:
+        return leaders[0], False, tally
+    rng = random.Random(tie_break_seed)
+    return rng.choice(leaders), True, tally
+
+
+async def run_no_communication(
+    task: Task,
+    clients: LLMClient | list[LLMClient],
+    config: RolloutConfig | None = None,
+) -> Episode:
+    """Run the no-communication condition: agents answer independently, then vote.
+
+    Each agent sees only its own private context and never sees any other
+    agent's context or output -- there is no shared message history at all. The
+    group answer is the majority vote, with ties resolved by :func:`tally_votes`.
+
+    This isolates the effect of *distributing* information from the effect of
+    *communicating* about it: compared against the communication condition, the
+    only thing that changes is whether agents can talk.
+
+    The per-agent calls use ``final_temperature`` (the same setting every other
+    condition uses for an answer-producing turn), and each agent's vote plus the
+    tally, tie flag, and parse-failure count are recorded in ``metadata``.
+    """
+    cfg = config or RolloutConfig()
+    n_agents = task.n_agents
+    agent_clients = _clients_for(clients, n_agents)
+    usage_acc = _UsageAccumulator()
+
+    messages: list[TranscriptMessage] = []
+    votes: list[str | None] = []
+
+    for agent_id in range(n_agents):
+        prompt = NO_COMM_PROMPT.format(
+            context=task.agent_contexts[agent_id],
+            options=", ".join(task.options),
+        )
+        convo = [
+            Message("system", SOLO_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
+            Message("user", prompt),
+        ]
+        completion = usage_acc.add(
+            await agent_clients[agent_id].complete(
+                convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
+            )
+        )
+        vote = parse_answer(completion.text, task.options)
+        votes.append(vote)
+        messages.append(TranscriptMessage(1, agent_id, "vote", completion.text.strip()))
+
+    team_answer, was_tie, tally = tally_votes(votes, task.options, task.task_id)
+    n_parse_failures = sum(1 for v in votes if v is None)
+
+    return Episode(
+        task_id=task.task_id,
+        family=str(task.metadata.get("family", "unknown")),
+        question=task.question,
+        options=task.options,
+        gold_answer=task.answer,
+        team_answer=team_answer,
+        correct=(team_answer == task.answer),
+        messages=messages,
+        required_private_facts=task.required_private_facts,
+        n_agents=n_agents,
+        config=asdict(cfg),
+        usage=usage_acc.as_dict(),
+        metadata={
+            "condition": "no_communication",
+            "votes": votes,
+            "vote_tally": tally,
+            "was_tie": was_tie,
+            "n_parse_failures": n_parse_failures,
+        },
     )
 
 

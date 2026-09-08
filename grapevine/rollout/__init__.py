@@ -18,7 +18,9 @@ from grapevine.rollout.engine import (
     load_transcript,
     parse_answer,
     run_episode,
+    run_no_communication,
     run_single_agent,
+    tally_votes,
 )
 
 __all__ = [
@@ -35,7 +37,9 @@ __all__ = [
     "TranscriptMessage",
     "TranscriptWriter",
     "run_episode",
+    "run_no_communication",
     "run_single_agent",
+    "tally_votes",
     "parse_answer",
     "load_transcript",
 ]
