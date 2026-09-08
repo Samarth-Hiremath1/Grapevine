@@ -16,9 +16,11 @@ venv/
 .ruff_cache/
 .mypy_cache/
 
-# Environment / secrets
+# Environment / secrets -- never commit real credentials.
+# The example file is the one exception and must stay tracked.
 .env
 .env.*
+!.env.example
 
 # Rollout / training artifacts
 runs/
