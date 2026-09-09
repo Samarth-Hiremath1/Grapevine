@@ -164,12 +164,38 @@ async def _with_retry(
     raise last_exc
 
 
+#: Model-name prefixes whose APIs take ``max_completion_tokens`` rather than the
+#: older ``max_tokens``. Sending ``max_tokens`` to these returns a 400.
+_MAX_COMPLETION_TOKENS_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def uses_max_completion_tokens(model: str) -> bool:
+    """Return whether ``model`` expects ``max_completion_tokens``."""
+    return model.startswith(_MAX_COMPLETION_TOKENS_PREFIXES)
+
+
+#: Model families that reject any explicit ``temperature`` other than the
+#: default of 1. Sending 0.0 to these returns a 400, so the field is omitted and
+#: the effective temperature is 1.0.
+_FIXED_TEMPERATURE_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def supports_temperature(model: str) -> bool:
+    """Return whether ``model`` accepts an explicit temperature setting."""
+    return not model.startswith(_FIXED_TEMPERATURE_PREFIXES)
+
+
 class OpenAICompatibleClient(LLMClient):
     """Async client for any OpenAI-compatible ``/chat/completions`` endpoint.
 
     Works with the OpenAI API, and with OpenAI-compatible gateways (Together,
     Groq, Fireworks, a local vLLM/Ollama server, ...). Credentials and base URL
     are read from arguments or environment variables.
+
+    The output-length parameter is named per model: newer OpenAI families
+    (gpt-5*, o1/o3/o4) require ``max_completion_tokens`` and reject
+    ``max_tokens``. Pass ``token_param`` to override the detection for a gateway
+    that disagrees.
     """
 
     def __init__(
@@ -182,8 +208,15 @@ class OpenAICompatibleClient(LLMClient):
         retry: RetryConfig | None = None,
         timeout: float = 60.0,
         seed: int = 0,
+        token_param: str | None = None,
     ) -> None:
         super().__init__(model)
+        self.token_param = token_param or (
+            "max_completion_tokens" if uses_max_completion_tokens(model) else "max_tokens"
+        )
+        # Some families reject any explicit temperature; the field is then omitted
+        # and the effective temperature is the model default of 1.0.
+        self.supports_temperature = supports_temperature(model)
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         self.base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
         self.pricing = pricing or pricing_for(model)
@@ -200,12 +233,13 @@ class OpenAICompatibleClient(LLMClient):
                 "No API key set. Provide api_key= or set OPENAI_API_KEY (or use a "
                 "ScriptedClient/LocalHFClient for offline runs)."
             )
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
+            self.token_param: max_tokens,
         }
+        if self.supports_temperature:
+            payload["temperature"] = temperature
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
         async with httpx.AsyncClient(timeout=self.timeout) as http:

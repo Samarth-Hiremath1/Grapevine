@@ -278,6 +278,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     client = make_client(cfg)
+    temp_honoured = bool(getattr(client, "supports_temperature", True))
+    if not temp_honoured:
+        print(
+            f"\nNOTE: {cfg['model']['name']} rejects an explicit temperature, so the "
+            f"configured {rollout_cfg.temperature}/{rollout_cfg.final_temperature} are NOT "
+            "applied. Every call runs at the model default of 1.0, identically across all "
+            "three conditions."
+        )
     started = datetime.now(UTC)
     out_root = Path(run_cfg.get("output_dir", "runs"))
     out_dir = out_root / f"{started.strftime('%Y%m%dT%H%M%SZ')}_{label}"
@@ -296,7 +304,16 @@ def main(argv: list[str] | None = None) -> int:
         if failures:
             print(f"  {len(failures)} episode(s) FAILED and were recorded, not dropped")
         if not episodes:
-            print(f"  no episodes completed for {condition}; aborting", file=sys.stderr)
+            (out_dir / "failures.json").write_text(
+                json.dumps(all_failures, indent=2), encoding="utf-8"
+            )
+            print(
+                f"  no episodes completed for {condition}; aborting. "
+                f"failures written to {out_dir / 'failures.json'}",
+                file=sys.stderr,
+            )
+            if failures:
+                print(f"  first error: {failures[0]['error'][:300]}", file=sys.stderr)
             return 3
         with (out_dir / f"episodes_{condition}.jsonl").open("w", encoding="utf-8") as fh:
             for ep in episodes:
@@ -339,8 +356,15 @@ def main(argv: list[str] | None = None) -> int:
                 "n_rounds": rollout_cfg.n_rounds,
                 "aggregation": rollout_cfg.aggregation,
                 "max_tokens": rollout_cfg.max_tokens,
-                "temperature": rollout_cfg.temperature,
-                "final_temperature": rollout_cfg.final_temperature,
+                "temperature_requested": rollout_cfg.temperature,
+                "final_temperature_requested": rollout_cfg.final_temperature,
+                # gpt-5* and o-series reject an explicit temperature, so the
+                # requested values above are not sent and 1.0 applies instead.
+                "temperature_honoured": temp_honoured,
+                "effective_temperature": (
+                    None if temp_honoured else 1.0
+                ),
+                "token_param": getattr(client, "token_param", "max_tokens"),
             },
             "chance_accuracy": chance,
         },

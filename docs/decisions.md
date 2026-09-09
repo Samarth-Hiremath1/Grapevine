@@ -87,3 +87,22 @@ the hypothesis.
 *2026-09-08.* Automatic prompt caching applies at 1024 tokens and up. Measured
 prompt sizes here are roughly 93 (system), 310 (agent turn) and 440 tokens
 (aggregator with history), so it does not trigger. Noted rather than claimed.
+
+## GPT-5.6 rejects an explicit temperature
+
+*2026-09-09, during the pilot.* Two API incompatibilities surfaced on the first
+real call. `gpt-5.6-luna` requires `max_completion_tokens` instead of
+`max_tokens`, and it rejects any explicit `temperature` other than the default
+of 1. The first is a straight rename. The second changes the design: the
+registered 0.7 discussion / 0.0 answer settings cannot be applied.
+
+Decision: omit the temperature field entirely and let every call run at the
+model default of 1.0. The setting is then identical across all three conditions,
+so it does not confound the comparison, but answer turns are no longer
+deterministic and within-condition variance is higher than planned. The manifest
+records `temperature_requested`, `temperature_honoured: false` and
+`effective_temperature: 1.0` so nobody reads the config and assumes 0.0 was used.
+
+The alternative was switching to a model that accepts a temperature. Not worth
+it: sampling noise is absorbed by the bootstrap intervals, and changing model
+would cost the pilot.

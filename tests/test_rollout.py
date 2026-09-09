@@ -129,3 +129,31 @@ async def test_single_agent_sees_full_context() -> None:
     # Every required private fact is present in the single-agent context.
     for fact in task.required_private_facts:
         assert fact in captured["ctx"]
+
+
+def test_model_parameter_detection() -> None:
+    """GPT-5 and o-series need max_completion_tokens and reject explicit temperature."""
+    from grapevine.rollout.client import (
+        OpenAICompatibleClient,
+        supports_temperature,
+        uses_max_completion_tokens,
+    )
+
+    assert uses_max_completion_tokens("gpt-5.6-luna")
+    assert uses_max_completion_tokens("o3-mini")
+    assert not uses_max_completion_tokens("gpt-4o-mini")
+
+    assert not supports_temperature("gpt-5.6-luna")
+    assert supports_temperature("gpt-4o-mini")
+
+    new = OpenAICompatibleClient("gpt-5.6-luna", api_key="x")
+    assert new.token_param == "max_completion_tokens"
+    assert new.supports_temperature is False
+
+    old = OpenAICompatibleClient("gpt-4o-mini", api_key="x")
+    assert old.token_param == "max_tokens"
+    assert old.supports_temperature is True
+
+    # Explicit override wins over detection.
+    forced = OpenAICompatibleClient("gpt-5.6-luna", api_key="x", token_param="max_tokens")
+    assert forced.token_param == "max_tokens"
