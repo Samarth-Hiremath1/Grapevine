@@ -1,0 +1,165 @@
+{
+  "label": "pilot",
+  "started_utc": "2026-09-09T06:46:07.838037+00:00",
+  "finished_utc": "2026-09-09T06:47:27.993949+00:00",
+  "duration_seconds": 80.155912,
+  "git_commit": "fe4bef1529f9204dfa23041a74913588b42e10db",
+  "git_dirty": true,
+  "python": "3.11.4",
+  "config_path": "configs/coordination_ablation_pilot.yaml",
+  "config": {
+    "model": {
+      "name": "gpt-5.6-luna",
+      "provider": "openai",
+      "max_retries": 5,
+      "retry_base_delay": 0.5
+    },
+    "env": {
+      "family": "hidden_profile",
+      "n_agents": 3,
+      "n_shared_facts": 6,
+      "n_private_facts_per_agent": 2,
+      "n_distractors": 4,
+      "n_options": 4
+    },
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature": 0.7,
+      "final_temperature": 0.0
+    },
+    "run": {
+      "label": "pilot",
+      "n_episodes": 20,
+      "seed_start": 0,
+      "concurrency": 8,
+      "output_dir": "runs"
+    }
+  },
+  "resolved": {
+    "n_episodes": 20,
+    "seed_start": 0,
+    "seeds": [
+      0,
+      19
+    ],
+    "concurrency": 8,
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature_requested": 0.7,
+      "final_temperature_requested": 0.0,
+      "temperature_honoured": false,
+      "effective_temperature": 1.0,
+      "token_param": "max_completion_tokens"
+    },
+    "chance_accuracy": 0.25
+  },
+  "client_totals": {
+    "n_calls": 220.0,
+    "prompt_tokens": 82209.0,
+    "completion_tokens": 23337.0,
+    "cost_usd": 0.044446200000000005
+  },
+  "total_cost_usd": 0.04444619999999999,
+  "failures": {
+    "full_info": [],
+    "no_communication": [],
+    "communication": []
+  },
+  "paired_differences": {
+    "communication_minus_no_communication": {
+      "mean": 0.8,
+      "ci95": [
+        0.6,
+        0.95
+      ]
+    },
+    "full_info_minus_communication": {
+      "mean": 0.1,
+      "ci95": [
+        -0.1,
+        0.3
+      ]
+    }
+  },
+  "summaries": {
+    "full_info": {
+      "condition": "full_info",
+      "n": 20,
+      "accuracy": 0.9,
+      "accuracy_ci": [
+        0.75,
+        1.0
+      ],
+      "decoy_rate": 0.1,
+      "decoy_rate_ci": [
+        0.0,
+        0.25
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": null,
+      "total_cost_usd": 0.0034669999999999996,
+      "total_prompt_tokens": 5251,
+      "total_completion_tokens": 2014,
+      "total_calls": 20,
+      "extra": {}
+    },
+    "no_communication": {
+      "condition": "no_communication",
+      "n": 20,
+      "accuracy": 0.0,
+      "accuracy_ci": [
+        0.0,
+        0.0
+      ],
+      "decoy_rate": 1.0,
+      "decoy_rate_ci": [
+        1.0,
+        1.0
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": 0.0,
+      "accuracy_ties_incorrect": 0.0,
+      "surfacing_rate": null,
+      "total_cost_usd": 0.007910599999999999,
+      "total_prompt_tokens": 13735,
+      "total_completion_tokens": 4303,
+      "total_calls": 60,
+      "extra": {}
+    },
+    "communication": {
+      "condition": "communication",
+      "n": 20,
+      "accuracy": 0.8,
+      "accuracy_ci": [
+        0.6,
+        0.95
+      ],
+      "decoy_rate": 0.2,
+      "decoy_rate_ci": [
+        0.05,
+        0.4
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 1.0,
+      "total_cost_usd": 0.0330686,
+      "total_prompt_tokens": 63223,
+      "total_completion_tokens": 17020,
+      "total_calls": 140,
+      "extra": {}
+    }
+  }
+}
