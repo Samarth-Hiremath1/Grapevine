@@ -36,3 +36,4 @@ wandb/
 # Experiment run artifacts are large and reproducible from the manifest.
 # Reported runs are committed deliberately with `git add -f`.
 runs/
+.env
