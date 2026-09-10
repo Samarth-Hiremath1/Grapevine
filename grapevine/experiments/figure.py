@@ -26,8 +26,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 #: Display names, in the order they appear on the x-axis.
 CONDITION_LABELS = {
     "full_info": "A. Full information\n(1 agent, all facts)",
-    "no_communication": "B. Distributed\n(3 agents, no talking)",
-    "communication": "C. Distributed\n(3 agents, 2 rounds)",
+    "no_communication": "B. No communication\n(3 agents, no talking)",
+    "communication": "C. Instructed sharing\n(3 agents, 2 rounds)",
+    "communication_neutral": "D. Neutral prompt\n(3 agents, 2 rounds)",
 }
 
 
@@ -94,7 +95,7 @@ def make_figure(run_dir: Path) -> tuple[Path, Path, Path]:
 
     x = range(len(rows))
     width = 0.36
-    fig, ax = plt.subplots(figsize=(8.4, 5.4))
+    fig, ax = plt.subplots(figsize=(10.0, 5.6))
 
     ax.bar(
         [i - width / 2 for i in x],

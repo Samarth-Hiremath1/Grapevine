@@ -1,13 +1,15 @@
 """Entry point for the coordination ablation.
 
-Runs the same procedurally generated hidden-profile tasks through three
+Runs the same procedurally generated hidden-profile tasks through four
 conditions and writes everything needed to reproduce the numbers:
 
 * ``full_info`` (A) -- one agent sees every fact. The accuracy ceiling.
 * ``no_communication`` (B) -- N agents each see only their own private context
   and answer independently; the group answer is a majority vote.
 * ``communication`` (C) -- the same N agents, but they discuss for ``n_rounds``
-  before a designated aggregator answers.
+  before a designated aggregator answers. The prompt instructs fact-sharing.
+* ``communication_neutral`` (D) -- identical to C except the discussion prompt
+  does not instruct sharing or asking.
 
 Conditions run on identical task seeds so comparisons are paired.
 
@@ -25,6 +27,7 @@ import asyncio
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -54,7 +57,12 @@ from grapevine.rollout.engine import (
 )
 from grapevine.settings import has_key, key_var_for, load_env
 
-CONDITIONS = ("full_info", "no_communication", "communication")
+CONDITIONS = (
+    "full_info",
+    "no_communication",
+    "communication",
+    "communication_neutral",
+)
 
 
 def _git_commit() -> str:
@@ -133,6 +141,7 @@ async def _run_condition(
     tasks: list[Task],
     client: LLMClient,
     rollout_cfg: RolloutConfig,
+    neutral_cfg: RolloutConfig,
     concurrency: int,
 ) -> tuple[list[Episode], list[dict[str, Any]]]:
     """Run one condition over ``tasks``. Returns (episodes, failures).
@@ -151,6 +160,8 @@ async def _run_condition(
                     ep = await run_single_agent(task, client, rollout_cfg)
                 elif condition == "no_communication":
                     ep = await run_no_communication(task, client, rollout_cfg)
+                elif condition == "communication_neutral":
+                    ep = await run_episode(task, client, neutral_cfg)
                 else:
                     ep = await run_episode(task, client, rollout_cfg)
             except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
@@ -162,6 +173,11 @@ async def _run_condition(
         ep.metadata["condition"] = condition
         ep.metadata["decoy_option"] = task.metadata.get("decoy_option")
         ep.metadata["seed"] = task.metadata.get("seed")
+        ep.metadata["prompt_style"] = (
+            neutral_cfg.prompt_style
+            if condition == "communication_neutral"
+            else rollout_cfg.prompt_style
+        )
         return ep
 
     results = await asyncio.gather(*(one(t) for t in tasks))
@@ -196,9 +212,10 @@ def _print_summary(summaries: dict[str, ConditionSummary], chance: float) -> Non
             f"condition B tie rate = {b.tie_rate*100:.1f}%  |  "
             f"accuracy with ties scored incorrect = {floor_str}"
         )
-    c = summaries.get("communication")
-    if c is not None and c.surfacing_rate is not None:
-        print(f"condition C surfacing rate = {c.surfacing_rate*100:.1f}%")
+    for key, name in (("communication", "C instructed"), ("communication_neutral", "D neutral")):
+        s2 = summaries.get(key)
+        if s2 is not None and s2.surfacing_rate is not None:
+            print(f"{name} surfacing rate = {s2.surfacing_rate*100:.1f}%")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -250,6 +267,9 @@ def main(argv: list[str] | None = None) -> int:
         final_temperature=float(rc.get("final_temperature", 0.0)),
     )
 
+    # Condition D: identical to C except the discussion prompt style.
+    neutral_cfg = replace(rollout_cfg, prompt_style="neutral")
+
     print(f"experiment : {label}")
     print(f"model      : {cfg['model']['name']} ({cfg['model'].get('provider','openai')})")
     print(f"env        : {cfg['env']} ")
@@ -298,7 +318,9 @@ def main(argv: list[str] | None = None) -> int:
     for condition in CONDITIONS:
         print(f"\nrunning condition: {condition} ...", flush=True)
         episodes, failures = asyncio.run(
-            _run_condition(condition, tasks, client, rollout_cfg, concurrency)
+            _run_condition(
+                condition, tasks, client, rollout_cfg, neutral_cfg, concurrency
+            )
         )
         all_failures[condition] = failures
         if failures:
@@ -331,7 +353,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # Paired comparisons on identical task seeds (only where N matches).
     paired: dict[str, Any] = {}
-    for lhs, rhs in (("communication", "no_communication"), ("full_info", "communication")):
+    for lhs, rhs in (
+        ("communication", "no_communication"),
+        ("communication_neutral", "no_communication"),
+        ("communication", "communication_neutral"),
+        ("full_info", "communication"),
+    ):
         a, b = per_condition_correct.get(lhs, []), per_condition_correct.get(rhs, [])
         if a and b and len(a) == len(b):
             mean, ci = paired_difference_ci(a, b)

@@ -106,3 +106,20 @@ records `temperature_requested`, `temperature_honoured: false` and
 The alternative was switching to a model that accepts a temperature. Not worth
 it: sampling noise is absorbed by the bootstrap intervals, and changing model
 would cost the pilot.
+
+## Condition D registered in advance
+
+*2026-09-09, after the pilot, before the primary run.* The pilot showed
+condition C recovering almost the whole gap (80% against a 90% ceiling) with a
+100% surfacing rate. C's system prompt tells agents to share facts and ask for
+what they are missing, so the obvious objection is that the instruction, not the
+discussion, produced the result.
+
+Rather than caveat it, condition D measures it: identical to C in agents,
+rounds, aggregator, temperature, token budget and seeds, with only the
+share/ask directive removed from the two discussion prompts. Both prompts are
+written verbatim into `methodology.md`, and this entry is committed before the
+run, so D is a registered condition and not a post-hoc addition.
+
+C is described as *instructed* pooling everywhere it is reported. The C-D
+difference is the secondary finding.

@@ -70,13 +70,68 @@ ceiling: the same information, undistributed.
 answers independently. There is no shared history and no channel of any kind.
 The group answer is the majority vote.
 
-**C — `communication`.** The same N agents, same contexts, but they exchange
-messages for `n_rounds` rounds (2 in this experiment) before a designated
-aggregator produces the answer. Each agent sees the full shared transcript plus
-its own private context.
+**C — `communication` (instructed sharing).** The same N agents, same contexts,
+but they exchange messages for `n_rounds` rounds (2 in this experiment) before a
+designated aggregator produces the answer. Each agent sees the full shared
+transcript plus its own private context. The system prompt explicitly tells
+agents to share their facts and ask for what they are missing.
 
-B and C differ only in whether agents can talk. A and C differ in whether the
-information is distributed at all.
+**D — `communication_neutral`.** Identical to C in every respect (same 3 agents,
+same 2 rounds, same aggregator, same temperature, same `max_tokens`, same seeds)
+except that the discussion prompts do not instruct fact-sharing or asking.
+
+B and C differ only in whether agents can talk. C and D differ only in whether
+the prompt tells them to pool. A and C differ in whether the information is
+distributed at all.
+
+### Why D exists
+
+C's prompt instructs sharing, so a reader is entitled to ask whether the
+instruction rather than the discussion does the work. D answers that inside the
+same experiment instead of leaving it as a caveat. Wherever C is reported it is
+described as *instructed* pooling. The C−D gap is the secondary finding.
+
+### The two discussion prompts, verbatim
+
+Condition C system prompt (`TEAM_SYSTEM_PROMPT`):
+
+> You are Agent {agent_id} of a {n_agents}-agent team solving a problem together.
+> Each teammate holds different private information, and no one can answer alone.
+> Your job is to actively SHARE the specific facts you hold and ASK teammates for
+> information you are missing, then reason over everything the team has surfaced.
+> State concrete facts verbatim rather than vague summaries. Be concise.
+
+Condition D system prompt (`NEUTRAL_SYSTEM_PROMPT`):
+
+> You are Agent {agent_id} of a {n_agents}-agent team solving a problem together.
+> Each teammate holds different private information, and no one can answer alone.
+> Discuss the decision with your teammates. Be concise.
+
+Condition C turn prompt (`AGENT_TURN_PROMPT`):
+
+> {context}
+>
+> Conversation so far:
+> {history}
+>
+> It is your turn (round {round_no} of {n_rounds}). Write a short message to your
+> teammates: share the specific facts you hold that are relevant, and ask for any
+> information you still need. Do not state a final answer yet.
+
+Condition D turn prompt (`NEUTRAL_TURN_PROMPT`):
+
+> {context}
+>
+> Conversation so far:
+> {history}
+>
+> It is your turn (round {round_no} of {n_rounds}). Write a short message to your
+> teammates. Do not state a final answer yet.
+
+The first two sentences of the system prompt are identical, so both conditions
+know the task is distributed and that no one can answer alone. Only the
+directive to share and ask is removed. The aggregator prompt is byte-identical
+between C and D.
 
 ### Parameters held constant
 

@@ -50,6 +50,24 @@ AGGREGATOR_PROMPT = (
     'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
 )
 
+#: Condition D. Identical to TEAM_SYSTEM_PROMPT for the first two sentences, then
+#: replaces the explicit share/ask instruction with a neutral framing. Isolates
+#: how much of condition C's performance comes from being told to pool.
+NEUTRAL_SYSTEM_PROMPT = (
+    "You are Agent {agent_id} of a {n_agents}-agent team solving a problem together. "
+    "Each teammate holds different private information, and no one can answer alone. "
+    "Discuss the decision with your teammates. Be concise."
+)
+
+#: Condition D turn prompt: the C turn prompt with the "share the specific facts
+#: you hold / ask for any information you still need" directive removed.
+NEUTRAL_TURN_PROMPT = (
+    "{context}\n\n"
+    "Conversation so far:\n{history}\n\n"
+    "It is your turn (round {round_no} of {n_rounds}). Write a short message to your "
+    "teammates. Do not state a final answer yet."
+)
+
 SOLO_SYSTEM_PROMPT = (
     "You are Agent {agent_id} of a {n_agents}-agent group. Each member holds different "
     "private information. You must decide ALONE: there is no discussion, you cannot ask "
@@ -85,6 +103,10 @@ class RolloutConfig:
         max_tokens: Max tokens per model call.
         temperature: Sampling temperature for discussion turns.
         final_temperature: Sampling temperature for the answer/vote turn.
+        prompt_style: ``"instructed"`` (condition C) tells agents to share their
+            facts and ask for what they are missing; ``"neutral"`` (condition D)
+            gives the same task framing without that directive. Everything else
+            about the rollout is unchanged.
     """
 
     n_rounds: int = 2
@@ -93,12 +115,21 @@ class RolloutConfig:
     max_tokens: int = 400
     temperature: float = 0.7
     final_temperature: float = 0.0
+    prompt_style: str = "instructed"
 
     def __post_init__(self) -> None:
         if self.n_rounds < 1:
             raise ValueError("n_rounds must be >= 1")
         if self.aggregation not in ("aggregator", "vote"):
             raise ValueError("aggregation must be 'aggregator' or 'vote'")
+        if self.prompt_style not in ("instructed", "neutral"):
+            raise ValueError("prompt_style must be 'instructed' or 'neutral'")
+
+    def discussion_prompts(self) -> tuple[str, str]:
+        """Return ``(system_prompt, turn_prompt)`` templates for this style."""
+        if self.prompt_style == "neutral":
+            return NEUTRAL_SYSTEM_PROMPT, NEUTRAL_TURN_PROMPT
+        return TEAM_SYSTEM_PROMPT, AGENT_TURN_PROMPT
 
 
 @dataclass
@@ -302,18 +333,19 @@ async def run_episode(
 
     usage_acc = _UsageAccumulator()
     messages: list[TranscriptMessage] = []
+    system_tmpl, turn_tmpl = cfg.discussion_prompts()
 
     # --- Discussion rounds --------------------------------------------------
     for round_no in range(1, cfg.n_rounds + 1):
         for agent_id in range(n_agents):
-            prompt = AGENT_TURN_PROMPT.format(
+            prompt = turn_tmpl.format(
                 context=task.agent_contexts[agent_id],
                 history=_render_history(messages),
                 round_no=round_no,
                 n_rounds=cfg.n_rounds,
             )
             convo = [
-                Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
+                Message("system", system_tmpl.format(agent_id=agent_id, n_agents=n_agents)),
                 Message("user", prompt),
             ]
             completion = usage_acc.add(
