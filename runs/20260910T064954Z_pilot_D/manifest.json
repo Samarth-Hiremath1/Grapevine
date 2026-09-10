@@ -1,0 +1,101 @@
+{
+  "label": "pilot_D",
+  "started_utc": "2026-09-10T06:49:54.393001+00:00",
+  "finished_utc": "2026-09-10T06:50:37.757347+00:00",
+  "duration_seconds": 43.364346,
+  "git_commit": "8ee0026b7dc70bf3deef10c8c046cac35e5ddc6a",
+  "git_dirty": true,
+  "python": "3.11.4",
+  "config_path": "configs/coordination_ablation_pilot.yaml",
+  "config": {
+    "model": {
+      "name": "gpt-5.6-luna",
+      "provider": "openai",
+      "max_retries": 5,
+      "retry_base_delay": 0.5
+    },
+    "env": {
+      "family": "hidden_profile",
+      "n_agents": 3,
+      "n_shared_facts": 6,
+      "n_private_facts_per_agent": 2,
+      "n_distractors": 4,
+      "n_options": 4
+    },
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature": 0.7,
+      "final_temperature": 0.0
+    },
+    "run": {
+      "label": "pilot",
+      "n_episodes": 20,
+      "seed_start": 0,
+      "concurrency": 8,
+      "output_dir": "runs"
+    }
+  },
+  "resolved": {
+    "conditions_run": [
+      "communication_neutral"
+    ],
+    "n_episodes": 20,
+    "seed_start": 0,
+    "seeds": [
+      0,
+      19
+    ],
+    "concurrency": 8,
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature_requested": 0.7,
+      "final_temperature_requested": 0.0,
+      "temperature_honoured": false,
+      "effective_temperature": 1.0,
+      "token_param": "max_completion_tokens"
+    },
+    "chance_accuracy": 0.25
+  },
+  "client_totals": {
+    "n_calls": 140.0,
+    "prompt_tokens": 57336.0,
+    "completion_tokens": 16702.0,
+    "cost_usd": 0.0315096
+  },
+  "total_cost_usd": 0.0315096,
+  "failures": {
+    "communication_neutral": []
+  },
+  "paired_differences": {},
+  "summaries": {
+    "communication_neutral": {
+      "condition": "communication_neutral",
+      "n": 20,
+      "accuracy": 0.35,
+      "accuracy_ci": [
+        0.15,
+        0.55
+      ],
+      "decoy_rate": 0.65,
+      "decoy_rate_ci": [
+        0.45,
+        0.85
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 0.7999999999999998,
+      "total_cost_usd": 0.0315096,
+      "total_prompt_tokens": 57336,
+      "total_completion_tokens": 16702,
+      "total_calls": 140,
+      "extra": {}
+    }
+  }
+}

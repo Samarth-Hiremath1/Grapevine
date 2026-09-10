@@ -236,6 +236,14 @@ def main(argv: list[str] | None = None) -> int:
         "--seed-start", type=int, default=None, help="override run.seed_start from the config"
     )
     parser.add_argument(
+        "--conditions",
+        default=None,
+        help=(
+            "comma-separated subset of conditions to run "
+            f"(default: all of {','.join(CONDITIONS)})"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="generate tasks and print the plan without making any API calls",
@@ -253,6 +261,14 @@ def main(argv: list[str] | None = None) -> int:
     n_episodes = int(run_cfg["n_episodes"])
     seed_start = int(run_cfg["seed_start"])
     concurrency = int(run_cfg.get("concurrency", 4))
+
+    if args.conditions:
+        selected = tuple(c.strip() for c in args.conditions.split(",") if c.strip())
+        unknown = [c for c in selected if c not in CONDITIONS]
+        if unknown:
+            raise SystemExit(f"unknown condition(s): {unknown}. Choose from {CONDITIONS}")
+    else:
+        selected = CONDITIONS
 
     env = build_env(cfg)
     tasks = env.generate_batch(n_episodes, seed_start)
@@ -304,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
             f"\nNOTE: {cfg['model']['name']} rejects an explicit temperature, so the "
             f"configured {rollout_cfg.temperature}/{rollout_cfg.final_temperature} are NOT "
             "applied. Every call runs at the model default of 1.0, identically across all "
-            "three conditions."
+            "four conditions."
         )
     started = datetime.now(UTC)
     out_root = Path(run_cfg.get("output_dir", "runs"))
@@ -315,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     summaries: dict[str, ConditionSummary] = {}
     per_condition_correct: dict[str, list[float]] = {}
 
-    for condition in CONDITIONS:
+    for condition in selected:
         print(f"\nrunning condition: {condition} ...", flush=True)
         episodes, failures = asyncio.run(
             _run_condition(
@@ -375,6 +391,7 @@ def main(argv: list[str] | None = None) -> int:
         "config_path": str(args.config),
         "config": cfg,
         "resolved": {
+            "conditions_run": list(selected),
             "n_episodes": n_episodes,
             "seed_start": seed_start,
             "seeds": [seed_start, seed_start + n_episodes - 1],
