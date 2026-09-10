@@ -1,4 +1,10 @@
-"""Reproduce the HiddenBench-style gap on Grapevine's generated tasks.
+"""Superseded early baseline. Use ``grapevine.experiments.run`` instead.
+
+This two-condition script predates the four-condition coordination ablation and
+was never run against a live API. It is kept for history only; the maintained
+entry point is ``python -m grapevine.experiments.run``. See docs/results.md.
+
+Reproduce the HiddenBench-style gap on Grapevine's generated tasks.
 
 Runs ``K`` tasks through two conditions using an inexpensive API model:
 

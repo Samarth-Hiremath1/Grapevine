@@ -1,17 +1,16 @@
-# Baseline: HiddenBench-style gap on Grapevine tasks
+# Baseline (superseded)
 
-**Status: not yet run in this repository.** No results are recorded here because
-no API key was available, and this project does not fabricate numbers.
+This early two-condition script has been superseded by the four-condition
+coordination ablation in `grapevine/experiments/run.py`. It was never run
+against a live API, and no results were ever recorded here.
 
-To populate this file with real results, set an API key and run the experiment:
+For the experiment that was actually run, and its numbers, see:
+
+- `docs/results.md` — results, transcripts, limitations
+- `runs/20260910T065248Z_primary/` — the run itself, with manifest and transcripts
+
+To reproduce that:
 
 ```bash
-export OPENAI_API_KEY=...           # your key
-python experiments/baseline/run_baseline.py \
-    --provider openai --model gpt-4o-mini \
-    --family hidden_profile --k 30 --agents 3 --rounds 2
+python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
 ```
-
-This runs 30 tasks/condition through the single-agent (full context) and
-distributed-team conditions and rewrites this file with accuracy, surfacing rate,
-gap-closure, and cost.

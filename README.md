@@ -1,196 +1,231 @@
 # Grapevine
 
-**A research toolkit for studying — and training against — the Hidden Profile failure in multi-agent LLM teams.**
+Grapevine is a research toolkit for studying why LLM agent teams fail when the
+information needed for a decision is split across them. It generates
+hidden-profile tasks procedurally, runs multi-agent rollouts against them, and
+scores the outcome against ground truth rather than a judge model. The question
+it exists to answer is which part of coordination actually breaks: getting facts
+into the conversation, or using them once they are there.
 
 [![CI](https://github.com/Samarth-Hiremath1/Grapevine/actions/workflows/ci.yml/badge.svg)](https://github.com/Samarth-Hiremath1/Grapevine/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 
----
+## Why
 
-## The problem
+In a hidden-profile task each member of a group holds a different slice of the
+evidence. The facts everyone already shares point at one candidate; the facts
+held privately point at a better one. Groups reliably choose the first, because
+discussion tends to rehearse common ground instead of pooling what is unique.
+The paradigm comes from Stasser and Titus (1985).
 
-When information is **distributed** across agents, LLM teams collapse.
+Prior work applying this to LLM teams, notably HiddenBench
+([arXiv:2505.11556](https://arxiv.org/abs/2505.11556)), reports agent groups
+performing substantially worse than a single agent holding all the same
+information. **Those are that paper's numbers, not results produced by this
+repository.** Grapevine builds its own tasks and measures its own conditions;
+the only thing carried over is the qualitative motivation.
 
-HiddenBench ([arXiv:2505.11556](https://arxiv.org/abs/2505.11556)) adapts the *Hidden Profile*
-paradigm from social psychology (Stasser & Titus, 1985) to multi-agent LLMs and reports the headline
-result: agent teams reach roughly **30%** accuracy on tasks where a **single agent given the full
-context scores about 81%**. Splitting the *same* information across a team destroys performance.
+## Main result
 
-The failure is specific, and it is not a reasoning failure. Agents combine information fine **once it
-is on the table**. What they fail to do is **ask** for what they are missing. They discuss the common
-ground everyone already shares and never surface the private facts that would change the answer.
-That is exactly the dynamic hidden-profile tasks are designed to expose.
+Four conditions, 200 procedurally generated tasks each, identical task seeds,
+`gpt-5.6-luna`.
 
-Grapevine makes that failure **measurable, reproducible, and trainable**:
+![Accuracy and decoy rate by condition](runs/20260910T065248Z_primary/accuracy_by_condition.png)
 
-1. **Procedurally generated environments** with verifiable rewards.
-2. A **multi-agent rollout engine** (async, provider-agnostic, cost-tracked).
-3. **Evaluation metrics + transcript visualization** showing *which* facts surfaced and *when*.
-4. A **GRPO training pipeline** to optimize communication against the verifiable reward.
-5. **Reward-hacking diagnostics** checking the reward can't be earned without genuine pooling.
+| Condition | N | Accuracy | 95% CI | Decoy rate | Surfacing |
+|---|---:|---:|---|---:|---:|
+| A. Full information, 1 agent | 200 | 85.5% | [80.5, 90.0] | 14.5% | n/a |
+| B. Distributed, no communication | 200 | 0.5% | [0.0, 1.5] | 99.5% | n/a |
+| C. Distributed, instructed sharing, 2 rounds | 200 | 67.0% | [60.5, 73.5] | 33.0% | 100.0% |
+| D. Distributed, neutral prompt, 2 rounds | 200 | 53.0% | [46.0, 60.0] | 46.0% | 82.7% |
+
+Chance is 25%. Intervals are percentile bootstrap over episodes.
+
+Three things came out of it:
+
+Splitting the information across three agents dropped accuracy from 85.5% to
+0.5%, well below chance, because the shared facts are built to favour a specific
+wrong candidate and agents reasoning from what they can see pick it. Every wrong
+answer in all 800 episodes was that candidate.
+
+Discussion recovered most of the loss (+52.5 points over silence), and telling
+agents explicitly to share and ask added a further +14.0 points
+[+6.0, +22.5]. Condition C is therefore described as *instructed* pooling
+wherever it appears; the recovery is not a property of discussion alone.
+
+The part that surprised us: in condition C every required private fact was
+surfaced in all 200 episodes, and accuracy still sat 18.5 points below the
+single-agent ceiling. Elicitation was fully solved and the gap did not close.
+The bottleneck is weighting the evidence once it has been pooled, not getting it
+onto the table. `docs/results.md` has the transcript.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph envs["grapevine.envs — procedural task families"]
-        HP["hidden_profile<br/>shared facts favor a WRONG option;<br/>correct answer needs every private fact"]
-        SE["split_evidence<br/>multi-hop QA, one hop per agent"]
-    end
+- **Environment** (`grapevine/envs/`) generates hidden-profile tasks from a
+  seed. Shared facts give a decoy a strict lead; private facts, split across
+  agents, all support the correct answer, with a final margin of exactly one so
+  every private fact is load-bearing. The test suite asserts these properties
+  for every configuration used.
+- **Rollout engine** (`grapevine/rollout/`) runs N agents over R rounds against
+  a provider-agnostic async client with retry and per-episode cost tracking.
+  Every episode is written as one JSONL line including the full transcript.
+- **Rewards** (`grapevine/rewards/`) score exact match against the gold answer
+  and compute how much of the required private information reached the
+  conversation.
+- **Evaluation** (`grapevine/eval/`, `grapevine/experiments/`) aggregates
+  accuracy, decoy rate, surfacing, tie and parse-failure counts with bootstrap
+  intervals, and draws the figure.
+- **Training** (`grapevine/train/`) wires the environments into a TRL GRPO loop.
+  This is scaffolding: it is smoke-tested on CPU in CI, and no training run has
+  been done. See Limitations.
 
-    HP --> T["Task<br/>agent_contexts · question · options<br/>answer · required_private_facts"]
-    SE --> T
+## Quick start
 
-    CL["LLMClient<br/>OpenAI-compatible · Anthropic<br/>local HF · scripted"] --> R
-    T --> R["grapevine.rollout<br/>N agents × R rounds<br/>aggregator or majority vote"]
-
-    R --> EP["Episode<br/>structured JSONL transcript"]
-
-    EP --> RW["grapevine.rewards<br/>exact-match verifiable reward<br/>+ surfacing rate, rounds-to-surface"]
-
-    RW --> EV["grapevine.eval<br/>team acc · single-agent ceiling<br/>gap-closure · grapevine view"]
-    RW --> TR["grapevine.train<br/>TRL GRPOTrainer<br/>rollout = generation, reward = verifiable"]
-    T --> DG["grapevine.diagnostics<br/>degenerate policies vs. genuine pooling<br/>→ markdown report"]
-```
-
-The key contract: **no single agent context is sufficient**. The answer is only derivable once every
-fact in `required_private_facts` has been surfaced, which is what makes the exact-match reward a
-genuine signal for information pooling rather than for guessing.
-
-## Quickstart
-
-Grapevine uses [uv](https://docs.astral.sh/uv/) and Python 3.11.
+Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/Samarth-Hiremath1/Grapevine.git
 cd Grapevine
 uv venv --python 3.11
 uv pip install -e ".[dev]"
+cp .env.example .env       # then put your OpenAI key in .env (gitignored)
 ```
 
-Generate tasks and inspect one:
+Generate a task and look at it:
 
 ```bash
-uv run grapevine gen hidden_profile --n 3
+uv run grapevine gen hidden_profile --n 1
 ```
 
-Check that the reward cannot be gamed by shortcuts that skip information sharing:
+Check the reward cannot be earned by shortcuts that skip information sharing:
 
 ```bash
-uv run grapevine diagnose hidden_profile --n 300 --out report.md
+uv run grapevine diagnose hidden_profile --n 300
 ```
 
-Run the baseline experiment (single agent vs. distributed team). Without an API key it generates the
-tasks and prints the exact command instead of failing:
+## Running experiments
+
+Print the plan without spending anything:
 
 ```bash
-export OPENAI_API_KEY=...      # optional
-uv run python experiments/baseline/run_baseline.py --model gpt-4o-mini --k 30
+uv run python -m grapevine.experiments.run \
+    --config configs/coordination_ablation.yaml --dry-run
 ```
 
-Pretty-print a transcript, with each required private fact color-coded by whether and when it
-surfaced:
+Pilot (20 episodes per condition, seeds 0-19, about $0.08):
 
 ```bash
-uv run grapevine view experiments/baseline/transcripts.jsonl
+uv run python -m grapevine.experiments.run \
+    --config configs/coordination_ablation_pilot.yaml
 ```
 
-Run the GRPO loop (2 steps on CPU — a wiring smoke test, not a training run):
+One condition only:
 
 ```bash
-uv pip install -e ".[train]"
-uv run python -m grapevine.train.grpo configs/smoke_cpu.yaml
+uv run python -m grapevine.experiments.run \
+    --config configs/coordination_ablation_pilot.yaml \
+    --conditions communication_neutral --label pilot_D
 ```
 
-## Components
+Useful config fields: `run.n_episodes`, `run.seed_start` (pilot and primary
+ranges are deliberately disjoint), `run.concurrency`, `env.n_agents`,
+`rollout.n_rounds`, `model.name`. A model with no entry in `DEFAULT_PRICING`
+raises rather than reporting a cost of $0.00.
 
-| Module | What it does |
-| --- | --- |
-| `grapevine/envs/` | `hidden_profile` and `split_evidence` generators behind a common `Env` interface. Deterministic under seed; ship ground-truth answers and the minimal fact set needed. |
-| `grapevine/rollout/` | Async N-agent × R-round engine. Provider-agnostic client with retry/backoff and per-run cost tracking. Full structured JSONL transcripts. |
-| `grapevine/rewards/` | Exact-match verifiable reward, plus private-fact surfacing rate and rounds-to-surface computed from transcripts. |
-| `grapevine/eval/` | Team accuracy, single-agent full-context ceiling, chance-relative gap-closure, surfacing rate, and the `grapevine view` transcript viewer. |
-| `grapevine/diagnostics/` | Battery of degenerate policies (always-A, random, no-discussion, copy-teammate, longest-message) compared to genuine pooling with a two-proportion z-test. |
-| `grapevine/train/` | TRL `GRPOTrainer` wiring: generated agent messages are scored by running the rest of a real multi-agent rollout and applying the verifiable reward. |
+## Reproducing the reported result
 
-### On the hidden-profile construction
+```bash
+uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
+uv run python -m grapevine.experiments.figure --run runs/<new-run-dir>
+```
 
-The generator guarantees — and the test suite verifies programmatically for every config — that:
+Roughly 14 minutes and $0.76 at 200 episodes per condition. Produces
+`manifest.json` (config, seeds, git commit, timings, metrics, token and cost
+totals, any failures), four `episodes_*.jsonl` transcripts,
+`accuracy_by_condition.png` and `.svg`, and `figure_data.csv` holding the exact
+numbers behind the figure.
 
-1. **Shared facts favor a wrong option.** The decoy holds a strict lead on shared information alone.
-2. **The correct option wins only with full pooling.** It is the unique winner over all facts.
-3. **Every required private fact is necessary.** Dropping any single one removes the correct
-   option's lead, so `required_private_facts` is genuinely minimal.
+The run backing the table above is committed at
+`runs/20260910T065248Z_primary/`.
 
-### On the reward-hacking diagnostics
+Read any transcript with the viewer, which colours each required private fact by
+whether and when it surfaced:
 
-Every degenerate policy in the battery is a **non-pooling shortcut**: it may use position, chance, or
-a single agent's own context, but never information pooled across agents. That restriction is the
-point — a policy allowed to read every context is already doing the thing the reward is meant to
-incentivize. Both families currently pass: no degenerate policy comes statistically close to genuine
-pooling.
+```bash
+uv run grapevine view runs/20260910T065248Z_primary/episodes_communication.jsonl
+```
 
-## Status
+## Repository layout
 
-**v0** — environments, rollout engine, metrics, diagnostics, baseline experiment, and a GRPO loop
-that is **wired and smoke-tested** (2 steps on CPU in CI, proving generation → rollout → verifiable
-reward → optimizer step executes end to end).
+```
+grapevine/envs/         task generators behind a common Env interface
+grapevine/rollout/      async multi-agent engine + provider-agnostic client
+grapevine/rewards/      exact-match reward, surfacing metrics
+grapevine/eval/         metrics and the transcript viewer
+grapevine/experiments/  experiment runner, analysis, figure
+grapevine/diagnostics/  degenerate-policy checks against the reward
+grapevine/train/        TRL GRPO wiring (scaffolding, not run)
+configs/                experiment and training configs
+docs/                   methodology, experiment plan, results, decision log
+runs/                   experiment output, one directory per run
+```
 
-**In progress** — full GRPO training runs and transfer evaluation.
+## Testing
 
-This repository contains **no fabricated results**. `experiments/baseline/results.md` is an explicit
-placeholder until the experiment is actually run with an API key, and no training numbers appear
-anywhere, because no full training run has been done yet. The CPU smoke test deliberately asserts
-only that the loop executes — not that the model learns.
+```bash
+uv run pytest -q                                       # 82 tests
+uv run ruff check grapevine tests experiments
+uv run mypy
+```
 
-Known scope limits of v0, stated plainly:
+CI runs all three on every push, including a two-step CPU GRPO smoke test.
 
-- GRPO optimizes **agent 0's opening turn**; the other agents and the aggregator are played by an
-  auxiliary client. Training all agents jointly is future work.
-- The surfacing metric is a fuzzy string-match proxy targeting verbatim-to-near-verbatim sharing
-  (which the agent prompt explicitly encourages), not a full entailment check.
+## Limitations
 
-The training backend choice is documented in
-[`grapevine/train/nemo_rl_notes.md`](grapevine/train/nemo_rl_notes.md): NVIDIA NeMo-RL was actually
-installed and attempted, and the notes record why v0 stays on TRL (NeMo-RL has no CPU generation
-backend, so it cannot run the CI smoke test) along with the friction encountered.
+- **Temperature was not controlled.** `gpt-5.6-luna` rejects an explicit
+  temperature, so the pre-registered 0.7/0.0 settings could not be applied and
+  every call ran at the model default of 1.0. Uniform across conditions, so the
+  comparison holds, but answer turns are not deterministic. The manifest records
+  `temperature_honoured: false`.
+- **One model, one task family, one team size, one round budget.** Nothing here
+  establishes how any of this scales.
+- **The decision rule is implicit.** The task never states that the candidate
+  with the most supporting facts wins, so part of the remaining A − C gap could
+  be presentation rather than coordination.
+- **Surfacing is a string-match proxy**, not entailment. It catches verbatim and
+  near-verbatim sharing and can be fooled by paraphrase or negation. Transcripts
+  were read by hand to confirm the 100% figure in condition C.
+- **`split_evidence` is excluded from experiments.** It leaks the gold answer
+  into one agent's context in 100 of 100 sampled tasks. `docs/decisions.md`
+  explains it; the runner rejects the family rather than letting it be used by
+  accident.
+- **No training results.** The GRPO path runs a two-step CPU smoke test to prove
+  the loop is wired. No real training run has been done, and no training numbers
+  appear anywhere in this repository.
 
 ## Roadmap
 
-The research question this is built to answer:
+The immediate next experiment is to state the decision rule explicitly and re-run
+condition C. If the gap to full information closes, the residual penalty is
+about applying a weighting rule to a transcript; if it persists, the problem is
+integrating evidence that arrives as dialogue, which is the more interesting
+answer and the one that would justify a training intervention.
 
-> **Does RL-trained communication transfer to held-out task families?** If a model is trained with
-> GRPO to solicit hidden information on `hidden_profile`, does the learned *asking* behavior
-> generalize to `split_evidence` and beyond — or does it overfit to the surface form of the training
-> family?
+After that: group size, round budget, and whether GRPO on these environments
+improves coordination in a way that transfers to held-out task families.
 
-Planned work, roughly in order:
+## Documentation
 
-- [ ] Full GRPO training runs on `Qwen2.5-0.5B-Instruct` (T4 / A100), with learning curves.
-- [ ] **Transfer evaluation**: train on one family, evaluate held out on the other.
-- [ ] Train all agents jointly rather than agent 0 alone.
-- [ ] Scale the policy and vary team size / round budget.
-- [ ] Additional task families (negotiation, distributed constraint satisfaction).
-- [ ] Reward-shaping ablations: does adding a surfacing bonus help, or does it get hacked?
-
-## Development
-
-```bash
-uv pip install -e ".[dev]"
-ruff check grapevine tests experiments
-mypy
-pytest -q                  # add -m "not slow" to skip the GRPO smoke test
-```
-
-CI runs lint, type checking, and the full test suite (including the CPU GRPO smoke test) on every
-push and pull request.
+- `docs/methodology.md` — task construction, information split, conditions,
+  prompts verbatim, metrics, bootstrap procedure
+- `docs/experiment.md` — hypothesis, parameters, commands, output layout
+- `docs/results.md` — full results, transcripts, interpretation, limitations
+- `docs/decisions.md` — judgment calls made along the way and why
 
 ## Citation
 
-The failure mode this toolkit targets is HiddenBench, **arXiv:2505.11556**
-(<https://arxiv.org/abs/2505.11556>) — please pull the authoritative title and author list from the
-arXiv listing when citing it formally:
+Prior work this project responds to:
 
 ```bibtex
 @misc{hiddenbench,
@@ -200,10 +235,10 @@ arXiv listing when citing it formally:
 }
 ```
 
-The original paradigm: Stasser, G., & Titus, W. (1985). *Pooling of unshared information in group
-decision making: Biased information sampling during discussion.* Journal of Personality and Social
-Psychology, 48(6), 1467–1478.
+Stasser, G., & Titus, W. (1985). Pooling of unshared information in group
+decision making. *Journal of Personality and Social Psychology*, 48(6),
+1467-1478.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
