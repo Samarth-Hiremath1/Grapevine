@@ -1,0 +1,5 @@
+condition,n,accuracy,accuracy_ci_low,accuracy_ci_high,decoy_rate,decoy_ci_low,decoy_ci_high,other_wrong_rate,parse_failures,tie_rate,accuracy_ties_incorrect,surfacing_rate
+full_info,200,0.855,0.805,0.9,0.145,0.1,0.195,0.0,0,,,
+no_communication,200,0.005,0.0,0.015,0.995,0.985,1.0,0.0,0,0.0,0.005,
+communication,200,0.67,0.605,0.735,0.33,0.27,0.395,0.0,0,,,1.0
+communication_neutral,200,0.53,0.46,0.6,0.46,0.39,0.53,0.0,2,,,0.8266666666666664

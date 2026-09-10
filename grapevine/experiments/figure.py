@@ -124,12 +124,14 @@ def make_figure(run_dir: Path) -> tuple[Path, Path, Path]:
         label=f"Chance ({chance*100:.0f}%)",
     )
 
-    ax.set_ylim(0, 1.0)
+    # Headroom so a 100% bar's value label does not collide with the title.
+    ax.set_ylim(0, 1.14)
     ax.set_ylabel("Proportion of episodes")
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
     ax.set_title("Distributing information across agents on hidden-profile tasks")
-    ax.legend(loc="upper right", frameon=False)
+    ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.legend(loc="upper right", frameon=False, ncol=1)
     ax.spines[["top", "right"]].set_visible(False)
     ax.grid(axis="y", alpha=0.25)
 
@@ -143,7 +145,8 @@ def make_figure(run_dir: Path) -> tuple[Path, Path, Path]:
     caption = (
         f"Hidden-profile tasks, {model}. Bars show the proportion of episodes ending on the "
         f"correct candidate and on the decoy\n(the candidate favoured by the facts every agent "
-        f"already shares). Condition C uses {n_rounds} discussion rounds. Error bars are "
+        f"already shares). Conditions C and D use {n_rounds} discussion rounds and differ only "
+        f"in whether the\nprompt instructs fact-sharing. Error bars are "
         f"percentile\nbootstrap 95% intervals over episodes. All conditions ran on identical "
         f"task seeds."
     )

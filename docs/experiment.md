@@ -16,6 +16,9 @@ Registered before the pilot:
    point at the decoy.
 3. Communication recovers some accuracy relative to no communication, but not
    all of the gap to `full_info`.
+4. Condition D (registered before running) recovers less than C, showing how
+   much of C's recovery comes from the instruction to share rather than from
+   discussion itself.
 
 Any of these can come out false. A flat result between B and C, or a
 communication condition that does worse than no communication, is a real finding
@@ -28,18 +31,26 @@ and is reported as such.
 | A `full_info` | 1 | every fact | that agent | 1 |
 | B `no_communication` | 3 | own context only | majority vote of independent answers | 3 |
 | C `communication` | 3 | own context + full transcript | designated aggregator after 2 rounds | 7 |
+| D `communication_neutral` | 3 | own context + full transcript | designated aggregator after 2 rounds | 7 |
 
-All three run on identical task seeds, so comparisons are paired.
+C's prompt instructs fact-sharing; D's does not. Both prompts are in
+`methodology.md` verbatim. All four run on identical task seeds, so comparisons
+are paired.
 
-**Condition C uses 2 discussion rounds.** This is stated wherever the result is
-reported, since round count is a free parameter that plausibly matters.
+**Conditions C and D use 2 discussion rounds.** This is stated wherever the
+result is reported, since round count is a free parameter that plausibly
+matters.
 
 ## Parameters
 
 - Model: `gpt-5.6-luna` (OpenAI), $0.20 / $1.20 per MTok as of 2026-09-08
 - Task family: `hidden_profile`, 4 options, chance 25%
 - 3 agents, 6 shared facts, 2 private facts per agent, 4 distractors
-- Temperature 0.7 for discussion turns, 0.0 for every answer turn
+- Temperature requested 0.7 for discussion turns and 0.0 for answer turns, but
+  **not applied**: gpt-5.6-luna rejects an explicit temperature, so every call
+  ran at the model default of 1.0, uniformly across all four conditions. The
+  manifest records this as `temperature_honoured: false`. See the limitations in
+  `results.md`.
 - `max_tokens` 400, 5 retries with exponential backoff
 - Pilot: 20 episodes per condition, seeds 0-19
 - Primary: 200 episodes per condition, seeds 1000-1199
@@ -67,6 +78,14 @@ Pilot:
 python -m grapevine.experiments.run --config configs/coordination_ablation_pilot.yaml
 ```
 
+A single condition only (used for the condition D pilot):
+
+```bash
+python -m grapevine.experiments.run \
+    --config configs/coordination_ablation_pilot.yaml \
+    --conditions communication_neutral --label pilot_D
+```
+
 Primary:
 
 ```bash
@@ -79,11 +98,14 @@ Each run creates `runs/<UTC timestamp>_<label>/` and never overwrites an earlier
 one:
 
 ```
-runs/20260908T______Z_primary/
+runs/20260910T065248Z_primary/
   manifest.json                    config, seeds, git commit, timings, metrics, cost
   episodes_full_info.jsonl         one episode per line, full transcript
   episodes_no_communication.jsonl
   episodes_communication.jsonl
+  episodes_communication_neutral.jsonl
+  accuracy_by_condition.png / .svg
+  figure_data.csv
 ```
 
 `manifest.json` holds everything needed to reproduce a number: the resolved

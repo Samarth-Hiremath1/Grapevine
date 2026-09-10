@@ -1,0 +1,211 @@
+{
+  "label": "primary",
+  "started_utc": "2026-09-10T06:52:48.834711+00:00",
+  "finished_utc": "2026-09-10T07:07:05.195153+00:00",
+  "duration_seconds": 856.360442,
+  "git_commit": "4311f6f29a8036de3716b1a3ebefc657f1088e5b",
+  "git_dirty": false,
+  "python": "3.11.4",
+  "config_path": "configs/coordination_ablation.yaml",
+  "config": {
+    "model": {
+      "name": "gpt-5.6-luna",
+      "provider": "openai",
+      "max_retries": 5,
+      "retry_base_delay": 0.5
+    },
+    "env": {
+      "family": "hidden_profile",
+      "n_agents": 3,
+      "n_shared_facts": 6,
+      "n_private_facts_per_agent": 2,
+      "n_distractors": 4,
+      "n_options": 4
+    },
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature": 0.7,
+      "final_temperature": 0.0
+    },
+    "run": {
+      "label": "primary",
+      "n_episodes": 200,
+      "seed_start": 1000,
+      "concurrency": 8,
+      "output_dir": "runs"
+    }
+  },
+  "resolved": {
+    "conditions_run": [
+      "full_info",
+      "no_communication",
+      "communication",
+      "communication_neutral"
+    ],
+    "n_episodes": 200,
+    "seed_start": 1000,
+    "seeds": [
+      1000,
+      1199
+    ],
+    "concurrency": 8,
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature_requested": 0.7,
+      "final_temperature_requested": 0.0,
+      "temperature_honoured": false,
+      "effective_temperature": 1.0,
+      "token_param": "max_completion_tokens"
+    },
+    "chance_accuracy": 0.25
+  },
+  "client_totals": {
+    "n_calls": 3600.0,
+    "prompt_tokens": 1392264.0,
+    "completion_tokens": 399086.0,
+    "cost_usd": 0.7573560000000005
+  },
+  "total_cost_usd": 0.7573559999999997,
+  "failures": {
+    "full_info": [],
+    "no_communication": [],
+    "communication": [],
+    "communication_neutral": []
+  },
+  "paired_differences": {
+    "communication_minus_no_communication": {
+      "mean": 0.665,
+      "ci95": [
+        0.6,
+        0.73
+      ]
+    },
+    "communication_neutral_minus_no_communication": {
+      "mean": 0.525,
+      "ci95": [
+        0.455,
+        0.595
+      ]
+    },
+    "communication_minus_communication_neutral": {
+      "mean": 0.14,
+      "ci95": [
+        0.06,
+        0.225
+      ]
+    },
+    "full_info_minus_communication": {
+      "mean": 0.185,
+      "ci95": [
+        0.12,
+        0.255
+      ]
+    }
+  },
+  "summaries": {
+    "full_info": {
+      "condition": "full_info",
+      "n": 200,
+      "accuracy": 0.855,
+      "accuracy_ci": [
+        0.805,
+        0.9
+      ],
+      "decoy_rate": 0.145,
+      "decoy_rate_ci": [
+        0.1,
+        0.195
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": null,
+      "total_cost_usd": 0.0371278,
+      "total_prompt_tokens": 52589,
+      "total_completion_tokens": 22175,
+      "total_calls": 200,
+      "extra": {}
+    },
+    "no_communication": {
+      "condition": "no_communication",
+      "n": 200,
+      "accuracy": 0.005,
+      "accuracy_ci": [
+        0.0,
+        0.015
+      ],
+      "decoy_rate": 0.995,
+      "decoy_rate_ci": [
+        0.985,
+        1.0
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": 0.0,
+      "accuracy_ties_incorrect": 0.005,
+      "surfacing_rate": null,
+      "total_cost_usd": 0.0756738,
+      "total_prompt_tokens": 137325,
+      "total_completion_tokens": 40174,
+      "total_calls": 600,
+      "extra": {}
+    },
+    "communication": {
+      "condition": "communication",
+      "n": 200,
+      "accuracy": 0.67,
+      "accuracy_ci": [
+        0.605,
+        0.735
+      ],
+      "decoy_rate": 0.33,
+      "decoy_rate_ci": [
+        0.27,
+        0.395
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 1.0,
+      "total_cost_usd": 0.329065,
+      "total_prompt_tokens": 633533,
+      "total_completion_tokens": 168632,
+      "total_calls": 1400,
+      "extra": {}
+    },
+    "communication_neutral": {
+      "condition": "communication_neutral",
+      "n": 200,
+      "accuracy": 0.53,
+      "accuracy_ci": [
+        0.46,
+        0.6
+      ],
+      "decoy_rate": 0.46,
+      "decoy_rate_ci": [
+        0.39,
+        0.53
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 2,
+      "parse_failure_rate": 0.01,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 0.8266666666666664,
+      "total_cost_usd": 0.31548939999999975,
+      "total_prompt_tokens": 568817,
+      "total_completion_tokens": 168105,
+      "total_calls": 1400,
+      "extra": {}
+    }
+  }
+}
