@@ -56,9 +56,12 @@ wherever it appears; the recovery is not a property of discussion alone.
 
 The part that surprised us: in condition C every required private fact was
 surfaced in all 200 episodes, and accuracy still sat 18.5 points below the
-single-agent ceiling. Elicitation was fully solved and the gap did not close.
-The bottleneck is weighting the evidence once it has been pooled, not getting it
-onto the table. `docs/results.md` has the transcript.
+single-agent ceiling. Getting the facts onto the table did not close the gap.
+We don't yet know why. It could be a failure to weigh pooled evidence, or it
+could be that the models were never told what they were being scored on: no
+prompt in any condition includes the task's question or says the candidate with
+the most supporting facts wins, and agents routinely asked for exactly that.
+Separating the two is the next experiment. `docs/results.md` has the transcript.
 
 ## Architecture
 
@@ -190,9 +193,12 @@ CI runs all three on every push, including a two-step CPU GRPO smoke test.
   `temperature_honoured: false`.
 - **One model, one task family, one team size, one round budget.** Nothing here
   establishes how any of this scales.
-- **The decision rule is implicit.** The task never states that the candidate
-  with the most supporting facts wins, so part of the remaining A − C gap could
-  be presentation rather than coordination.
+- **No model saw the question or the scoring rule.** Tasks carry a question, but
+  no prompt in any condition includes it, and nothing tells the models the
+  candidate with the most supporting facts wins. Accuracy here measures
+  agreement with a rule the models had to infer.
+- **200 tasks, one template.** The strength-fact pool has 12 sentences and each
+  task uses all 12, so tasks differ in names, assignment and order, not content.
 - **Surfacing is a string-match proxy**, not entailment. It catches verbatim and
   near-verbatim sharing and can be fooled by paraphrase or negation. Transcripts
   were read by hand to confirm the 100% figure in condition C.
@@ -206,14 +212,17 @@ CI runs all three on every push, including a two-step CPU GRPO smoke test.
 
 ## Roadmap
 
-The immediate next experiment is to state the decision rule explicitly and re-run
-condition C. If the gap to full information closes, the residual penalty is
-about applying a weighting rule to a transcript; if it persists, the problem is
-integrating evidence that arrives as dialogue, which is the more interesting
-answer and the one that would justify a training intervention.
+The immediate next experiment is to put the question and the scoring rule into
+the prompt and re-run conditions A and C on the same seeds. If C's decoy rate
+drops sharply, the gap to full information was mostly underspecification. If it
+holds, the aggregator fails to weigh pooled evidence even when it knows what it
+is being asked, which is the stronger claim and the one that would justify a
+training intervention.
 
-After that: group size, round budget, and whether GRPO on these environments
-improves coordination in a way that transfers to held-out task families.
+Alongside that, the strength-fact pool needs enlarging so tasks differ in
+content, with the four-condition result replicated on it. After that: group
+size, round budget, and whether GRPO on these environments improves
+coordination in a way that transfers to held-out task families.
 
 ## Documentation
 

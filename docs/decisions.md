@@ -123,3 +123,31 @@ run, so D is a registered condition and not a post-hoc addition.
 
 C is described as *instructed* pooling everywhere it is reported. The C-D
 difference is the secondary finding.
+
+## Two generator problems found after the primary run
+
+*2026-09-12.* Both came from reading `hidden_profile.py` against the prompts,
+and both were checked against the 200 primary tasks before being written up.
+
+**The question never reaches the models.** The generator writes a question into
+every task ("who is the strongest candidate?"), but the engine only copies it
+into the logged episode. No prompt in any condition contains it, and no prompt
+states the scoring rule (one point per supporting fact, most points wins). The
+aggregator in `hidden_profile-6` asking for "weighting criteria" was not being
+fussy; it had not been told what to decide. A keyword count finds agents asking
+for criteria, a decision rule or a ranking in 174 of 200 condition C episodes.
+This confounds the reading that C's residual gap is an integration failure.
+
+**Every task uses the whole strength pool.** `_STRENGTHS` has 12 entries and
+this configuration consumes 12 strength facts per task, so all 200 primary tasks
+contain the same 12 sentences. They vary in names, assignment and order only.
+
+Both are stated in `results.md` limitations, and the integration-failure
+interpretation there has been downgraded to a hypothesis.
+
+**The generator was not changed.** The primary run already used it, so expanding
+the pool now would change the content of seeds 1000-1199: the committed run
+could no longer be regenerated from the code, and any new arm run on the same
+seeds would no longer be paired with it. Whether to version the pool and
+replicate, or keep the current generator for the follow-up arms, is an open
+decision.

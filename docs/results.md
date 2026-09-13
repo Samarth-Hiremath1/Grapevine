@@ -5,6 +5,12 @@ Model `gpt-5.6-luna`, 200 hidden-profile tasks per condition, seeds 1000-1199,
 identical across all four conditions. 3,600 API calls, no failures, no retries
 exhausted. Total cost $0.7574, wall-clock 14 minutes 16 seconds.
 
+Two things to read before the numbers. First, **no model in any condition was
+shown the task's question or told how answers are scored.** Second, **the 200
+tasks are 200 permutations of one 12-sentence template**, not 200 independent
+problems. Both are explained under Limitations, and both limit what the results
+below can support.
+
 ## Headline
 
 Splitting the information across three agents took accuracy from 85.5% to 0.5%.
@@ -12,9 +18,9 @@ Letting those agents talk recovered most of it, to 67.0%, and roughly a fifth of
 that recovery came from explicitly telling them to share what they hold rather
 than from discussion alone.
 
-The part worth dwelling on is what the recovery does *not* fix. In the
-instructed-sharing condition every required private fact was surfaced in all 200
-episodes, and accuracy still sat 18.5 points below the single-agent ceiling.
+In the instructed-sharing condition every required private fact was surfaced in
+all 200 episodes, and accuracy still sat 18.5 points below the single-agent
+ceiling. Why is not settled yet; see "Full surfacing did not close the gap".
 
 ## Table
 
@@ -46,45 +52,38 @@ incorrect is 0.5%, unchanged.
 
 **Distributing the information is close to fatal on its own.** Condition B
 scored 0.5%, far below the 25% chance line. That is not because the task is
-unsolvable — condition A solves it 85.5% of the time with the same facts. It is
-because the shared facts every agent sees are constructed to favour one wrong
-candidate, and agents reasoning from what they can see walk straight into it.
-B picked exactly that candidate in 199 of 200 episodes.
+unsolvable — condition A reaches 85.5% with the same facts. Each B agent sees
+the shared facts, which are built to favour one wrong candidate, plus two private
+facts for the right one, and picks the candidate its own facts support most.
+By construction that is the decoy. B chose it in 199 of 200 episodes.
 
 **Every wrong answer, in every condition, was the decoy.** The
-"other wrong option" rate is 0.000 across all four conditions. Not one episode
-in 800 chose a wrong candidate that was not the engineered decoy. Because of
-this, decoy rate here is essentially the complement of accuracy and adds no
-independent signal; what it establishes is that failures are systematic rather
-than noisy. Groups do not get confused and guess. They confidently pick the
-option that common ground supports.
+"other wrong option" rate is 0.000 across all four conditions. Not one of the
+800 episodes landed on a wrong candidate other than the decoy. Decoy rate is
+therefore close to the complement of accuracy here and adds little independent
+signal. What it does establish is that failures are systematic: groups do not
+guess, they pick the option the most visible evidence supports.
 
 **Communication recovers most of the loss, and the instruction is part of it.**
 Discussion alone (D) is worth +52.5 points over silence. Adding the explicit
 instruction to share facts and ask for what is missing (C) is worth a further
-+14.0 points [+6.0, +22.5], and raises the surfacing rate from 82.7% to 100%.
-The interval on that difference excludes zero, so the instruction does something,
-but discussion is doing the larger share of the work. This is why C is described
-as *instructed* pooling everywhere in this repository: the headline recovery
-number is not a property of multi-agent discussion in the abstract.
++14.0 points [+6.0, +22.5] and raises the surfacing rate from 82.7% to 100%.
+The interval on that difference excludes zero, so the instruction does
+something, but discussion does the larger share. C is described as *instructed*
+pooling everywhere in this repository for that reason.
 
-## Surfacing is not the bottleneck
-
-This is the result that most changed how we read the rest.
+## Full surfacing did not close the gap
 
 In condition C, **all 200 of 200 episodes surfaced 100% of the required private
-facts**. Elicitation, the failure the toolkit was originally built around, did
-not occur at all. Accuracy was still 67.0%, which is 18.5 points below the
-single-agent ceiling of 85.5%. Of the 66 C episodes that failed, 47 had full
-surfacing *and* were solved correctly by condition A on the same task.
+facts**, and accuracy was 67.0%, 18.5 points below condition A. Of the 66 C
+episodes that failed, 47 had full surfacing *and* were solved by condition A on
+the same task. Condition D shows the same shape more weakly: its 85 fully
+surfaced episodes scored 61.2%, its 115 partially surfaced episodes 47.0%.
+Surfacing helps, and it was not enough.
 
-Condition D shows the same thing more weakly. Its episodes split into 85 with
-full surfacing, which scored 61.2%, and 115 with partial surfacing, which scored
-47.0%. Surfacing helps, and it is not sufficient.
-
-Here is a representative failure, `hidden_profile-1006` from the primary run.
-Gold answer Finley (6 supporting facts), decoy Devon (5 shared). All six Finley
-facts reached the transcript:
+A representative failure, `hidden_profile-1006` from the primary run. Gold
+answer Finley (6 supporting facts), decoy Devon (5 shared). All six Finley facts
+reached the transcript:
 
 > **r1 agent0:** I know these additional facts: the hiring committee meets on
 > alternating Thursdays; Finley handled the largest incident of the last quarter
@@ -104,19 +103,31 @@ facts reached the transcript:
 >
 > **r3 agent0 (aggregator):** `{"answer":"Devon"}`
 
-Every fact needed to answer was on the table. What the agents kept asking for
-was not information but a decision rule — "what criteria or weighting should we
-apply". Given a transcript containing six reasons to prefer Finley and their own
-context containing five reasons to prefer Devon, the aggregator chose Devon.
+The same pattern first showed up in the pilot (`hidden_profile-6`).
 
-The same pattern appeared in the pilot (`hidden_profile-6`, seeds 0-19) and is
-what prompted us to measure surfacing conditionally rather than only in
-aggregate.
+There are two readings of this, and the current data cannot tell them apart.
 
-So the distributed penalty here decomposes into two parts. Getting the facts
-into the conversation is one problem, and instructed discussion largely solves
-it. Weighting the pooled evidence once it is there is a second problem, and
-discussion does not solve it at all.
+The first is an integration failure: the aggregator has the evidence in front of
+it and weighs it badly, favouring the five reasons in its own context over the
+six in the transcript.
+
+The second is that the models were never told what they were being graded on.
+The agents above are asking for exactly the thing that was withheld — what
+decision to produce and what criteria to apply. That was not an unusual
+transcript. By a keyword match for requests about criteria, weighting, a
+ranking, or the decision to produce, at least one agent asked in 174 of 200
+condition C episodes and 133 of 200 condition D episodes. Asking was not a
+marker of failure: C scored 69.0% in the 174 episodes where someone asked and
+53.8% in the 26 where no one did. The keyword match is rough and will miss some
+phrasings.
+
+Condition A saw no question and no rule either and still scored 85.5%, which
+argues against underspecification being the whole explanation. But A receives
+every fact as a single list, where counting mentions is the obvious move, while
+C's aggregator receives the same facts spread across a dialogue plus its own
+context. The direct test is to state the goal and the scoring rule and run A and
+C again on the same seeds. Until that is done, "integration failure" is a
+hypothesis, not a finding.
 
 ## What we are not claiming
 
@@ -125,13 +136,32 @@ discussion does not solve it at all.
   different, and our communication conditions land well above 30%. The only
   claim shared with that literature is the qualitative one: distributing
   information hurts.
+- **Not a claim that agents fail at integration.** See the section above.
 - **Not a claim about multi-agent systems in general.** One model, one task
-  family, one team size, one round budget, four options.
+  template, one team size, one round budget, four options.
 - **No statistical test was run.** Where intervals exclude zero we say so; we do
   not use the word "significant".
 
 ## Limitations
 
+- **No model saw the question or the scoring rule.** Each generated task carries
+  a question ("who is the strongest candidate?"), but no prompt in any of the
+  four conditions includes it, and nothing anywhere tells the models that the
+  correct answer is the candidate with the most supporting facts. Models saw the
+  facts, the list of options, and an instruction to choose the single best one.
+  The only task-like cues were the header "Facts known to the whole committee"
+  (conditions B, C and D, not A) and distractor sentences that happen to mention
+  a hiring committee or the role, present in 188 of 200 primary tasks. Every
+  accuracy figure in this document measures agreement with a rule the models had
+  to infer.
+- **N=200 is 200 permutations of one template.** The strength-fact pool has
+  exactly 12 sentences and this configuration uses exactly 12 per task, so all
+  200 tasks contain the same 12 strength sentences. Tasks differ in which 4 of
+  8 names are the options (66 distinct name sets across the 200), which
+  candidate is correct and which is the decoy, which sentences attach to which
+  candidate, which 4 of 8 distractors appear, and ordering. The bootstrap
+  intervals describe variation over those permutations, not over task content,
+  and a model could in principle pick up regularities of the one template.
 - **Temperature was not controlled as registered.** `gpt-5.6-luna` rejects an
   explicit temperature, so the pre-registered 0.7 discussion / 0.0 answer
   settings could not be applied. Every call ran at the model default of 1.0.
@@ -139,18 +169,13 @@ discussion does not solve it at all.
   comparison, but answer turns are not deterministic and within-condition
   variance is higher than planned. The manifest records
   `temperature_honoured: false` and `effective_temperature: 1.0`.
-- **The decision rule is implicit.** Nothing in the task states that the best
-  candidate is the one with the most supporting facts. Condition A may benefit
-  from seeing the facts as one tidy list, which makes counting salient in a way
-  a transcript does not. Part of the A − C gap could be presentation rather than
-  coordination.
 - **The margin is one fact by construction.** The correct candidate wins by
   exactly one supporting fact, which is what makes every private fact necessary.
   It also means the task demands precise counting rather than holistic judgement.
 - **Surfacing is a string-match proxy.** It detects verbatim to near-verbatim
   sharing, which the C prompt explicitly asks for. It will miss heavy paraphrase
-  and can be fooled by negation. We read transcripts by hand to confirm the 100%
-  figure in C is real rather than a matching artefact.
+  and can be fooled by negation. Transcripts were read by hand to confirm the
+  100% figure in C is real rather than a matching artefact.
 - **Condition B's interval is nearly degenerate**, at 1 correct in 200.
 - **C and D necessarily differ in system prompt**, which is the manipulation, but
   it also means they differ in prompt length and wording, not only in the
@@ -160,11 +185,11 @@ discussion does not solve it at all.
 
 ## Next experiment
 
-Make the decision rule explicit and re-run C. If the aggregator is told that the
-candidate with the most supporting facts should win, and the A − C gap closes,
-then the residual penalty is about applying a weighting rule to a transcript. If
-the gap persists, the problem is integrating evidence that arrives as dialogue
-rather than as a list, which is the more interesting result and points at what
-post-training would need to fix.
+State the goal and the scoring rule in the prompt and re-run conditions A and C
+on the same seeds. If C's decoy rate drops sharply, the A − C gap was mostly
+underspecification. If it holds, the aggregator fails to weigh pooled evidence
+even when it knows exactly what it is being asked, which is the stronger claim
+and the one that would justify a training intervention.
 
-This is a cheap experiment: one extra condition, roughly $0.35 at this scale.
+Separately, the strength-fact pool should be enlarged so tasks draw different
+content, and the four-condition result replicated on it.
