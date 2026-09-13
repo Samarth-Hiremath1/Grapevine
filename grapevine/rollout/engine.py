@@ -91,6 +91,23 @@ VOTE_PROMPT = (
 )
 
 
+#: Shown only in the rule arm (``show_task=True``). States the task's question and
+#: the rule grading uses. Conditions A-D never saw either.
+TASK_STATEMENT = (
+    "Task: {question}\n"
+    "Decision rule: the strongest candidate is the one with the most supporting facts. "
+    "Each fact describing a candidate's strengths counts as one supporting fact for "
+    "that candidate."
+)
+
+
+def _with_task(context: str, task: Task, show_task: bool) -> str:
+    """Prepend the task statement to a prompt context when ``show_task`` is set."""
+    if not show_task:
+        return context
+    return f"{TASK_STATEMENT.format(question=task.question)}\n\n{context}"
+
+
 @dataclass
 class RolloutConfig:
     """Configuration for a rollout episode.
@@ -107,6 +124,9 @@ class RolloutConfig:
             facts and ask for what they are missing; ``"neutral"`` (condition D)
             gives the same task framing without that directive. Everything else
             about the rollout is unchanged.
+        show_task: When True, every prompt starts with :data:`TASK_STATEMENT` (the
+            task question plus the scoring rule). Off by default, which keeps
+            prompts byte-identical to those used for the four-condition run.
     """
 
     n_rounds: int = 2
@@ -116,6 +136,7 @@ class RolloutConfig:
     temperature: float = 0.7
     final_temperature: float = 0.0
     prompt_style: str = "instructed"
+    show_task: bool = False
 
     def __post_init__(self) -> None:
         if self.n_rounds < 1:
@@ -339,7 +360,7 @@ async def run_episode(
     for round_no in range(1, cfg.n_rounds + 1):
         for agent_id in range(n_agents):
             prompt = turn_tmpl.format(
-                context=task.agent_contexts[agent_id],
+                context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
                 history=_render_history(messages),
                 round_no=round_no,
                 n_rounds=cfg.n_rounds,
@@ -363,7 +384,7 @@ async def run_episode(
         votes: list[str | None] = []
         for agent_id in range(n_agents):
             prompt = VOTE_PROMPT.format(
-                context=task.agent_contexts[agent_id],
+                context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
                 history=_render_history(messages),
                 options=", ".join(task.options),
             )
@@ -385,7 +406,7 @@ async def run_episode(
     else:
         agg = cfg.aggregator_index
         prompt = AGGREGATOR_PROMPT.format(
-            context=task.agent_contexts[agg],
+            context=_with_task(task.agent_contexts[agg], task, cfg.show_task),
             history=_render_history(messages),
             options=", ".join(task.options),
         )
@@ -487,7 +508,7 @@ async def run_no_communication(
 
     for agent_id in range(n_agents):
         prompt = NO_COMM_PROMPT.format(
-            context=task.agent_contexts[agent_id],
+            context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
             options=", ".join(task.options),
         )
         convo = [
@@ -544,7 +565,9 @@ async def run_single_agent(
     usage_acc = _UsageAccumulator()
 
     prompt = AGGREGATOR_PROMPT.format(
-        context="All available information:\n" + task.full_context(),
+        context=_with_task(
+            "All available information:\n" + task.full_context(), task, cfg.show_task
+        ),
         history="(you have all information; no discussion needed)",
         options=", ".join(task.options),
     )

@@ -157,3 +157,47 @@ def test_model_parameter_detection() -> None:
     # Explicit override wins over detection.
     forced = OpenAICompatibleClient("gpt-5.6-luna", api_key="x", token_param="max_tokens")
     assert forced.token_param == "max_tokens"
+
+
+async def test_task_statement_only_shown_when_requested() -> None:
+    """The rule arm shows the question and scoring rule; default prompts do not.
+
+    Defaults must stay byte-identical to what produced the committed four-condition
+    run, and A and C must receive exactly the same statement text.
+    """
+    from grapevine.rollout.engine import AGGREGATOR_PROMPT, TASK_STATEMENT
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    task = env.generate(1006)
+    statement = TASK_STATEMENT.format(question=task.question)
+
+    def capture() -> tuple[list[str], ScriptedClient]:
+        seen: list[str] = []
+
+        def responder(messages: list[Message]) -> str:
+            seen.append(messages[-1].content)
+            return f'{{"answer": "{task.answer}"}}'
+
+        return seen, ScriptedClient(responder)
+
+    seen_a, client_a = capture()
+    await run_single_agent(task, client_a, RolloutConfig())
+    seen_c, client_c = capture()
+    await run_episode(task, client_c, RolloutConfig(n_rounds=1))
+    assert seen_a[0] == AGGREGATOR_PROMPT.format(
+        context="All available information:\n" + task.full_context(),
+        history="(you have all information; no discussion needed)",
+        options=", ".join(task.options),
+    )
+    for prompt in seen_a + seen_c:
+        assert "Decision rule" not in prompt
+        assert task.question not in prompt
+
+    seen_a, client_a = capture()
+    await run_single_agent(task, client_a, RolloutConfig(show_task=True))
+    seen_c, client_c = capture()
+    await run_episode(task, client_c, RolloutConfig(n_rounds=1, show_task=True))
+    assert len(seen_a) == 1
+    assert len(seen_c) == task.n_agents + 1  # one discussion round plus aggregation
+    for prompt in seen_a + seen_c:
+        assert prompt.startswith(statement + "\n\n")

@@ -148,6 +148,25 @@ interpretation there has been downgraded to a hypothesis.
 **The generator was not changed.** The primary run already used it, so expanding
 the pool now would change the content of seeds 1000-1199: the committed run
 could no longer be regenerated from the code, and any new arm run on the same
-seeds would no longer be paired with it. Whether to version the pool and
-replicate, or keep the current generator for the follow-up arms, is an open
-decision.
+seeds would no longer be paired with it.
+
+Resolved the same day: the pool stays as it is and there is no replication for
+now. The template limitation is stated in `results.md`, and the committed run
+stays reproducible from the code.
+
+## Rule arm registered in advance
+
+*2026-09-12, before running.* Tests whether the residual A − C gap is
+underspecification. A and C are re-run on seeds 1000-1099 (N=100) with the task
+question and the scoring rule at the top of every prompt, identical text in both
+conditions. The generator is unchanged, so every rule-arm task is the same task
+the primary run used on that seed and the comparison is paired. The exact text
+and the readings committed to in advance are in `methodology.md`.
+
+N=100 rather than 50 because at a decoy rate around 33% the interval is roughly
+±13 points at 50 and ±9 at 100, and the extra cost is under ten cents.
+
+The flag that adds the statement (`show_task`) is off by default, and a test
+checks the default prompts are byte-identical to before, so the default command
+still reproduces the four-condition run. The rule conditions only run when named
+with `--conditions`.

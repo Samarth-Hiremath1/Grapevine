@@ -133,6 +133,39 @@ know the task is distributed and that no one can answer alone. Only the
 directive to share and ask is removed. The aggregator prompt is byte-identical
 between C and D.
 
+### Rule arm: question and scoring rule shown
+
+*Registered 2026-09-12, before running.* No prompt in conditions A-D contains the
+task's question or the rule used for grading, so the models had to infer what
+"the single best answer" meant. The rule arm measures how much that matters.
+
+It re-runs A and C with one change. Every prompt in the condition starts with
+this block, identical in both, with the task's own question substituted
+(`TASK_STATEMENT` in `grapevine/rollout/engine.py`):
+
+> Task: {question}
+> Decision rule: the strongest candidate is the one with the most supporting
+> facts. Each fact describing a candidate's strengths counts as one supporting
+> fact for that candidate.
+
+Everything else is unchanged: model, agents, rounds, aggregator, token budget
+and generator. The arm runs on seeds 1000-1099 (N=100), the first half of the
+primary run's seeds, so each episode is compared with the primary episode on the
+identical task. The conditions are `full_info_rule` and `communication_rule`.
+Because they are a separate run, comparisons against the primary run use
+`grapevine.experiments.compare`, which matches episodes by task id.
+
+How the result will be read, fixed in advance:
+
+- The quantity of interest is the change in the A − C accuracy gap, not C's
+  accuracy alone. A also lacked the rule, so if showing it lifts A and C by the
+  same amount, underspecification does not explain the gap.
+- If the gap closes and C's decoy rate falls sharply, the residual gap in the
+  main result was mostly underspecification.
+- If the gap and C's decoy rate hold, the aggregator fails to use pooled
+  evidence even when it has been told the rule.
+- Anything in between is reported as such, with its interval.
+
 ### Parameters held constant
 
 Temperature, retry policy, `max_tokens`, and model are identical across

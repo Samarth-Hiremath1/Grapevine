@@ -49,6 +49,7 @@ from grapevine.rollout.client import (
     require_pricing,
 )
 from grapevine.rollout.engine import (
+    TASK_STATEMENT,
     Episode,
     RolloutConfig,
     run_episode,
@@ -63,6 +64,11 @@ CONDITIONS = (
     "communication",
     "communication_neutral",
 )
+
+#: A and C with the task question and scoring rule shown. Opt-in via --conditions,
+#: so the default command still reproduces the four-condition run.
+RULE_CONDITIONS = ("full_info_rule", "communication_rule")
+ALL_CONDITIONS = CONDITIONS + RULE_CONDITIONS
 
 
 def _git_commit() -> str:
@@ -142,6 +148,7 @@ async def _run_condition(
     client: LLMClient,
     rollout_cfg: RolloutConfig,
     neutral_cfg: RolloutConfig,
+    rule_cfg: RolloutConfig,
     concurrency: int,
 ) -> tuple[list[Episode], list[dict[str, Any]]]:
     """Run one condition over ``tasks``. Returns (episodes, failures).
@@ -158,6 +165,10 @@ async def _run_condition(
             try:
                 if condition == "full_info":
                     ep = await run_single_agent(task, client, rollout_cfg)
+                elif condition == "full_info_rule":
+                    ep = await run_single_agent(task, client, rule_cfg)
+                elif condition == "communication_rule":
+                    ep = await run_episode(task, client, rule_cfg)
                 elif condition == "no_communication":
                     ep = await run_no_communication(task, client, rollout_cfg)
                 elif condition == "communication_neutral":
@@ -173,6 +184,7 @@ async def _run_condition(
         ep.metadata["condition"] = condition
         ep.metadata["decoy_option"] = task.metadata.get("decoy_option")
         ep.metadata["seed"] = task.metadata.get("seed")
+        ep.metadata["task_statement_shown"] = condition in RULE_CONDITIONS
         ep.metadata["prompt_style"] = (
             neutral_cfg.prompt_style
             if condition == "communication_neutral"
@@ -193,7 +205,7 @@ def _print_summary(summaries: dict[str, ConditionSummary], chance: float) -> Non
     print()
     print(f"{'condition':<18} {'N':>4} {'acc':>7} {'95% CI':>16} {'decoy':>7} {'parsefail':>10}")
     print("-" * 68)
-    for cond in CONDITIONS:
+    for cond in ALL_CONDITIONS:
         s = summaries.get(cond)
         if s is None:
             continue
@@ -212,7 +224,11 @@ def _print_summary(summaries: dict[str, ConditionSummary], chance: float) -> Non
             f"condition B tie rate = {b.tie_rate*100:.1f}%  |  "
             f"accuracy with ties scored incorrect = {floor_str}"
         )
-    for key, name in (("communication", "C instructed"), ("communication_neutral", "D neutral")):
+    for key, name in (
+        ("communication", "C instructed"),
+        ("communication_neutral", "D neutral"),
+        ("communication_rule", "C + rule"),
+    ):
         s2 = summaries.get(key)
         if s2 is not None and s2.surfacing_rate is not None:
             print(f"{name} surfacing rate = {s2.surfacing_rate*100:.1f}%")
@@ -240,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=(
             "comma-separated subset of conditions to run "
-            f"(default: all of {','.join(CONDITIONS)})"
+            f"(default: {','.join(CONDITIONS)}; opt-in: {','.join(RULE_CONDITIONS)})"
         ),
     )
     parser.add_argument(
@@ -264,9 +280,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.conditions:
         selected = tuple(c.strip() for c in args.conditions.split(",") if c.strip())
-        unknown = [c for c in selected if c not in CONDITIONS]
+        unknown = [c for c in selected if c not in ALL_CONDITIONS]
         if unknown:
-            raise SystemExit(f"unknown condition(s): {unknown}. Choose from {CONDITIONS}")
+            raise SystemExit(f"unknown condition(s): {unknown}. Choose from {ALL_CONDITIONS}")
     else:
         selected = CONDITIONS
 
@@ -285,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
 
     # Condition D: identical to C except the discussion prompt style.
     neutral_cfg = replace(rollout_cfg, prompt_style="neutral")
+    # Rule arm: identical to the base config, plus the question and scoring rule.
+    rule_cfg = replace(rollout_cfg, show_task=True)
 
     print(f"experiment : {label}")
     print(f"model      : {cfg['model']['name']} ({cfg['model'].get('provider','openai')})")
@@ -320,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             f"\nNOTE: {cfg['model']['name']} rejects an explicit temperature, so the "
             f"configured {rollout_cfg.temperature}/{rollout_cfg.final_temperature} are NOT "
             "applied. Every call runs at the model default of 1.0, identically across all "
-            "four conditions."
+            "conditions."
         )
     started = datetime.now(UTC)
     out_root = Path(run_cfg.get("output_dir", "runs"))
@@ -335,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nrunning condition: {condition} ...", flush=True)
         episodes, failures = asyncio.run(
             _run_condition(
-                condition, tasks, client, rollout_cfg, neutral_cfg, concurrency
+                condition, tasks, client, rollout_cfg, neutral_cfg, rule_cfg, concurrency
             )
         )
         all_failures[condition] = failures
@@ -374,6 +392,7 @@ def main(argv: list[str] | None = None) -> int:
         ("communication_neutral", "no_communication"),
         ("communication", "communication_neutral"),
         ("full_info", "communication"),
+        ("full_info_rule", "communication_rule"),
     ):
         a, b = per_condition_correct.get(lhs, []), per_condition_correct.get(rhs, [])
         if a and b and len(a) == len(b):
@@ -409,6 +428,8 @@ def main(argv: list[str] | None = None) -> int:
                     None if temp_honoured else 1.0
                 ),
                 "token_param": getattr(client, "token_param", "max_tokens"),
+                "task_statement_template": TASK_STATEMENT,
+                "task_statement_shown_in": [c for c in selected if c in RULE_CONDITIONS],
             },
             "chance_accuracy": chance,
         },
