@@ -109,3 +109,27 @@ def test_paired_difference() -> None:
     mean, (lo, hi) = paired_difference_ci(a, b, n_resamples=2000, seed=0)
     assert mean == 0.5
     assert lo <= 0.5 <= hi
+
+
+def test_paired_by_task_aligns_by_id_not_position() -> None:
+    """Regression test for audit D2: pairing must follow task ids."""
+    from grapevine.experiments.run import paired_by_task
+
+    a = {"t1": 1.0, "t2": 0.0, "t3": 1.0}
+    b = {"t3": 1.0, "t1": 1.0, "t2": 0.0}  # same tasks, different order
+    results, errors = paired_by_task({"x": a, "y": b}, pairs=(("x", "y"),))
+    assert errors == []
+    assert results["x_minus_y"]["mean"] == 0.0
+    assert results["x_minus_y"]["n"] == 3
+
+
+def test_paired_by_task_refuses_mismatched_task_sets() -> None:
+    """A dropped episode must produce an error, not a misaligned difference."""
+    from grapevine.experiments.run import paired_by_task
+
+    a = {f"t{i}": 1.0 if i < 5 else 0.0 for i in range(10)}
+    b = {f"t{i}": 1.0 if i < 5 else 0.0 for i in range(11) if i != 3}  # t3 dropped, t10 added
+    results, errors = paired_by_task({"x": a, "y": b}, pairs=(("x", "y"),))
+    assert len(errors) == 1
+    assert "error" in results["x_minus_y"]
+    assert "mean" not in results["x_minus_y"]

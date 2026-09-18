@@ -205,6 +205,54 @@ async def _run_condition(
     return [e for e in results if e is not None], failures
 
 
+#: Condition pairs reported as paired differences when both were run.
+PAIRS: tuple[tuple[str, str], ...] = (
+    ("communication", "no_communication"),
+    ("communication_neutral", "no_communication"),
+    ("communication", "communication_neutral"),
+    ("full_info", "communication"),
+    ("full_info_rule", "communication_rule"),
+    ("communication_rule", "communication_neutral_rule"),
+    ("communication_rule", "no_communication_rule"),
+)
+
+
+def paired_by_task(
+    per_condition: dict[str, dict[str, float]], pairs: tuple[tuple[str, str], ...] = PAIRS
+) -> tuple[dict[str, Any], list[str]]:
+    """Paired differences between conditions, aligned by task id.
+
+    A pair is only computed when both conditions cover exactly the same task ids.
+    Otherwise it is recorded as an error rather than computed: zipping two lists
+    positionally after an episode has dropped out of one of them silently pairs
+    different tasks while still passing a length check (audit D2).
+
+    Returns:
+        ``(results, errors)``. ``results`` maps ``"<lhs>_minus_<rhs>"`` to either
+        ``{"mean", "ci95", "n"}`` or ``{"error"}``.
+    """
+    results: dict[str, Any] = {}
+    errors: list[str] = []
+    for lhs, rhs in pairs:
+        if lhs not in per_condition or rhs not in per_condition:
+            continue
+        a, b = per_condition[lhs], per_condition[rhs]
+        key = f"{lhs}_minus_{rhs}"
+        if set(a) != set(b):
+            only_l, only_r = sorted(set(a) - set(b)), sorted(set(b) - set(a))
+            msg = (
+                f"{lhs} vs {rhs}: task sets differ ({len(only_l)} only in {lhs}, "
+                f"{len(only_r)} only in {rhs}, e.g. {(only_l + only_r)[:3]}); not computed"
+            )
+            errors.append(msg)
+            results[key] = {"error": msg}
+            continue
+        ids = sorted(a)
+        mean, ci = paired_difference_ci([a[i] for i in ids], [b[i] for i in ids])
+        results[key] = {"mean": mean, "ci95": list(ci), "n": len(ids)}
+    return results, errors
+
+
 def _fmt_pct(x: float | None) -> str:
     return "  n/a " if x is None else f"{x * 100:5.1f}%"
 
@@ -342,6 +390,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     client = make_client(cfg)
+    # Provenance is taken before any API call, so it describes the code that
+    # actually ran even if the tree changes while the run is in progress.
+    commit_at_start, dirty_at_start = _git_commit(), _git_dirty()
     temp_honoured = bool(getattr(client, "supports_temperature", True))
     if not temp_honoured:
         print(
@@ -357,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
 
     all_failures: dict[str, list[dict[str, Any]]] = {}
     summaries: dict[str, ConditionSummary] = {}
-    per_condition_correct: dict[str, list[float]] = {}
+    per_condition_correct: dict[str, dict[str, float]] = {}
 
     for condition in selected:
         print(f"\nrunning condition: {condition} ...", flush=True)
@@ -385,8 +436,9 @@ def main(argv: list[str] | None = None) -> int:
             for ep in episodes:
                 fh.write(ep.to_jsonl() + "\n")
         summaries[condition] = summarize_condition(condition, episodes)
-        # Keyed by task_id so the paired comparison aligns even if a task failed.
-        per_condition_correct[condition] = [1.0 if e.correct else 0.0 for e in episodes]
+        per_condition_correct[condition] = {
+            e.task_id: 1.0 if e.correct else 0.0 for e in episodes
+        }
         print(
             f"  done: acc={summaries[condition].accuracy*100:.1f}%  "
             f"cost=${summaries[condition].total_cost_usd:.4f}"
@@ -395,29 +447,20 @@ def main(argv: list[str] | None = None) -> int:
     finished = datetime.now(UTC)
     total_cost = sum(s.total_cost_usd for s in summaries.values())
 
-    # Paired comparisons on identical task seeds (only where N matches).
-    paired: dict[str, Any] = {}
-    for lhs, rhs in (
-        ("communication", "no_communication"),
-        ("communication_neutral", "no_communication"),
-        ("communication", "communication_neutral"),
-        ("full_info", "communication"),
-        ("full_info_rule", "communication_rule"),
-        ("communication_rule", "communication_neutral_rule"),
-        ("communication_rule", "no_communication_rule"),
-    ):
-        a, b = per_condition_correct.get(lhs, []), per_condition_correct.get(rhs, [])
-        if a and b and len(a) == len(b):
-            mean, ci = paired_difference_ci(a, b)
-            paired[f"{lhs}_minus_{rhs}"] = {"mean": mean, "ci95": list(ci)}
+    paired, pairing_errors = paired_by_task(per_condition_correct)
+    commit_at_end, dirty_at_end = _git_commit(), _git_dirty()
 
     manifest = {
         "label": label,
         "started_utc": started.isoformat(),
         "finished_utc": finished.isoformat(),
         "duration_seconds": (finished - started).total_seconds(),
-        "git_commit": _git_commit(),
-        "git_dirty": _git_dirty(),
+        "git_commit": commit_at_start,
+        "git_dirty": dirty_at_start,
+        "git_commit_at_end": commit_at_end,
+        "git_dirty_at_end": dirty_at_end,
+        "tree_changed_during_run": (commit_at_end, dirty_at_end)
+        != (commit_at_start, dirty_at_start),
         "python": sys.version.split()[0],
         "config_path": str(args.config),
         "config": cfg,
@@ -456,6 +499,16 @@ def main(argv: list[str] | None = None) -> int:
     _print_summary(summaries, chance)
     print(f"\ntotal cost: ${total_cost:.4f}  (client-reported: ${client.total_cost_usd:.4f})")
     print(f"wrote: {out_dir}")
+    if (commit_at_end, dirty_at_end) != (commit_at_start, dirty_at_start):
+        print(
+            "WARNING: the git tree changed during the run; the manifest records the "
+            "commit at start. Check it before trusting the results.",
+            file=sys.stderr,
+        )
+    if pairing_errors:
+        for msg in pairing_errors:
+            print(f"ERROR: {msg}", file=sys.stderr)
+        return 4
     return 0
 
 
