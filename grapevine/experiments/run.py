@@ -67,7 +67,12 @@ CONDITIONS = (
 
 #: A and C with the task question and scoring rule shown. Opt-in via --conditions,
 #: so the default command still reproduces the four-condition run.
-RULE_CONDITIONS = ("full_info_rule", "communication_rule")
+RULE_CONDITIONS = (
+    "full_info_rule",
+    "no_communication_rule",
+    "communication_rule",
+    "communication_neutral_rule",
+)
 ALL_CONDITIONS = CONDITIONS + RULE_CONDITIONS
 
 
@@ -169,6 +174,10 @@ async def _run_condition(
                     ep = await run_single_agent(task, client, rule_cfg)
                 elif condition == "communication_rule":
                     ep = await run_episode(task, client, rule_cfg)
+                elif condition == "no_communication_rule":
+                    ep = await run_no_communication(task, client, rule_cfg)
+                elif condition == "communication_neutral_rule":
+                    ep = await run_episode(task, client, replace(neutral_cfg, show_task=True))
                 elif condition == "no_communication":
                     ep = await run_no_communication(task, client, rollout_cfg)
                 elif condition == "communication_neutral":
@@ -187,7 +196,7 @@ async def _run_condition(
         ep.metadata["task_statement_shown"] = condition in RULE_CONDITIONS
         ep.metadata["prompt_style"] = (
             neutral_cfg.prompt_style
-            if condition == "communication_neutral"
+            if condition.startswith("communication_neutral")
             else rollout_cfg.prompt_style
         )
         return ep
@@ -228,6 +237,7 @@ def _print_summary(summaries: dict[str, ConditionSummary], chance: float) -> Non
         ("communication", "C instructed"),
         ("communication_neutral", "D neutral"),
         ("communication_rule", "C + rule"),
+        ("communication_neutral_rule", "D + rule"),
     ):
         s2 = summaries.get(key)
         if s2 is not None and s2.surfacing_rate is not None:
@@ -393,6 +403,8 @@ def main(argv: list[str] | None = None) -> int:
         ("communication", "communication_neutral"),
         ("full_info", "communication"),
         ("full_info_rule", "communication_rule"),
+        ("communication_rule", "communication_neutral_rule"),
+        ("communication_rule", "no_communication_rule"),
     ):
         a, b = per_condition_correct.get(lhs, []), per_condition_correct.get(rhs, [])
         if a and b and len(a) == len(b):

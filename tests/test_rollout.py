@@ -201,3 +201,28 @@ async def test_task_statement_only_shown_when_requested() -> None:
     assert len(seen_c) == task.n_agents + 1  # one discussion round plus aggregation
     for prompt in seen_a + seen_c:
         assert prompt.startswith(statement + "\n\n")
+
+
+async def test_aggregator_system_prompt_follows_prompt_style() -> None:
+    """Every call in a neutral-style episode, including aggregation, gets the neutral
+    system prompt; instructed-style episodes keep the team prompt throughout.
+
+    Regression test for audit finding L11: the aggregation branch used to send
+    TEAM_SYSTEM_PROMPT regardless of prompt_style.
+    """
+    from grapevine.rollout.engine import NEUTRAL_SYSTEM_PROMPT, TEAM_SYSTEM_PROMPT
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    task = env.generate(1006)
+
+    for style, template in (("neutral", NEUTRAL_SYSTEM_PROMPT), ("instructed", TEAM_SYSTEM_PROMPT)):
+        systems: list[str] = []
+
+        def responder(messages: list[Message], systems: list[str] = systems) -> str:
+            systems.append(messages[0].content)
+            return f'{{"answer": "{task.answer}"}}'
+
+        await run_episode(task, ScriptedClient(responder), RolloutConfig(n_rounds=1, prompt_style=style))
+        assert len(systems) == task.n_agents + 1
+        allowed = {template.format(agent_id=i, n_agents=task.n_agents) for i in range(task.n_agents)}
+        assert all(s in allowed for s in systems), f"{style}: a call used the wrong system prompt"

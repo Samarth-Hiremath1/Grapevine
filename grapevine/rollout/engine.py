@@ -389,7 +389,7 @@ async def run_episode(
                 options=", ".join(task.options),
             )
             convo = [
-                Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
+                Message("system", system_tmpl.format(agent_id=agent_id, n_agents=n_agents)),
                 Message("user", prompt),
             ]
             completion = usage_acc.add(
@@ -411,7 +411,10 @@ async def run_episode(
             options=", ".join(task.options),
         )
         convo = [
-            Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agg, n_agents=n_agents)),
+            # The decision step uses the same system prompt as the discussion, so a
+            # neutral-style run is neutral end to end (it previously always got
+            # the instructed prompt here; see docs/audit.md L11).
+            Message("system", system_tmpl.format(agent_id=agg, n_agents=n_agents)),
             Message("user", prompt),
         ]
         completion = usage_acc.add(
