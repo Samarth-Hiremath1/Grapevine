@@ -23,7 +23,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from grapevine.experiments.analysis import bootstrap_ci, paired_difference_ci
+from grapevine.experiments.analysis import clopper_pearson, paired_difference_ci
 from grapevine.rewards.reward import compute_surfacing
 from grapevine.rollout.engine import Episode, load_transcript
 
@@ -59,9 +59,9 @@ def _summary(episodes: list[Episode]) -> dict[str, Any]:
     return {
         "n": len(episodes),
         "accuracy": sum(acc) / len(acc),
-        "accuracy_ci95": list(bootstrap_ci(acc, seed=0)),
+        "accuracy_ci95": list(clopper_pearson(int(sum(acc)), len(acc))),
         "decoy_rate": sum(dec) / len(dec),
-        "decoy_rate_ci95": list(bootstrap_ci(dec, seed=1)),
+        "decoy_rate_ci95": list(clopper_pearson(int(sum(dec)), len(dec))),
         "parse_failures": sum(1 for e in episodes if e.team_answer is None),
         "surfacing_rate": surfacing,
     }

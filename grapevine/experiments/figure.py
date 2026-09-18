@@ -1,7 +1,8 @@
 """Main figure for the coordination ablation.
 
 Reads one or more run directories produced by ``grapevine.experiments.run`` and
-draws accuracy and decoy rate per condition with bootstrap 95% intervals. Extra
+draws accuracy and decoy rate per condition with exact Clopper-Pearson 95%
+intervals. Extra
 runs (for example the rule arm) are appended as further bars, and the caption
 states which seeds each run covered. Writes PNG, SVG, and the source table as
 CSV, so a plot never becomes separated from the numbers behind it.
@@ -23,6 +24,8 @@ from typing import Any
 
 import matplotlib
 
+from grapevine.experiments.analysis import clopper_pearson
+
 matplotlib.use("Agg")  # headless: no display needed
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -32,8 +35,10 @@ CONDITION_LABELS = {
     "no_communication": "B. No communication\n(3 agents, no talking)",
     "communication": "C. Instructed sharing\n(3 agents, 2 rounds)",
     "communication_neutral": "D. Neutral prompt\n(3 agents, 2 rounds)",
-    "full_info_rule": "A + rule\n(question and\nrule shown)",
-    "communication_rule": "C + rule\n(question and\nrule shown)",
+    "full_info_rule": "A + rule",
+    "no_communication_rule": "B + rule",
+    "communication_rule": "C + rule",
+    "communication_neutral_rule": "D + rule",
 }
 
 
@@ -53,6 +58,11 @@ def collect_rows(run_dirs: list[Path]) -> list[dict[str, Any]]:
         manifest = load_manifest(run_dir)
         seeds = manifest["resolved"]["seeds"]
         for cond, summary in manifest["summaries"].items():
+            # Intervals are recomputed as Clopper-Pearson from counts, so figures
+            # from older manifests (bootstrap intervals) match current ones.
+            n = int(summary["n"])
+            acc_ci = clopper_pearson(round(summary["accuracy"] * n), n)
+            dec_ci = clopper_pearson(round(summary["decoy_rate"] * n), n)
             rows.append(
                 {
                     "condition": cond,
@@ -60,11 +70,11 @@ def collect_rows(run_dirs: list[Path]) -> list[dict[str, Any]]:
                     "seeds": f"{seeds[0]}-{seeds[1]}",
                     "n": summary["n"],
                     "accuracy": round(summary["accuracy"], 6),
-                    "accuracy_ci_low": round(summary["accuracy_ci"][0], 6),
-                    "accuracy_ci_high": round(summary["accuracy_ci"][1], 6),
+                    "accuracy_ci_low": round(acc_ci[0], 6),
+                    "accuracy_ci_high": round(acc_ci[1], 6),
                     "decoy_rate": round(summary["decoy_rate"], 6),
-                    "decoy_ci_low": round(summary["decoy_rate_ci"][0], 6),
-                    "decoy_ci_high": round(summary["decoy_rate_ci"][1], 6),
+                    "decoy_ci_low": round(dec_ci[0], 6),
+                    "decoy_ci_high": round(dec_ci[1], 6),
                     "other_wrong_rate": round(summary["other_wrong_rate"], 6),
                     "parse_failures": summary["parse_failures"],
                     "tie_rate": summary["tie_rate"],
@@ -109,7 +119,7 @@ def _caption(rows: list[dict[str, Any]], primary: dict[str, Any]) -> str:
         "the correct candidate and on the decoy (the candidate favoured by the facts every "
         f"agent already shares). Discussion conditions use {n_rounds} rounds; C and D differ "
         f"only in whether the prompt instructs fact-sharing.{rule_text} Error bars are "
-        f"percentile bootstrap 95% intervals over episodes. {seed_text}"
+        f"exact Clopper-Pearson 95% intervals. {seed_text}"
     )
     return "\n".join(textwrap.wrap(text, 150))
 

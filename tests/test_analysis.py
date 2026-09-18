@@ -133,3 +133,25 @@ def test_paired_by_task_refuses_mismatched_task_sets() -> None:
     assert len(errors) == 1
     assert "error" in results["x_minus_y"]
     assert "mean" not in results["x_minus_y"]
+
+
+def test_clopper_pearson_known_values() -> None:
+    from grapevine.experiments.analysis import clopper_pearson
+
+    lo, hi = clopper_pearson(0, 10)
+    assert lo == 0.0 and abs(hi - (1 - 0.025 ** 0.1)) < 1e-6
+    lo, hi = clopper_pearson(10, 10)
+    assert abs(lo - 0.025 ** 0.1) < 1e-6 and hi == 1.0
+    lo, hi = clopper_pearson(5, 10)
+    assert abs(lo - 0.187086) < 1e-5 and abs(hi - 0.812914) < 1e-5
+    lo, _ = clopper_pearson(1, 200)
+    assert abs(lo - (1 - 0.975 ** (1 / 200))) < 1e-7
+
+
+def test_condition_interval_not_degenerate_at_extremes() -> None:
+    """Regression test for audit L6: n/n correct must not give a zero-width interval."""
+    eps = [_ep("Avery") for _ in range(20)]
+    s = summarize_condition("full_info", eps)
+    assert s.accuracy == 1.0
+    assert s.accuracy_ci[0] < 1.0
+    assert s.ci_method == "clopper-pearson"
