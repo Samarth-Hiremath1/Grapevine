@@ -27,10 +27,49 @@ def test_parse_answer_freeform_and_none() -> None:
     assert parse_answer("no option named here", options) is None
 
 
-def test_parse_answer_last_mentioned_on_conflict() -> None:
+def test_parse_answer_multiple_options_fails_loudly() -> None:
     options = ["Avery", "Blair"]
-    # Both appear; the later mention wins.
-    assert parse_answer("Maybe Avery, but actually Blair.", options) == "Blair"
+    # Both appear and there is no JSON answer: refuse to guess.
+    assert parse_answer("Maybe Avery, but actually Blair.", options) is None
+
+
+#: (name, model output, what a careful reader would take it to mean, what the
+#: parser must return). The parser may fail loudly (None) on an answer a human
+#: could read, but it must never return an option the text does not choose.
+ADVERSARIAL_ANSWERS = [
+    ("clean JSON", '{"answer": "Blair"}', "Blair", "Blair"),
+    ("empty JSON answer", '{"answer": ""}', None, None),
+    ("single letter", '{"answer": "A"}', None, None),
+    ("single lowercase letter", '{"answer": "e"}', None, None),
+    ("refusal", "I cannot determine an answer.", None, None),
+    ("none fit", "None of the candidates is clearly best.", None, None),
+    ("reject then pick", "Not Avery. I choose Blair.", "Blair", None),
+    ("pick then reject", "I choose Blair. Actually no, Avery.", "Avery", None),
+    ("pick then mention", "Blair is best; Avery was close.", "Blair", None),
+    ("two named, no verdict", "It is between Avery and Blair.", None, None),
+    ("fenced JSON", '```json\n{"answer": "Devon"}\n```', "Devon", "Devon"),
+    ("lowercase", '{"answer": "devon"}', "Devon", "Devon"),
+    ("trailing period", '{"answer": "Devon."}', "Devon", "Devon"),
+    ("option inside a longer word", "Averyone agrees on Cameron.", "Cameron", "Cameron"),
+    ("all four listed", "Options: Avery, Blair, Cameron, Devon.", None, None),
+    ("nested JSON", '{"result": {"answer": "Blair"}}', "Blair", "Blair"),
+    ("answer under another key", '{"choice": "Blair"}', "Blair", "Blair"),
+    ("JSON answer is a sentence", '{"answer": "I pick Blair over Avery"}', "Blair", None),
+]
+
+
+def test_parse_answer_adversarial_never_returns_a_wrong_option() -> None:
+    """Regression test for audit finding D1.
+
+    The old parser matched substrings in both directions, so an empty or
+    one-letter answer resolved to the first option, and free text took the
+    last-mentioned option. 7 of these 18 cases used to return a wrong option.
+    """
+    options = ["Avery", "Blair", "Cameron", "Devon"]
+    for name, text, meant, expected in ADVERSARIAL_ANSWERS:
+        got = parse_answer(text, options)
+        assert got in (meant, None), f"{name}: returned {got!r}, text means {meant!r}"
+        assert got == expected, f"{name}: returned {got!r}, expected {expected!r}"
 
 
 async def test_run_episode_correct_when_aggregator_picks_gold() -> None:

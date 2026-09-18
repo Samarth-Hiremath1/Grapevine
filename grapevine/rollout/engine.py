@@ -230,45 +230,59 @@ def _render_history(messages: list[TranscriptMessage]) -> str:
     return "\n".join(lines) if lines else "(no messages yet)"
 
 
-def parse_answer(text: str, options: list[str]) -> str | None:
-    """Extract the chosen option from a model response.
+#: Characters stripped from the ends of a raw answer before matching.
+_ANSWER_TRIM = " \t\n\"'`.,;:!?*()[]{}"
 
-    Tries, in order: a ``{"answer": ...}`` JSON object, then an exact
-    case-insensitive option match anywhere in the text. Returns ``None`` if no
-    option can be identified.
+
+def _options_named(text: str, options: list[str]) -> list[str]:
+    """Return the options named in ``text`` as whole words, case-insensitively."""
+    return [opt for opt in options if re.search(rf"\b{re.escape(opt)}\b", text, re.IGNORECASE)]
+
+
+def parse_answer(text: str, options: list[str]) -> str | None:
+    """Extract the chosen option from a model response, or return ``None``.
+
+    An option is returned only when the response identifies exactly one:
+
+    1. if the text contains a JSON object with an ``"answer"`` field, that value
+       decides, via :func:`_match_option`;
+    2. otherwise, free text counts only if it names exactly one option as a
+       whole word.
+
+    Everything else fails loudly with ``None``: empty or fragmentary answers,
+    several options named ("Not Avery. I choose Blair."), no option named. That
+    gives up some answers a human could read, on purpose -- an unparsed answer is
+    counted and reported as a parse failure, while a wrongly parsed one would be
+    invisible in every metric. See audit finding D1.
     """
-    # 1) JSON object with an "answer" field.
     for match in re.finditer(r"\{[^{}]*\}", text, re.DOTALL):
         try:
             obj = json.loads(match.group(0))
         except json.JSONDecodeError:
             continue
         if isinstance(obj, dict) and "answer" in obj:
-            candidate = str(obj["answer"]).strip()
-            resolved = _match_option(candidate, options)
-            if resolved is not None:
-                return resolved
-    # 2) Any option string appearing verbatim (case-insensitive).
-    lowered = text.lower()
-    hits = [opt for opt in options if opt.lower() in lowered]
-    if len(hits) == 1:
-        return hits[0]
-    if len(hits) > 1:
-        # Prefer the last-mentioned option (closest to a concluding statement).
-        positions = {opt: lowered.rfind(opt.lower()) for opt in hits}
-        return max(positions, key=lambda o: positions[o])
-    return None
+            return _match_option(str(obj["answer"]), options)
+    named = _options_named(text, options)
+    return named[0] if len(named) == 1 else None
 
 
 def _match_option(candidate: str, options: list[str]) -> str | None:
-    """Resolve a raw answer string to one of ``options`` (exact/substring)."""
+    """Resolve a raw answer string to exactly one option, or ``None``.
+
+    Exact match first (case-insensitive, surrounding quotes and punctuation
+    stripped); otherwise the candidate must name exactly one option as a whole
+    word. There is deliberately no substring matching: the previous version
+    matched in both directions, so ``""``, ``"A"`` or ``"e"`` all resolved to the
+    first option.
+    """
+    cand = candidate.strip().strip(_ANSWER_TRIM)
+    if not cand:
+        return None
     for opt in options:
-        if candidate.lower() == opt.lower():
+        if cand.casefold() == opt.casefold():
             return opt
-    for opt in options:
-        if opt.lower() in candidate.lower() or candidate.lower() in opt.lower():
-            return opt
-    return None
+    named = _options_named(cand, options)
+    return named[0] if len(named) == 1 else None
 
 
 def _majority_vote(votes: list[str | None], options: list[str]) -> str | None:
