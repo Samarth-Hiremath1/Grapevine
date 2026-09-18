@@ -1,0 +1,402 @@
+[
+ {
+  "id": 0,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1017",
+  "msg_idx": 1,
+  "fact": "Jordan designed the on-call rotation the team still uses.",
+  "message": "I know Jordan has deep experience with distributed systems and designed the on-call rotation the team still uses. One interview was pushed to the afternoon because of a calendar conflict. I don’t have additional Devon-specific facts beyond the peer-reviewed work—what was the work’s impact or relevance? Also, do we know the committee’s decision criteria or role priorities?",
+  "human": 1
+ },
+ {
+  "id": 1,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1060",
+  "msg_idx": 3,
+  "fact": "Blair rewrote a flaky test suite to full reliability.",
+  "message": "Agent 1 and Agent 2, Blair now has unusually strong concrete evidence: reliable test-suite rewrite, mentoring outcomes, on-call design, open-source maintenance, and an end-to-end ML system with peer-reviewed work. Devon has the strongest broad leadership and crisis/turnaround record, while Avery’s evidence is narrower but directly supports communication. Please share your provisional ranking and any concerns about evidence quality or role fit before we decide.",
+  "human": 1
+ },
+ {
+  "id": 2,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1127",
+  "msg_idx": 3,
+  "fact": "Blair cut infrastructure costs by a third at their last role.",
+  "message": "Blair led a cross-functional team of eight and cut infrastructure costs by one-third in their last role. Blair also has peer-reviewed domain research, made a flaky test suite fully reliable, designed the current on-call rotation, and calmly handled the largest incident last quarter. What is the role’s primary hiring priority—research, production delivery, reliability, leadership, or distributed-systems expertise?",
+  "human": 1
+ },
+ {
+  "id": 3,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1009",
+  "msg_idx": 4,
+  "fact": "Harper has deep experience with distributed systems.",
+  "message": "Agent 0 and Agent 2, the evidence now covers complementary strengths: Cameron brings adoption impact, cost reduction, clear design communication, leadership, and mentorship; Harper brings distributed-systems depth, recovery of a severely delayed project, test reliability, durable on-call practices, and calm incident handling. We should map these against the role’s success criteria before weighing either profile; the packet format and scheduling/attendance details should remain excluded.",
+  "human": 1
+ },
+ {
+  "id": 4,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1064",
+  "msg_idx": 2,
+  "fact": "Emerson owns an open-source library with real adoption.",
+  "message": "I can add that Emerson owns an adopted open-source library and shipped a production ML system end to end—strong evidence of technical ownership and delivery. Lunch logistics are irrelevant. We should clarify the target role and whether we’re weighting leadership/operations, reliability, or research/ML impact most heavily.",
+  "human": 1
+ },
+ {
+  "id": 5,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1163",
+  "msg_idx": 0,
+  "fact": "Avery led a cross-functional team of eight.",
+  "message": "I’ll gather your private evidence first, then we can compare candidates against the role’s likely criteria rather than over-weighting the shared accomplishments. What facts do you each have, and what decision are we making?",
+  "human": 0
+ },
+ {
+  "id": 6,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1146",
+  "msg_idx": 5,
+  "fact": "Devon led a cross-functional team of eight.",
+  "message": "I agree. Given no further role-specific details, we should frame the recommendation conditionally: Devon for broad technical leadership and influence, Finley for execution and operational ownership, and Jordan only if distributed systems is central. The strongest default appears to be Devon, with Finley as the safer choice where delivery reliability is weighted highest.",
+  "human": 0
+ },
+ {
+  "id": 7,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1121",
+  "msg_idx": 1,
+  "fact": "Emerson cut infrastructure costs by a third at their last role.",
+  "message": "I know the role has been open since the start of the quarter. Emerson rewrote a flaky test suite to full reliability and cut infrastructure costs by one-third in their last role. I still need the role’s key evaluation criteria and any additional candidate-specific evidence for Devon or Avery.",
+  "human": 1
+ },
+ {
+  "id": 8,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1037",
+  "msg_idx": 2,
+  "fact": "Blair handled the largest incident of the last quarter calmly.",
+  "message": "My private evidence: Blair rewrote a flaky test suite to full reliability and handled the largest incident last quarter calmly. These reinforce Blair’s operational impact and execution under pressure, alongside the design-doc, cross-functional leadership, on-call, and open-source evidence. The video-call detail is logistical, not candidate evidence. Harper remains strongest on distributed-systems/ML depth and measurable cost impact; Devon’s clearest evidence is the project turnaround.",
+  "human": 1
+ },
+ {
+  "id": 9,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1066",
+  "msg_idx": 0,
+  "fact": "Devon turned around a project that was six months behind.",
+  "message": "I’m weighing Finley’s strong breadth and demonstrated impact against Jordan’s end-to-end ML delivery. The role’s been open since the quarter began, so urgency may matter, but we should avoid rushing. What additional evidence do you have on the candidates’ leadership and execution?",
+  "human": 0
+ },
+ {
+  "id": 10,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1034",
+  "msg_idx": 3,
+  "fact": "Avery cut infrastructure costs by a third at their last role.",
+  "message": "Avery’s case is unusually broad: calm handling of the largest incident, 33% cost reduction, peer-reviewed domain work, an end-to-end ML system, recovery of a six-month delay, and a widely adopted open-source library. Finley has strong demonstrated leadership, mentoring, reliability, writing, and distributed-systems depth; Jordan’s main evidence is the durable on-call design. The remote interviews and 15-minute delay are process noise, as is the rescheduled interview, so we should base the decision on substantive evidence.",
+  "human": 1
+ },
+ {
+  "id": 11,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1191",
+  "msg_idx": 2,
+  "fact": "Harper has deep experience with distributed systems.",
+  "message": "My private evidence: Harper has deep distributed-systems experience and handled the largest incident last quarter calmly. The packets were printed double-sided, which is irrelevant to candidate evaluation.",
+  "human": 1
+ },
+ {
+  "id": 12,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1179",
+  "msg_idx": 5,
+  "fact": "Jordan led a cross-functional team of eight.",
+  "message": "The evidence favors Jordan for broad product delivery, technical execution, leadership, and communication, while Finley is clearly stronger for reliability-focused distributed-systems operations. Avery’s advantage is specialized research depth. Without explicit role priorities, we should frame the recommendation around whether the position is primarily product-building or infrastructure/operations.",
+  "human": 0
+ },
+ {
+  "id": 13,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1147",
+  "msg_idx": 3,
+  "fact": "Jordan mentored three junior engineers to promotion.",
+  "message": "Cameron shows exceptional breadth, ownership, and incident execution; Devon has evidence of durable operational impact through the on-call design. Jordan now has the strongest explicit leadership and distributed-systems depth, plus substantial reliability and cost-efficiency wins. Let’s compare candidates against the role’s priorities—technical depth, leadership scope, and end-to-end execution—while excluding venue, lunch, and scheduling details.",
+  "human": 0
+ },
+ {
+  "id": 14,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1030",
+  "msg_idx": 2,
+  "fact": "Devon shipped a production ML system end to end.",
+  "message": "I also know Devon shipped a production ML system end to end and has peer-reviewed work in the domain—strong evidence of technical depth and execution. The calendar conflict explains the afternoon interview but shouldn’t affect evaluation. I’d compare both candidates primarily on the role’s core competencies, weighting concrete, directly observed impact over interview timing or charisma; Blair’s leadership/reliability/systems evidence is especially strong, while Devon’s ML delivery and recovery experience may matter if ML is central.",
+  "human": 1
+ },
+ {
+  "id": 15,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1105",
+  "msg_idx": 1,
+  "fact": "Avery published peer-reviewed work in the domain.",
+  "message": "I know Avery cut infrastructure costs by a third at their last role and published peer-reviewed work in the domain. What decision or candidate ranking are we making, and what additional candidate-specific facts does Agent 2 have?",
+  "human": 1
+ },
+ {
+  "id": 16,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1025",
+  "msg_idx": 0,
+  "fact": "Harper has deep experience with distributed systems.",
+  "message": "I’ll weigh the candidates against the shared evidence, especially leadership, technical depth, and measurable impact. Teammates, please share any candidate-specific facts you have and your initial assessment; I’ll also check whether any process details affect the decision.",
+  "human": 0
+ },
+ {
+  "id": 17,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1008",
+  "msg_idx": 1,
+  "fact": "Jordan rewrote a flaky test suite to full reliability.",
+  "message": "I can add that Jordan rewrote a flaky test suite to full reliability and consistently writes clear design documents—strong evidence of engineering rigor and communication. The double-sided packet detail seems irrelevant to the candidate decision.",
+  "human": 1
+ },
+ {
+  "id": 18,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1053",
+  "msg_idx": 4,
+  "fact": "Cameron cut infrastructure costs by a third at their last role.",
+  "message": "No additional role-specific priority is known. I’d frame the decision around the role’s core mandate: Cameron has unusually strong evidence of end-to-end delivery, operational ownership, mentorship, and measurable efficiency gains; Harper has broader distributed-systems, cross-functional leadership, and turnaround/domain credentials. Hiring urgency should be only a modest tie-breaker, not a substitute for fit. Finley’s incident handling is valuable but narrower evidence.",
+  "human": 0
+ },
+ {
+  "id": 19,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1051",
+  "msg_idx": 5,
+  "fact": "Cameron turned around a project that was six months behind.",
+  "message": "I agree: use role-specific must-haves first, then compare evidence by scale, ownership, and repeatability. Cameron’s adopted library, recovery of a six-month delay, incident leadership, and technical depth suggest exceptional problem-solving; Jordan’s production delivery, cost savings, distributed-systems expertise, and team/on-call leadership suggest stronger scale and organizational leverage. The role’s expected scope should determine which profile carries more weight.",
+  "human": 1
+ },
+ {
+  "id": 20,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1097",
+  "msg_idx": 3,
+  "fact": "Emerson consistently writes clear design documents.",
+  "message": "Agent 1 and Agent 2, thanks. The combined evidence gives Emerson strong role-relevant execution: end-to-end ML delivery, distributed systems, reliable testing, clear design docs, leadership scope, and measurable cost reduction. Devon shows broader sustained organizational impact through mentoring, incident leadership, recovery of a severely delayed project, library adoption, and peer-reviewed work. Since the role’s specific priorities are not stated, we should explicitly weigh technical fit against leadership breadth and sustained impact; the scheduling/location details are irrelevant.",
+  "human": 1
+ },
+ {
+  "id": 21,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1148",
+  "msg_idx": 1,
+  "fact": "Cameron rewrote a flaky test suite to full reliability.",
+  "message": "I know these private facts: **Cameron turned around a project that was six months behind**; **Cameron rewrote a flaky test suite to full reliability**; and **a calendar conflict pushed one interview to the afternoon**. What specific conclusion are we determining—e.g., which candidate should be selected, or which interview event occurred when? Please also share Agent 2’s facts if available.",
+  "human": 1
+ },
+ {
+  "id": 22,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1180",
+  "msg_idx": 4,
+  "fact": "Devon handled the largest incident of the last quarter calmly.",
+  "message": "Agreed. Devon’s evidence is strongest for execution, recovery, incident response, and technical ownership. Finley may be preferable if the role emphasizes team development, durable processes, and communication; Harper’s research is compelling for a research/domain-depth role. The interview logistics should remain excluded.",
+  "human": 0
+ },
+ {
+  "id": 23,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1189",
+  "msg_idx": 3,
+  "fact": "Jordan led a cross-functional team of eight.",
+  "message": "I have no additional private candidate facts beyond Jordan’s: Jordan designed the current on-call rotation and led a cross-functional team of eight. The shared record also credits Devon with major incident leadership, mentoring three engineers to promotion, reliable test-suite rewriting, rescuing a six-month-late project, and cutting infrastructure costs by one-third; Finley owns a widely adopted open-source library. Do either of you have more specific facts about Finley or the role’s evaluation criteria?",
+  "human": 1
+ },
+ {
+  "id": 24,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1037",
+  "msg_idx": 2,
+  "fact": "Blair handled the largest incident of the last quarter calmly.",
+  "message": "Relevant Blair facts I have:\n- Blair rewrote a flaky test suite to achieve full reliability.\n- Blair handled the largest incident of the last quarter calmly.\n\nI don’t know the role’s decision criteria or the specific question we’re answering. Are we selecting the strongest candidate overall, or weighting particular dimensions such as technical depth, delivery, reliability, or leadership?",
+  "human": 1
+ },
+ {
+  "id": 25,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1199",
+  "msg_idx": 5,
+  "fact": "Jordan owns an open-source library with real adoption.",
+  "message": "The afternoon interview was due to a calendar conflict, so it is not a candidate-quality signal. Jordan now has compelling evidence across execution, distributed systems, incident response, communication, and open-source impact. Blair remains the strongest broad people/operational leader, while Emerson’s case depends primarily on how central domain research is to the role.大小规律",
+  "human": 0
+ },
+ {
+  "id": 26,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1052",
+  "msg_idx": 1,
+  "fact": "Finley rewrote a flaky test suite to full reliability.",
+  "message": "Relevant facts I hold: **Finley rewrote a flaky test suite to full reliability** and **turned around a project that was six months behind**. The debrief scheduling ran fifteen minutes late, which seems irrelevant.  \n\nAgent 0, what decision or ranking criteria are we using, and does Agent 2 have any additional candidate-specific evidence?",
+  "human": 1
+ },
+ {
+  "id": 27,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1082",
+  "msg_idx": 3,
+  "fact": "Devon mentored three junior engineers to promotion.",
+  "message": "Agent 1 and Agent 2, thanks. The decision appears to be whether to hire Emerson or Devon for the open role. Emerson offers proven cost reduction, end-to-end ML delivery, durable on-call design, cross-functional leadership, and clear writing. Devon offers distributed-systems depth, mentoring three engineers to promotion, open-source impact, calm incident leadership, peer-reviewed domain work, and recovery of a severely delayed project. The scheduling and conference-room details are irrelevant. Before deciding, let’s align these strengths with the role’s highest-priority needs.",
+  "human": 1
+ },
+ {
+  "id": 28,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1123",
+  "msg_idx": 1,
+  "fact": "Emerson owns an open-source library with real adoption.",
+  "message": "I know these additional facts: Emerson turned around a project that was six months behind, and Emerson owns an open-source library with real adoption. The hiring committee meets on alternating Thursdays. Do you have any further candidate-specific facts about Cameron or Emerson?",
+  "human": 1
+ },
+ {
+  "id": 29,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1078",
+  "msg_idx": 5,
+  "fact": "Devon mentored three junior engineers to promotion.",
+  "message": "Agreed. We should map the accomplishments to the role’s actual requirements rather than tallying them. For a research-heavy or distributed-systems role, Devon’s technical depth, production delivery, mentoring, open-source impact, and publications are especially relevant; for an engineering-management or operations-focused role, Blair’s team leadership, incident handling, reliability, on-call design, and cost savings may weigh more. Jordan remains a credible turnaround candidate, but the evidence is narrower. We should disregard room location, packet format, and interview logistics.",
+  "human": 0
+ },
+ {
+  "id": 30,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1199",
+  "msg_idx": 3,
+  "fact": "Jordan handled the largest incident of the last quarter calmly.",
+  "message": "Jordan’s evidence now looks especially strong: durable on-call design, calm handling of the quarter’s largest incident, clear design writing, distributed-systems depth, recovery of a severely delayed project, and an adopted open-source library. Blair has broad leadership and delivery evidence; Emerson’s strongest known signal is domain scholarship. I’ll weigh these against the role’s priorities before making the recommendation.",
+  "human": 1
+ },
+ {
+  "id": 31,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1187",
+  "msg_idx": 2,
+  "fact": "Blair consistently writes clear design documents.",
+  "message": "My private candidate evidence: Blair owns a genuinely adopted open-source library and consistently writes clear design documents. The fifteen-minute scheduling delay is process noise and shouldn’t affect evaluation. Combined with Agent 1’s mentoring and distributed-systems evidence, Blair appears strong, though Harper still has the broader documented impact profile.",
+  "human": 1
+ },
+ {
+  "id": 32,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1062",
+  "msg_idx": 5,
+  "fact": "Blair mentored three junior engineers to promotion.",
+  "message": "Blair’s profile is especially strong for a distributed-systems or staff-level role: technical depth, design communication, cost reduction, recovery leadership, and mentorship. Cameron appears strongest for broad engineering leadership and end-to-end ownership, while Jordan is strongest on reliability/testing. We still need the role and weighting criteria before making the decision.",
+  "human": 0
+ },
+ {
+  "id": 33,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1123",
+  "msg_idx": 1,
+  "fact": "Emerson owns an open-source library with real adoption.",
+  "message": "My private evidence: Emerson turned around a project six months behind and owns an open-source library with real adoption. The hiring committee meets on alternating Thursdays. I don’t yet know the specific decision being evaluated—please clarify.",
+  "human": 1
+ },
+ {
+  "id": 34,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1173",
+  "msg_idx": 2,
+  "fact": "Jordan designed the on-call rotation the team still uses.",
+  "message": "My private evidence: Jordan calmly handled the largest incident last quarter and designed the on-call rotation the team still uses—strong signals for operational judgment, reliability, and durable team impact. The double-sided printing detail is irrelevant to the decision. Against Devon’s exceptional technical depth and delivery record, the key question is whether this role prioritizes advanced systems/ML execution or operational leadership.",
+  "human": 1
+ },
+ {
+  "id": 35,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1053",
+  "msg_idx": 0,
+  "fact": "Cameron owns an open-source library with real adoption.",
+  "message": "I know Cameron owns an open-source library with real adoption and consistently writes clear design documents. I also know the committee meets on alternating Thursdays; the debrief ran fifteen minutes late, though that may be incidental. What private facts do you have, and what criterion or decision are we ultimately evaluating?",
+  "human": 1
+ },
+ {
+  "id": 36,
+  "metric": "pos",
+  "cond": "communication",
+  "task": "hidden_profile-1111",
+  "msg_idx": 2,
+  "fact": "Cameron rewrote a flaky test suite to full reliability.",
+  "message": "I know that Cameron rewrote a flaky test suite to full reliability and consistently writes clear design documents. Two panelists joined the interview loop by video call. Do either of you know the role’s evaluation criteria or any additional candidate-specific facts, especially about Devon?",
+  "human": 1
+ },
+ {
+  "id": 37,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1165",
+  "msg_idx": 2,
+  "fact": "Jordan designed the on-call rotation the team still uses.",
+  "message": "My private evidence: Jordan designed the current on-call rotation and previously reduced infrastructure costs by one-third. Two panelists participated remotely, so we should account for possible observation bias and rely on corroborated evidence rather than presence effects. I’d compare Cameron and Jordan on the role’s priorities: technical depth and end-to-end leadership, operational impact, mentoring, and communication. Cameron has broader demonstrated leadership; Jordan’s reliability, recovery, on-call design, and cost efficiency are strong execution/operations counterweights.",
+  "human": 1
+ },
+ {
+  "id": 38,
+  "metric": "pos",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1022",
+  "msg_idx": 3,
+  "fact": "Cameron shipped a production ML system end to end.",
+  "message": "Cameron now has strong evidence across execution, reliability, cost efficiency, incident response, and distributed systems: rescued a six-month-late project, shipped production ML end to end, cut infrastructure costs by one-third, stabilized tests, and handled the largest incident calmly. Devon’s evidence is strongest in technical leadership, communication, mentorship, and domain expertise; Emerson has the on-call design accomplishment. Irrelevant logistics should be excluded.",
+  "human": 1
+ },
+ {
+  "id": 39,
+  "metric": "neg",
+  "cond": "communication_neutral",
+  "task": "hidden_profile-1187",
+  "msg_idx": 5,
+  "fact": "Blair consistently writes clear design documents.",
+  "message": "Blair has a strong leadership-and-execution profile, especially in reliability, incident response, mentoring, distributed systems, and adopted open source. Harper has stronger breadth, quantified impact, and end-to-end ML/domain evidence. We should weight these against the role’s priorities—technical depth and team leadership versus ML/domain impact—rather than count accomplishments or use any process notes.",
+  "human": 0
+ }
+]
