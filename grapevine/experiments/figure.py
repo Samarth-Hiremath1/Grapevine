@@ -36,6 +36,7 @@ CONDITION_LABELS = {
     "communication": "C. Instructed sharing\n(3 agents, 2 rounds)",
     "communication_neutral": "D. Neutral prompt\n(3 agents, 2 rounds)",
     "full_info_rule": "A + rule",
+    "full_info_matched_rule": "A (matched) + rule",
     "no_communication_rule": "B + rule",
     "communication_rule": "C + rule",
     "communication_neutral_rule": "D + rule",

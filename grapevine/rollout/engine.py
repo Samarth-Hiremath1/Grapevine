@@ -82,6 +82,40 @@ NO_COMM_PROMPT = (
     'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
 )
 
+#: Presentation-matched condition A (``full_info_presentation="matched"``). One
+#: agent with every fact, laid out and framed like conditions B/C/D: same
+#: shared/private headers, a system prompt built like SOLO_SYSTEM_PROMPT, and the
+#: NO_COMM_PROMPT answer instruction minus its "deciding alone" line. Added to
+#: separate information access from presentation (audit L4).
+FULL_INFO_MATCHED_SYSTEM_PROMPT = (
+    "You are Agent 0 of a 1-agent group. You hold all of the group's information: "
+    "every shared fact and every private fact. Reason carefully over the information "
+    "you have and commit to the best answer you can."
+)
+
+FULL_INFO_MATCHED_PROMPT = (
+    "{context}\n\n"
+    "Choose exactly one of these options: {options}.\n"
+    'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
+)
+
+
+def full_context_matched(task: Task) -> str:
+    """Every fact of ``task`` in the same two-block layout agents see in B/C/D.
+
+    The shared block is identical to an agent's; the private block holds every
+    agent's private facts, in agent order. Same facts as :meth:`Task.full_context`.
+    """
+    shared = task.metadata.get("shared_facts", [])
+    private = [f for facts in task.metadata.get("private_facts", []) for f in facts]
+    return (
+        "Facts known to the whole committee:\n"
+        + "\n".join(f"- {f}" for f in shared)
+        + "\n\nFacts only you know:\n"
+        + "\n".join(f"- {f}" for f in private)
+    )
+
+
 VOTE_PROMPT = (
     "{context}\n\n"
     "Full team discussion:\n{history}\n\n"
@@ -127,6 +161,9 @@ class RolloutConfig:
         show_task: When True, every prompt starts with :data:`TASK_STATEMENT` (the
             task question plus the scoring rule). Off by default, which keeps
             prompts byte-identical to those used for the four-condition run.
+        full_info_presentation: Condition A only. ``"original"`` is the prompt
+            used in the committed runs; ``"matched"`` presents the same facts in
+            B/C/D's layout and framing (see FULL_INFO_MATCHED_PROMPT).
     """
 
     n_rounds: int = 2
@@ -137,6 +174,7 @@ class RolloutConfig:
     final_temperature: float = 0.0
     prompt_style: str = "instructed"
     show_task: bool = False
+    full_info_presentation: str = "original"
 
     def __post_init__(self) -> None:
         if self.n_rounds < 1:
@@ -145,6 +183,8 @@ class RolloutConfig:
             raise ValueError("aggregation must be 'aggregator' or 'vote'")
         if self.prompt_style not in ("instructed", "neutral"):
             raise ValueError("prompt_style must be 'instructed' or 'neutral'")
+        if self.full_info_presentation not in ("original", "matched"):
+            raise ValueError("full_info_presentation must be 'original' or 'matched'")
 
     def discussion_prompts(self) -> tuple[str, str]:
         """Return ``(system_prompt, turn_prompt)`` templates for this style."""
@@ -572,24 +612,33 @@ async def run_single_agent(
     client: LLMClient,
     config: RolloutConfig | None = None,
 ) -> Episode:
-    """Run the single-agent, full-information upper-bound condition.
+    """Run condition A: one agent holding every fact, no discussion.
 
-    One agent is shown the union of every fact (``task.full_context()``) and
-    answers directly, with no discussion. Used as the accuracy ceiling in
-    evaluation.
+    ``cfg.full_info_presentation`` picks the layout: ``"original"`` (a flat list,
+    as in the committed runs) or ``"matched"`` (B/C/D's layout and framing). This
+    is a full-information baseline, not an upper bound: with the task stated, the
+    communicating conditions scored above it (see docs/results.md).
     """
     cfg = config or RolloutConfig()
     usage_acc = _UsageAccumulator()
 
-    prompt = AGGREGATOR_PROMPT.format(
-        context=_with_task(
-            "All available information:\n" + task.full_context(), task, cfg.show_task
-        ),
-        history="(you have all information; no discussion needed)",
-        options=", ".join(task.options),
-    )
+    if cfg.full_info_presentation == "matched":
+        prompt = FULL_INFO_MATCHED_PROMPT.format(
+            context=_with_task(full_context_matched(task), task, cfg.show_task),
+            options=", ".join(task.options),
+        )
+        system = FULL_INFO_MATCHED_SYSTEM_PROMPT
+    else:
+        prompt = AGGREGATOR_PROMPT.format(
+            context=_with_task(
+                "All available information:\n" + task.full_context(), task, cfg.show_task
+            ),
+            history="(you have all information; no discussion needed)",
+            options=", ".join(task.options),
+        )
+        system = "You are an expert decision-maker. Reason carefully, then answer."
     convo = [
-        Message("system", "You are an expert decision-maker. Reason carefully, then answer."),
+        Message("system", system),
         Message("user", prompt),
     ]
     completion = usage_acc.add(

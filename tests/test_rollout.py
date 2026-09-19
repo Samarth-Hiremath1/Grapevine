@@ -265,3 +265,26 @@ async def test_aggregator_system_prompt_follows_prompt_style() -> None:
         assert len(systems) == task.n_agents + 1
         allowed = {template.format(agent_id=i, n_agents=task.n_agents) for i in range(task.n_agents)}
         assert all(s in allowed for s in systems), f"{style}: a call used the wrong system prompt"
+
+
+async def test_full_info_matched_presentation() -> None:
+    """Matched A: same facts as original A, laid out and framed like B/C/D."""
+    from grapevine.rollout.engine import FULL_INFO_MATCHED_SYSTEM_PROMPT, TASK_STATEMENT
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    task = env.generate(1006)
+    seen: list[tuple[str, str]] = []
+
+    def responder(messages: list[Message]) -> str:
+        seen.append((messages[0].content, messages[-1].content))
+        return f'{{"answer": "{task.answer}"}}'
+
+    cfg = RolloutConfig(show_task=True, full_info_presentation="matched")
+    await run_single_agent(task, ScriptedClient(responder), cfg)
+    system, prompt = seen[0]
+    assert system == FULL_INFO_MATCHED_SYSTEM_PROMPT
+    assert prompt.startswith(TASK_STATEMENT.format(question=task.question) + "\n\n")
+    assert "Facts known to the whole committee:" in prompt and "Facts only you know:" in prompt
+    assert "team discussion" not in prompt.lower() and "expert" not in system.lower()
+    for fact in task.metadata["shared_facts"] + [f for fl in task.metadata["private_facts"] for f in fl]:
+        assert fact in prompt

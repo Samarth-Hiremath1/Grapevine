@@ -170,3 +170,36 @@ The flag that adds the statement (`show_task`) is off by default, and a test
 checks the default prompts are byte-identical to before, so the default command
 still reproduces the four-condition run. The rule conditions only run when named
 with `--conditions`.
+
+## Presentation-matched condition A, registered in advance
+
+*2026-09-18, before running.* With the task stated, C (100/100) and D (99/100)
+scored above A (96/100). The audit (L4) found A differs from B/C/D in
+presentation as well as information: a flat fact list with no shared/private
+headers, the system prompt "You are an expert decision-maker. Reason carefully,
+then answer.", and a user prompt containing "Full team discussion: (you have all
+information; no discussion needed)". A 4-point gap is within what that could
+produce, so "distributed teams beat full information" is not claimed until the
+confound is controlled.
+
+Run 9 (`full_info_matched_rule`, seeds 1000-1099, N=100, rule shown) keeps A's
+information identical — one agent, every shared and private fact — and changes
+only presentation:
+
+- Context in the same two blocks agents see: "Facts known to the whole
+  committee:" (the shared facts, identical to every agent's) and "Facts only you
+  know:" (every agent's private facts, in agent order).
+- System prompt built like condition B's: "You are Agent 0 of a 1-agent group.
+  You hold all of the group's information: every shared fact and every private
+  fact. Reason carefully over the information you have and commit to the best
+  answer you can."
+- User prompt is condition B's with its "You are deciding alone, with no
+  discussion." line removed: the context, then "Choose exactly one of these
+  options: {options}." and the JSON instruction. No "team discussion" wording.
+- The identical task statement and rule used in the rest of the rule arm.
+
+Reading, fixed now: if matched A lands near 96%, the A < C/D gap with the rule
+is not a presentation artefact and can be stated carefully. If it rises to
+around 100%, the gap was presentation, and the statement becomes "with the task
+stated, every communicating condition matches full information". Both A variants
+are reported, and the text says which one each comparison uses.

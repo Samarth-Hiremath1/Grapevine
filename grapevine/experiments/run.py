@@ -72,6 +72,7 @@ RULE_CONDITIONS = (
     "no_communication_rule",
     "communication_rule",
     "communication_neutral_rule",
+    "full_info_matched_rule",
 )
 ALL_CONDITIONS = CONDITIONS + RULE_CONDITIONS
 
@@ -172,6 +173,10 @@ async def _run_condition(
                     ep = await run_single_agent(task, client, rollout_cfg)
                 elif condition == "full_info_rule":
                     ep = await run_single_agent(task, client, rule_cfg)
+                elif condition == "full_info_matched_rule":
+                    ep = await run_single_agent(
+                        task, client, replace(rule_cfg, full_info_presentation="matched")
+                    )
                 elif condition == "communication_rule":
                     ep = await run_episode(task, client, rule_cfg)
                 elif condition == "no_communication_rule":
@@ -212,6 +217,7 @@ PAIRS: tuple[tuple[str, str], ...] = (
     ("communication", "communication_neutral"),
     ("full_info", "communication"),
     ("full_info_rule", "communication_rule"),
+    ("full_info_matched_rule", "communication_rule"),
     ("communication_rule", "communication_neutral_rule"),
     ("communication_rule", "no_communication_rule"),
 )
