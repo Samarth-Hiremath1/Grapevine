@@ -205,6 +205,83 @@ def make_figure(
     return png, svg, csv_path
 
 
+#: Axis labels for the two-panel figure, keyed by table label.
+PANEL_LABELS = {
+    "A": "A\nfull info,\n1 agent",
+    "A (matched)": "A\nfull info,\nmatched prompt",
+    "B": "B\n3 agents,\nno talking",
+    "C": "C\n3 agents,\ntold to share",
+    "D": "D\n3 agents,\nneutral prompt",
+}
+
+
+def make_two_panel_figure(
+    panels: list[tuple[str, list[tuple[str, dict[str, Any]]]]],
+    out_dir: Path,
+    stem: str = "accuracy_by_condition",
+) -> tuple[Path, Path, Path]:
+    """Accuracy per condition, one panel per framing, exact 95% intervals.
+
+    ``panels`` is a list of ``(panel title, [(label, cell), ...])`` where each
+    cell has ``accuracy``, ``ci95``, ``n`` and ``correct``. Writes PNG, SVG and
+    a CSV of the plotted numbers.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / f"{stem}.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["panel", "condition", "correct", "n", "accuracy", "ci_low", "ci_high"])
+        for title, cells in panels:
+            for label, c in cells:
+                writer.writerow(
+                    [title.split("\n")[0], label, c["correct"], c["n"],
+                     round(c["accuracy"], 6), round(c["ci95"][0], 6), round(c["ci95"][1], 6)]
+                )
+
+    widths = [len(cells) for _, cells in panels]
+    fig, axes = plt.subplots(
+        1, len(panels), figsize=(12.5, 5.6), sharey=True,
+        gridspec_kw={"width_ratios": widths},
+    )
+    for ax, (title, cells) in zip(axes, panels, strict=True):
+        x = list(range(len(cells)))
+        acc = [c["accuracy"] for _, c in cells]
+        lo = [c["accuracy"] - c["ci95"][0] for _, c in cells]
+        hi = [c["ci95"][1] - c["accuracy"] for _, c in cells]
+        ax.bar(x, acc, 0.62, yerr=[lo, hi], capsize=4, color="#2b6cb0")
+        ax.axhline(0.25, linestyle="--", linewidth=1.1, color="#4a5568")
+        for i, (a, h) in enumerate(zip(acc, hi, strict=True)):
+            ax.text(i, a + h + 0.025, f"{a * 100:.1f}%", ha="center", fontsize=9)
+        ax.set_xticks(x)
+        ax.set_xticklabels([PANEL_LABELS.get(lbl, lbl) for lbl, _ in cells], fontsize=8.5)
+        ax.set_title(title, fontsize=10)
+        ax.set_ylim(0, 1.12)
+        ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.grid(axis="y", alpha=0.25)
+    axes[0].set_ylabel("Accuracy (share of episodes correct)")
+    axes[0].text(-0.45, 0.265, "chance 25%", ha="left", fontsize=8, color="#4a5568")
+    fig.suptitle(
+        "Hidden-profile tasks, gpt-5.6-luna: accuracy with and without the task stated",
+        fontsize=11,
+    )
+    caption = (
+        "Error bars are exact Clopper-Pearson 95% intervals. B, C and D split the facts across "
+        "three agents; C and D discuss for 2 rounds, C's prompt tells agents to share facts and "
+        "D's does not. A (matched) gives one agent every fact in the same layout and framing as "
+        "B-D; original A uses a different prompt. Every wrong answer in every condition was the "
+        "decoy option. Left: primary run and the D rerun; right: rule-arm runs."
+    )
+    fig.text(0.5, 0.01, "\n".join(textwrap.wrap(caption, 165)), ha="center", fontsize=8,
+             color="#2d3748")
+    fig.tight_layout(rect=(0, 0.08, 1, 0.95))
+    png, svg = out_dir / f"{stem}.png", out_dir / f"{stem}.svg"
+    fig.savefig(png, dpi=200)
+    fig.savefig(svg)
+    plt.close(fig)
+    return png, svg, csv_path
+
+
 def main(argv: list[str] | None = None) -> int:
     """Build the main figure."""
     parser = argparse.ArgumentParser(
