@@ -1,252 +1,193 @@
 # Grapevine
 
-Grapevine is a research toolkit for studying why LLM agent teams fail when the
-information needed for a decision is split across them. It generates
-hidden-profile tasks procedurally, runs multi-agent rollouts against them, and
-scores the outcome against ground truth rather than a judge model. The question
-it exists to answer is which part of coordination actually breaks: getting facts
-into the conversation, or using them once they are there.
+**Question:** when the facts needed for a decision are split across LLM agents,
+what breaks?
 
-[![CI](https://github.com/Samarth-Hiremath1/Grapevine/actions/workflows/ci.yml/badge.svg)](https://github.com/Samarth-Hiremath1/Grapevine/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+**Finding (one model, one generated task family):** splitting the facts across
+three agents who cannot talk dropped accuracy from 85.5% to 0.5%, and it stayed
+at 0% even when the task was stated. Letting them talk recovered most of the
+loss. The gap that remained, which we first reported as a coordination failure,
+was underspecification: no prompt told the models what they were being scored
+on. With the task and scoring rule stated, the communicating teams scored
+100/100 and 99/100, the same as a single agent given every fact.
 
-## Why
+**The transferable lesson:** an evaluation that does not tell agents their
+objective can produce a coordination failure that looks real — every fact gets
+shared, the team still chooses wrong — and vanishes once the objective is
+stated.
 
-In a hidden-profile task each member of a group holds a different slice of the
-evidence. The facts everyone already shares point at one candidate; the facts
-held privately point at a better one. Groups reliably choose the first, because
-discussion tends to rehearse common ground instead of pooling what is unique.
-The paradigm comes from Stasser and Titus (1985).
+![Accuracy by condition, with and without the task stated](docs/figures/accuracy_by_condition.png)
 
-Prior work applying this to LLM teams, notably HiddenBench
-([arXiv:2505.11556](https://arxiv.org/abs/2505.11556)), reports agent groups
-performing substantially worse than a single agent holding all the same
-information. **Those are that paper's numbers, not results produced by this
-repository.** Grapevine builds its own tasks and measures its own conditions;
-the only thing carried over is the qualitative motivation.
+## What this is and isn't
 
-## Main result
+This reproduces a known phenomenon, the hidden-profile effect (Stasser & Titus,
+1985), which HiddenBench (arXiv:2505.11556) studies in LLM groups: when shared
+evidence favours one option and the evidence for the right one is spread across
+members, groups choose the wrong one. Grapevine makes no novelty claim for that.
 
-Four conditions, 200 procedurally generated tasks each, identical task seeds,
-`gpt-5.6-luna`.
+What it adds is a small, fully logged case study of how an evaluation of this
+effect can mislead, together with the audit that caught it.
 
-![Accuracy and decoy rate by condition](runs/20260910T065248Z_primary/accuracy_by_condition.png)
+**The underspecification finding is about our own task construction, not a
+criticism of HiddenBench: HiddenBench states the objective and the payoff to its
+models in the system prompt, and we did not.** Their correctness also rests on
+elimination logic, ours on a counting convention we never stated, and their
+headline metric is the share of individual agents choosing correctly while ours
+is a single group answer. So their 30.1% and 80.7% are not directly comparable to
+any number here. `docs/results.md` sets out the comparison in full.
 
-| Condition | N | Accuracy | 95% CI | Decoy rate | Surfacing |
-|---|---:|---:|---|---:|---:|
-| A. Full information, 1 agent | 200 | 85.5% | [80.5, 90.0] | 14.5% | n/a |
-| B. Distributed, no communication | 200 | 0.5% | [0.0, 1.5] | 99.5% | n/a |
-| C. Distributed, instructed sharing, 2 rounds | 200 | 67.0% | [60.5, 73.5] | 33.0% | 100.0% |
-| D. Distributed, neutral prompt, 2 rounds | 200 | 53.0% | [46.0, 60.0] | 46.0% | 82.7% |
+It is one model (`gpt-5.6-luna`), one procedurally generated task template, three
+agents, two discussion rounds, four options.
 
-Chance is 25%. Intervals are percentile bootstrap over episodes.
+## Results
 
-Three things came out of it:
+| Condition | Task not stated | Task and rule stated |
+|---|---|---|
+| A. one agent, all facts | 171/200 · 85.5% | original prompt 96/100 · 96%<br>matched prompt 100/100 · 100% |
+| B. three agents, no talking | 1/200 · 0.5% | 0/100 · 0% |
+| C. three agents, told to share | 134/200 · 67.0% | 100/100 · 100% |
+| D. three agents, neutral prompt | 111/200 · 55.5% | 99/100 · 99% |
 
-Splitting the information across three agents dropped accuracy from 85.5% to
-0.5%, well below chance, because the shared facts are built to favour a specific
-wrong candidate and agents reasoning from what they can see pick it. Every wrong
-answer in all 800 episodes was that candidate.
+Chance is 25%. The task-not-stated runs used 200 tasks (seeds 1000-1199); the
+rule arm used 100 (seeds 1000-1099), and every comparison between the two uses
+those 100. Intervals, paired differences and the full account are in
+`docs/results.md`.
 
-Discussion recovered most of the loss (+52.5 points over silence), and telling
-agents explicitly to share and ask added a further +14.0 points
-[+6.0, +22.5]. Condition C is therefore described as *instructed* pooling
-wherever it appears; the recovery is not a property of discussion alone.
+- **B is the robust result.** With no communication every agent sees the decoy
+  ahead in its own facts and votes for it, whether or not the task is stated.
+- **The sharing instruction mattered because the task was underspecified.**
+  C over D was +11.5 points [+3.0, +20.0] without the task and +1.0 [0.0, +3.0]
+  with it.
+- **We first read the C-versus-A gap as an integration failure.** Agents shared
+  every required fact in 200 of 200 episodes and still trailed A by 18.5 points.
+  Transcripts showed agents asking what decision they were supposed to make (174
+  of 200 C episodes). Stating the task took C from 68/100 to 100/100 on the same
+  tasks, and those requests fell to 2 of 100.
+- **A second mistake, also caught:** with the task stated, C and D first appeared
+  to beat A (100 and 99 against 96). A's prompt was laid out differently from the
+  other conditions. Given the same layout, A scored 100/100.
 
-The part that surprised us: in condition C every required private fact was
-surfaced in all 200 episodes, and accuracy still sat 18.5 points below the
-single-agent ceiling. Getting the facts onto the table did not close the gap.
-We don't yet know why. It could be a failure to weigh pooled evidence, or it
-could be that the models were never told what they were being scored on: no
-prompt in any condition includes the task's question or says the candidate with
-the most supporting facts wins, and agents routinely asked for exactly that.
-Separating the two is the next experiment. `docs/results.md` has the transcript.
+## How it was checked
 
-## Architecture
+The docs that matter most here are the ones about our own errors:
 
-- **Environment** (`grapevine/envs/`) generates hidden-profile tasks from a
-  seed. Shared facts give a decoy a strict lead; private facts, split across
-  agents, all support the correct answer, with a final margin of exactly one so
-  every private fact is load-bearing. The test suite asserts these properties
-  for every configuration used.
-- **Rollout engine** (`grapevine/rollout/`) runs N agents over R rounds against
-  a provider-agnostic async client with retry and per-episode cost tracking.
-  Every episode is written as one JSONL line including the full transcript.
-- **Rewards** (`grapevine/rewards/`) score exact match against the gold answer
-  and compute how much of the required private information reached the
-  conversation.
-- **Evaluation** (`grapevine/eval/`, `grapevine/experiments/`) aggregates
-  accuracy, decoy rate, surfacing, tie and parse-failure counts with bootstrap
-  intervals, and draws the figure.
-- **Training** (`grapevine/train/`) wires the environments into a TRL GRPO loop.
-  This is scaffolding: it is smoke-tested on CPU in CI, and no training run has
-  been done. See Limitations.
+- `docs/assumptions.md` — every assumption the result rests on, written before
+  any of them were tested.
+- `docs/audit.md` — what each check found, by severity, including the findings
+  that made the work look worse.
+- `docs/decisions.md` — every judgement call, dated, including conditions
+  registered before they were run.
 
-## Quick start
+## Limitations
+
+- The task has a trivial shortcut: counting name mentions solves 200 of 200
+  full-information contexts.
+- All 200 tasks share one support pattern (correct 6, decoy 5, others 1 and 0)
+  and the same 12 fact sentences: one puzzle in 200 arrangements, not 200
+  problems.
+- The surfacing metric has precision 1.00 and recall about 0.86 against 40 hand
+  labels; it undercounts paraphrased sharing.
+- Temperature is stuck at 1.0 for this model, so reruns regenerate the same tasks
+  but not the same answers.
+- The rule arm is N=100 against N=200.
+- With the task unstated, accuracy falls as the correct answer moves later in the
+  option list (C: 81% at the first position, 56% at the last).
+- Condition D's 4 parse failures are empty responses, probably from hidden
+  reasoning tokens exhausting the output cap; not confirmed.
+
+The full list, each with its numbers, is in `docs/results.md`.
+
+## Reproduce
 
 Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/Samarth-Hiremath1/Grapevine.git
 cd Grapevine
-uv venv --python 3.11
-uv pip install -e ".[dev]"
-cp .env.example .env       # then put your OpenAI key in .env (gitignored)
+uv sync --locked --extra dev
+cp .env.example .env        # put an OpenAI key in .env; it is gitignored
 ```
 
-Generate a task and look at it:
+Rebuild every table and the figure from the committed runs (no API calls):
 
 ```bash
-uv run grapevine gen hidden_profile --n 1
+uv run python -m grapevine.experiments.report_tables
 ```
 
-Check the reward cannot be earned by shortcuts that skip information sharing:
+Rerun the experiments. Runs write to a new timestamped directory under `runs/`
+and never overwrite. Costs are what the committed runs cost.
 
 ```bash
-uv run grapevine diagnose hidden_profile --n 300
-```
-
-## Running experiments
-
-Print the plan without spending anything:
-
-```bash
-uv run python -m grapevine.experiments.run \
-    --config configs/coordination_ablation.yaml --dry-run
-```
-
-Pilot (20 episodes per condition, seeds 0-19, about $0.08):
-
-```bash
-uv run python -m grapevine.experiments.run \
-    --config configs/coordination_ablation_pilot.yaml
-```
-
-One condition only:
-
-```bash
-uv run python -m grapevine.experiments.run \
-    --config configs/coordination_ablation_pilot.yaml \
-    --conditions communication_neutral --label pilot_D
-```
-
-Useful config fields: `run.n_episodes`, `run.seed_start` (pilot and primary
-ranges are deliberately disjoint), `run.concurrency`, `env.n_agents`,
-`rollout.n_rounds`, `model.name`. A model with no entry in `DEFAULT_PRICING`
-raises rather than reporting a cost of $0.00.
-
-## Reproducing the reported result
-
-```bash
+# Task not stated: A, B, C, D, seeds 1000-1199 (~$0.76)
 uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
-uv run python -m grapevine.experiments.figure --run runs/<new-run-dir>
+
+# Task and rule stated, seeds 1000-1099 (~$0.38 in total)
+uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml \
+    --n-episodes 100 --label rule_arm \
+    --conditions full_info_rule,full_info_matched_rule,no_communication_rule,communication_rule,communication_neutral_rule
 ```
 
-Roughly 14 minutes and $0.76 at 200 episodes per condition. Produces
-`manifest.json` (config, seeds, git commit, timings, metrics, token and cost
-totals, any failures), four `episodes_*.jsonl` transcripts,
-`accuracy_by_condition.png` and `.svg`, and `figure_data.csv` holding the exact
-numbers behind the figure.
-
-The run backing the table above is committed at
-`runs/20260910T065248Z_primary/`.
-
-Read any transcript with the viewer, which colours each required private fact by
-whether and when it surfaced:
+Reruns regenerate identical tasks; answers vary because temperature cannot be
+set for this model. Each run directory holds `manifest.json` (config, seeds, git
+commit at start and end, metrics, token and cost totals, failures) and one
+`episodes_<condition>.jsonl` per condition with full transcripts. To compare a
+new run with the committed ones:
 
 ```bash
-uv run grapevine view runs/20260910T065248Z_primary/episodes_communication.jsonl
+uv run python -m grapevine.experiments.compare \
+    --base runs/20260910T065248Z_primary --base-cond communication \
+    --other runs/<new-run> --other-cond communication_rule
 ```
 
-## Repository layout
-
-```
-grapevine/envs/         task generators behind a common Env interface
-grapevine/rollout/      async multi-agent engine + provider-agnostic client
-grapevine/rewards/      exact-match reward, surfacing metrics
-grapevine/eval/         metrics and the transcript viewer
-grapevine/experiments/  experiment runner, analysis, figure
-grapevine/diagnostics/  degenerate-policy checks against the reward
-grapevine/train/        TRL GRPO wiring (scaffolding, not run)
-configs/                experiment and training configs
-docs/                   methodology, experiment plan, results, decision log
-runs/                   experiment output, one directory per run
-```
-
-## Testing
+Read a transcript, with each required fact marked by whether and when it was
+shared:
 
 ```bash
-uv run pytest -q                                       # 82 tests
+uv run grapevine view runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
+```
+
+## Tests
+
+```bash
+uv run pytest -q
 uv run ruff check grapevine tests experiments
 uv run mypy
 ```
 
-CI runs all three on every push, including a two-step CPU GRPO smoke test.
+CI runs all three on every push, plus a two-step CPU smoke test of the GRPO
+training loop.
 
-## Limitations
+## Repository layout
 
-- **Temperature was not controlled.** `gpt-5.6-luna` rejects an explicit
-  temperature, so the pre-registered 0.7/0.0 settings could not be applied and
-  every call ran at the model default of 1.0. Uniform across conditions, so the
-  comparison holds, but answer turns are not deterministic. The manifest records
-  `temperature_honoured: false`.
-- **One model, one task family, one team size, one round budget.** Nothing here
-  establishes how any of this scales.
-- **No model saw the question or the scoring rule.** Tasks carry a question, but
-  no prompt in any condition includes it, and nothing tells the models the
-  candidate with the most supporting facts wins. Accuracy here measures
-  agreement with a rule the models had to infer.
-- **200 tasks, one template.** The strength-fact pool has 12 sentences and each
-  task uses all 12, so tasks differ in names, assignment and order, not content.
-- **Surfacing is a string-match proxy**, not entailment. It catches verbatim and
-  near-verbatim sharing and can be fooled by paraphrase or negation. Transcripts
-  were read by hand to confirm the 100% figure in condition C.
-- **`split_evidence` is excluded from experiments.** It leaks the gold answer
-  into one agent's context in 100 of 100 sampled tasks. `docs/decisions.md`
-  explains it; the runner rejects the family rather than letting it be used by
-  accident.
-- **No training results.** The GRPO path runs a two-step CPU smoke test to prove
-  the loop is wired. No real training run has been done, and no training numbers
-  appear anywhere in this repository.
+```
+grapevine/envs/         task families behind a common Env interface
+grapevine/rollout/      async multi-agent engine and provider client
+grapevine/rewards/      exact-match reward, fact-surfacing metric
+grapevine/experiments/  runner, analysis, cross-run comparison, tables, figure
+grapevine/eval/         transcript viewer
+grapevine/diagnostics/  degenerate-policy checks against the reward
+grapevine/train/        TRL GRPO wiring (smoke-tested only; never trained)
+configs/                experiment and training configs
+docs/                   results, methodology, assumptions, audit, decisions
+runs/                   committed experiment runs, one directory per run
+```
 
-## Roadmap
-
-The immediate next experiment is to put the question and the scoring rule into
-the prompt and re-run conditions A and C on the same seeds. If C's decoy rate
-drops sharply, the gap to full information was mostly underspecification. If it
-holds, the aggregator fails to weigh pooled evidence even when it knows what it
-is being asked, which is the stronger claim and the one that would justify a
-training intervention.
-
-Alongside that, the strength-fact pool needs enlarging so tasks differ in
-content, with the four-condition result replicated on it. After that: group
-size, round budget, and whether GRPO on these environments improves
-coordination in a way that transfers to held-out task families.
-
-## Documentation
-
-- `docs/methodology.md` — task construction, information split, conditions,
-  prompts verbatim, metrics, bootstrap procedure
-- `docs/experiment.md` — hypothesis, parameters, commands, output layout
-- `docs/results.md` — full results, transcripts, interpretation, limitations
-- `docs/decisions.md` — judgment calls made along the way and why
+Task families plug in through `grapevine/envs/`. `hidden_profile` is the one used
+here. `split_evidence` exists but is excluded from experiments because it leaks
+the answer to one agent (`docs/decisions.md`). The harness is being extended to
+run existing benchmarks as further families; nothing in the results above
+depends on that.
 
 ## Citation
 
-Prior work this project responds to:
-
-```bibtex
-@misc{hiddenbench,
-  howpublished = {arXiv preprint arXiv:2505.11556},
-  year         = {2025},
-  url          = {https://arxiv.org/abs/2505.11556}
-}
-```
-
-Stasser, G., & Titus, W. (1985). Pooling of unshared information in group
-decision making. *Journal of Personality and Social Psychology*, 48(6),
-1467-1478.
+- Li, Y., Naito, A., & Shirado, H. Systematic Failures in Collective Reasoning
+  under Distributed Information in Multi-Agent LLMs. ICML 2026 (PMLR 306).
+  arXiv:2505.11556v4. The 30.1% and 80.7% figures quoted in `docs/results.md`
+  were checked against its abstract.
+- Stasser, G., & Titus, W. (1985). Pooling of unshared information in group
+  decision making. *Journal of Personality and Social Psychology*, 48(6),
+  1467-1478. **UNVERIFIED**: these citation details have not been checked against
+  the source.
 
 ## License
 

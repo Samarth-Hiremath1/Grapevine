@@ -267,6 +267,31 @@ committed run.
 
 ---
 
+## Status after Phase 2 (2026-09-19)
+
+What happened to each finding. Fixes are in `docs/decisions.md`; every code fix
+has a regression test that fails on the old code.
+
+| Finding | Status |
+|---|---|
+| I1 "ceiling" framing contradicted by the rule arm | **Resolved.** Headline reframed around underspecification; ceiling language removed; rule arm committed and extended to B and D; presentation-matched A run (100/100) |
+| I2 HiddenBench figures unverified | **Resolved.** 30.1%/80.7% verified against arXiv:2505.11556v4; PDF not committed (licence); Stasser & Titus still UNVERIFIED |
+| L1 numbers conditional on an unstated task | **Measured.** All four conditions now run both ways |
+| L2 one puzzle in 200 arrangements | **Documented** with the (6,5,1,0) pattern in results.md |
+| L3 name counting solves A 200/200 | **Documented** in results.md and README |
+| L4 A differs in presentation | **Measured.** Matched-prompt A scored 100/100 |
+| L5 surfacing recall ~0.86 | **Documented** with precision, recall and the verbatim-wording confound |
+| L6 degenerate intervals | **Fixed.** Clopper-Pearson |
+| L7 reproduction promises too much | **Documented.** README states tasks regenerate, answers do not; `uv.lock` added |
+| L8 position effect | **Promoted** to its own section; disappears when the task is stated |
+| L9 aggregator asymmetry | **Documented**, not measured |
+| L10 D parse failures are empty responses | **Documented** as probable truncation, unconfirmed |
+| L11 D aggregator used the instructed prompt | **Fixed** and D rerun |
+| D1 parser returned wrong options | **Fixed**, 18 adversarial cases as tests |
+| D2 positional pairing | **Fixed**, aligns by task id and refuses mismatches |
+| D3 provenance at end of run | **Fixed**, captured at start and end |
+| Cosmetic: "82 tests" | **Fixed**, README no longer quotes a count |
+
 ## Could not check
 
 - **HiddenBench and Stasser & Titus figures and citation details.** No source in

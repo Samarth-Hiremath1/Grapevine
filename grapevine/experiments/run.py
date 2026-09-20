@@ -3,7 +3,8 @@
 Runs the same procedurally generated hidden-profile tasks through four
 conditions and writes everything needed to reproduce the numbers:
 
-* ``full_info`` (A) -- one agent sees every fact. The accuracy ceiling.
+* ``full_info`` (A) -- one agent sees every fact. A full-information baseline,
+  not an upper bound (see docs/results.md).
 * ``no_communication`` (B) -- N agents each see only their own private context
   and answer independently; the group answer is a majority vote.
 * ``communication`` (C) -- the same N agents, but they discuss for ``n_rounds``

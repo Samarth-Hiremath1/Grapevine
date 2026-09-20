@@ -8,7 +8,7 @@ Reproduce the HiddenBench-style gap on Grapevine's generated tasks.
 
 Runs ``K`` tasks through two conditions using an inexpensive API model:
 
-1. **single agent, full context** -- the upper bound (all facts in one context);
+1. **single agent, full context** (all facts in one context);
 2. **distributed team** -- the same tasks with facts split across agents.
 
 Results (accuracy per condition, gap-closure, surfacing rate, cost, seed) are
@@ -129,14 +129,14 @@ seed={args.seed}.
 
 | Condition | Accuracy | Surfacing rate | Cost (USD) |
 | --- | ---: | ---: | ---: |
-| Single agent (full context) — upper bound | {pct(metrics.single_agent_accuracy)} | n/a | ${metrics.single_cost_usd:.4f} |
+| Single agent (full context) | {pct(metrics.single_agent_accuracy)} | n/a | ${metrics.single_cost_usd:.4f} |
 | Distributed team ({args.agents} agents, {args.rounds} rounds) | {pct(metrics.team_accuracy)} | {pct(metrics.surfacing_rate)} | ${metrics.team_cost_usd:.4f} |
 
 - **Chance accuracy**: {pct(metrics.chance_accuracy)}
-- **Gap-closure** (distributed vs. single-agent ceiling, chance-relative): {pct(metrics.gap_closure)}
+- **Gap-closure** (distributed vs. single-agent baseline, chance-relative): {pct(metrics.gap_closure)}
 - **Total cost**: ${metrics.team_cost_usd + metrics.single_cost_usd:.4f}
 
-The distributed team is expected to trail the single-agent upper bound: the
+The distributed team is expected to trail the single-agent baseline: the
 private-fact surfacing rate above shows how much of the required information the
 team actually pooled. Transcripts for inspection: `transcripts.jsonl`
 (`grapevine view experiments/baseline/transcripts.jsonl`).

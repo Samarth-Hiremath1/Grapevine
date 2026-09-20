@@ -260,7 +260,10 @@ def make_two_panel_figure(
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", alpha=0.25)
     axes[0].set_ylabel("Accuracy (share of episodes correct)")
-    axes[0].text(-0.45, 0.265, "chance 25%", ha="left", fontsize=8, color="#4a5568")
+    axes[0].text(
+        -0.44, 0.30, "chance 25%", ha="left", va="bottom", fontsize=8.5,
+        color="#1a202c", bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.5},
+    )
     fig.suptitle(
         "Hidden-profile tasks, gpt-5.6-luna: accuracy with and without the task stated",
         fontsize=11,

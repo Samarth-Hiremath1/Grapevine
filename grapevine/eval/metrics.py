@@ -3,10 +3,10 @@
 The headline comparison is between two conditions run on the same tasks:
 
 * the **distributed team** (information split across agents), and
-* a **single agent with the full context** (the accuracy ceiling).
+* a **single agent with the full context** (a full-information baseline).
 
 From these we report team accuracy, single-agent accuracy, the gap-closure
-percentage (how far the team climbs from chance toward the ceiling), and the
+percentage (how far the team climbs from chance toward that baseline), and the
 mean private-fact surfacing rate that explains *why* the team lands where it
 does.
 """
@@ -28,9 +28,12 @@ class EvalMetrics:
         n_tasks: Number of team episodes aggregated.
         team_accuracy: Fraction of team episodes with the correct answer.
         single_agent_accuracy: Fraction of single-agent full-context episodes
-            correct (the upper bound); ``None`` if not provided.
+            correct (the full-information baseline); ``None`` if not provided.
         chance_accuracy: Mean ``1 / n_options`` over the team episodes.
-        gap_closure: Fraction of the chance-to-ceiling gap the team closes,
+        gap_closure: Fraction of the chance-to-baseline gap the team closes.
+            This treats the single-agent condition as a ceiling, which the
+            measured results do not support (docs/results.md); prefer the
+            per-condition accuracies. Kept for the ``grapevine metrics`` CLI,
             ``(team - chance) / (single - chance)``; ``None`` when it cannot be
             computed (no single-agent condition, or a degenerate denominator).
         surfacing_rate: Mean private-fact surfacing rate over team episodes.
@@ -117,7 +120,7 @@ def metrics_markdown(metrics: EvalMetrics, title: str = "Evaluation") -> str:
         "| Metric | Value |",
         "| --- | ---: |",
         f"| Distributed-team accuracy | {pct(metrics.team_accuracy)} |",
-        f"| Single-agent full-context accuracy (ceiling) | {pct(metrics.single_agent_accuracy)} |",
+        f"| Single-agent full-context accuracy | {pct(metrics.single_agent_accuracy)} |",
         f"| Chance accuracy | {pct(metrics.chance_accuracy)} |",
         f"| Gap-closure | {pct(metrics.gap_closure)} |",
         f"| Private-fact surfacing rate | {pct(metrics.surfacing_rate)} |",

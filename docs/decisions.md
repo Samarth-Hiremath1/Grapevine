@@ -203,3 +203,61 @@ is not a presentation artefact and can be stated carefully. If it rises to
 around 100%, the gap was presentation, and the statement becomes "with the task
 stated, every communicating condition matches full information". Both A variants
 are reported, and the text says which one each comparison uses.
+
+## Phase 2: what the audit changed
+
+*2026-09-18/19.* Fixes made after the audit (`docs/audit.md`), each with a
+regression test that fails on the old code:
+
+- **Aggregator ignored `prompt_style`** (L11). The aggregation and vote branches
+  always sent the instructed system prompt, so condition D's decision step was
+  not neutral. Fixed; D was rerun from scratch and only the rerun is reported
+  (106/200 to 111/200, a change of +2.5 points [-5.5, +11.0], so the confound was
+  not driving the old number).
+- **Parser guessed instead of failing** (D1). Substring matching in both
+  directions mapped an empty or one-letter answer to the first option, and free
+  text took the last-mentioned option; 7 of 18 adversarial cases returned a wrong
+  option. Now an option is returned only when exactly one is identified.
+  Re-parsing all 2,120 committed answers and votes changes nothing, so no
+  reported number moved.
+- **Paired differences could misalign** (D2). Positional zipping after dropping
+  failed episodes is replaced by alignment on task id; mismatched task sets are
+  refused and the run exits with an error.
+- **Provenance was captured at the end of a run** (D3). Now taken before the
+  first API call and again at the end, with both in the manifest.
+- **Bootstrap intervals collapsed at the extremes** (L6). Per-condition rates now
+  use exact Clopper-Pearson intervals; 1/200 reads [0.02%, 2.75%] rather than
+  [0, 1.5%]. Differences keep the paired bootstrap.
+- **No pinned environment** (R3). Added `uv.lock`.
+
+Two conditions were added so every arm is measured both ways: B and D with the
+task stated, and a presentation-matched A (registered separately above).
+
+## Reframing after the rule arm
+
+*2026-09-19.* The headline changed from "full surfacing did not close the gap" to
+underspecification. With the task and scoring rule stated, C reached 100/100 and
+D 99/100, and requests for the decision rule fell from 174/200 to 2/100 in C. The
+"single-agent ceiling" language is removed everywhere: A is a full-information
+baseline, not an upper bound, since matched-prompt A and C both reach 100/100 and
+a name-counting heuristic solves A's contexts 200/200.
+
+B is the result that survived unchanged (0/100 with and without the rule) and now
+leads the write-up.
+
+## HiddenBench figures verified; PDF not committed
+
+*2026-09-19.* The 30.1% and 80.7% figures were checked against arXiv:2505.11556v4
+(SHA-256 `f8aa0dc11b590f398c58b9ab396c05c18f12c8d1fe6a842d6b6c78bb1ebc3842`) and
+match its abstract. The PDF is **not** added to the repository: its arXiv licence
+(nonexclusive-distrib/1.0) does not grant redistribution rights. It is cited by
+arXiv version and checksum instead.
+
+Their prompts were checked too (Appendix A.4): HiddenBench states the objective
+and payoff to its models, so our underspecification finding is about our setup
+and is not evidence about their numbers. Their correctness rests on elimination
+logic and their headline metric is per-agent selection rate, so their figures are
+not directly comparable to ours. `docs/results.md` says so explicitly.
+
+The Stasser & Titus (1985) citation details remain **UNVERIFIED**: no copy of
+that paper was consulted.
