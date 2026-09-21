@@ -192,6 +192,18 @@ def markdown(r: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _rounded(obj: Any) -> Any:
+    """Round floats to 10 places so last-bit libm differences between
+    platforms do not show up as changes to the committed JSON."""
+    if isinstance(obj, float):
+        return round(obj, 10)
+    if isinstance(obj, dict):
+        return {k: _rounded(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [_rounded(v) for v in obj]
+    return obj
+
+
 def main(argv: list[str] | None = None) -> int:
     """Rebuild the tables JSON and the main figure."""
     parser = argparse.ArgumentParser(prog="python -m grapevine.experiments.report_tables")
@@ -202,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     out = root / args.out_dir
     out.mkdir(parents=True, exist_ok=True)
 
-    r = build(root)
+    r = _rounded(build(root))
     (out / "results_tables.json").write_text(json.dumps(r, indent=2) + "\n", encoding="utf-8")
 
     panels = [

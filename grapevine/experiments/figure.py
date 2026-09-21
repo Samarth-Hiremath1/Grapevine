@@ -29,6 +29,16 @@ from grapevine.experiments.analysis import clopper_pearson
 matplotlib.use("Agg")  # headless: no display needed
 import matplotlib.pyplot as plt  # noqa: E402
 
+# Deterministic output: fixed SVG element ids and no date or version metadata,
+# so regenerating the figure from the same data gives the same bytes.
+plt.rcParams["svg.hashsalt"] = "grapevine"
+
+
+def _save(fig: Any, png: Path, svg: Path) -> None:
+    fig.savefig(png, dpi=200, metadata={"Software": None})
+    fig.savefig(svg, metadata={"Date": None, "Creator": None})
+
+
 #: Display names, in the order they appear on the x-axis.
 CONDITION_LABELS = {
     "full_info": "A. Full information\n(1 agent, all facts)",
@@ -199,8 +209,7 @@ def make_figure(
 
     png = out / "accuracy_by_condition.png"
     svg = out / "accuracy_by_condition.svg"
-    fig.savefig(png, dpi=200)
-    fig.savefig(svg)
+    _save(fig, png, svg)
     plt.close(fig)
     return png, svg, csv_path
 
@@ -279,8 +288,7 @@ def make_two_panel_figure(
              color="#2d3748")
     fig.tight_layout(rect=(0, 0.08, 1, 0.95))
     png, svg = out_dir / f"{stem}.png", out_dir / f"{stem}.svg"
-    fig.savefig(png, dpi=200)
-    fig.savefig(svg)
+    _save(fig, png, svg)
     plt.close(fig)
     return png, svg, csv_path
 
