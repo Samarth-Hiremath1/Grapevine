@@ -150,7 +150,7 @@ uv run grapevine view runs/20260913T013826Z_rule_arm/episodes_communication_rule
 
 ```bash
 uv run pytest -q
-uv run ruff check grapevine tests experiments
+uv run ruff check grapevine tests
 uv run mypy
 ```
 

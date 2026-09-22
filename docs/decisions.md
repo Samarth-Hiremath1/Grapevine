@@ -261,3 +261,17 @@ not directly comparable to ours. `docs/results.md` says so explicitly.
 
 The Stasser & Titus (1985) citation details remain **UNVERIFIED**: no copy of
 that paper was consulted.
+
+## `experiments/baseline/` removed
+
+*2026-09-22, before merging the audit branch.* Deleted the early two-condition
+baseline script and its `results.md`. It was superseded by the four-condition
+ablation in `grapevine/experiments/run.py`, was never run against a live API, and
+recorded no numbers. A "superseded" header on a file called `results.md` is still
+an invitation to mistake it for current results, which is the only reason to
+delete rather than keep it.
+
+The last commit containing it is `4cde7e8`; recover it with
+`git show 4cde7e8:experiments/baseline/run_baseline.py`. Nothing outside the
+directory referenced it, and no reported number came from it. The ruff invocation
+in CI and in `README.md` no longer names the now-absent `experiments` path.
