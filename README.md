@@ -6,7 +6,7 @@ what breaks?
 **Finding (one model, one generated task family):** splitting the facts across
 three agents who cannot talk dropped accuracy from 85.5% to 0.5%, and it stayed
 at 0% even when the task was stated. Letting them talk recovered most of the
-loss. The gap that remained, which we first reported as a coordination failure,
+loss. The gap that remained, which I first reported as a coordination failure,
 was underspecification: no prompt told the models what they were being scored
 on. With the task and scoring rule stated, the communicating teams scored
 100/100 and 99/100, the same as a single agent given every fact.
@@ -28,11 +28,11 @@ members, groups choose the wrong one. Grapevine makes no novelty claim for that.
 What it adds is a small, fully logged case study of how an evaluation of this
 effect can mislead, together with the audit that caught it.
 
-**The underspecification finding is about our own task construction, not a
+**The underspecification finding is about my own task construction, not a
 criticism of HiddenBench: HiddenBench states the objective and the payoff to its
-models in the system prompt, and we did not.** Their correctness also rests on
-elimination logic, ours on a counting convention we never stated, and their
-headline metric is the share of individual agents choosing correctly while ours
+models in the system prompt, and I did not.** Their correctness also rests on
+elimination logic, mine on a counting convention I never stated, and their
+headline metric is the share of individual agents choosing correctly while mine
 is a single group answer. So their 30.1% and 80.7% are not directly comparable to
 any number here. `docs/results.md` sets out the comparison in full.
 
@@ -58,7 +58,7 @@ those 100. Intervals, paired differences and the full account are in
 - **The sharing instruction mattered because the task was underspecified.**
   C over D was +11.5 points [+3.0, +20.0] without the task and +1.0 [0.0, +3.0]
   with it.
-- **We first read the C-versus-A gap as an integration failure.** Agents shared
+- **I first read the C-versus-A gap as an integration failure.** Agents shared
   every required fact in 200 of 200 episodes and still trailed A by 18.5 points.
   Transcripts showed agents asking what decision they were supposed to make (174
   of 200 C episodes). Stating the task took C from 68/100 to 100/100 on the same
@@ -69,7 +69,7 @@ those 100. Intervals, paired differences and the full account are in
 
 ## How it was checked
 
-The docs that matter most here are the ones about our own errors:
+The docs that matter most here are the ones about my own errors:
 
 - `docs/assumptions.md` — every assumption the result rests on, written before
   any of them were tested.

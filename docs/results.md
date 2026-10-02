@@ -24,11 +24,11 @@ discussion (C) scored 134/200 (67.0%) and neutral discussion (D) 111/200 (55.5%)
 against 1/200 for B. With the task stated, both reached the full-information
 condition: C 100/100, D 99/100, and A with a matched prompt 100/100.
 
-## What we got wrong, and how we found it
+## What I got wrong, and how I found it
 
 The first write-up of this experiment reported that the communicating team
 surfaced every required fact in 200 of 200 episodes and still finished 18.5
-points below the single agent with all the facts. We read that as a failure to
+points below the single agent with all the facts. I read that as a failure to
 integrate pooled evidence. It was not. It was underspecification.
 
 No prompt in the original four conditions contained the task's question, and
@@ -61,7 +61,7 @@ Devon was the decoy. The same task with the question and rule stated:
 >
 > **r3 agent0 (aggregator):** `{"answer":"Finley"}`
 
-We then ran a registered follow-up (the "rule arm") that prepends the question
+I then ran a registered follow-up (the "rule arm") that prepends the question
 and the scoring rule to every prompt and changes nothing else. On the same 100
 tasks, C went from 68/100 to 100/100, and requests for criteria fell from 174 of
 200 episodes to 2 of 100.
@@ -72,14 +72,14 @@ coordination failure that disappears when the objective is stated. Surfacing
 metrics will not catch it, because the facts are being shared; the agents just
 do not know what to do with them.
 
-Both errors were found the same way, by an adversarial audit of our own
+Both errors turned up the same way, in an adversarial audit of my own
 pipeline. The assumption ledger (`docs/assumptions.md`) was written and committed
 *before* any of its checks ran, so the list was not shaped by what turned out to
 be convenient to verify; the findings are in `docs/audit.md`.
 
 A second error followed from the first. With the task stated, C (100/100) and D
 (99/100) scored above A (96/100), which read as distributed teams beating a
-single agent with every fact. An audit of our own pipeline found A's prompt
+single agent with every fact. An audit of my own pipeline found A's prompt
 differed from B-D in presentation as well as information: a flat list with no
 shared/private headers, a different system prompt, and a template line reading
 "Full team discussion: (you have all information; no discussion needed)". A
@@ -177,8 +177,8 @@ not reported separately.
 
 ## Relation to HiddenBench
 
-**This is a finding about our own task construction, not a criticism of
-HiddenBench. HiddenBench states the objective to its models; we did not.**
+**This is a finding about my own task construction, not a criticism of
+HiddenBench. HiddenBench states the objective to its models; I did not.**
 
 HiddenBench (Li, Naito and Shirado, arXiv:2505.11556v4, ICML 2026) reports
 **30.1%** accuracy for multi-agent LLM groups under distributed information
@@ -187,18 +187,18 @@ against the paper's abstract (PDF SHA-256
 `f8aa0dc11b590f398c58b9ab396c05c18f12c8d1fe6a842d6b6c78bb1ebc3842`). The PDF is
 not in this repository; its arXiv licence does not permit redistribution.
 
-Three differences mean our numbers cannot be read against theirs:
+Three differences mean my numbers cannot be read against theirs:
 
-1. **They tell the models the task; we did not.** Their discussion system prompt
+1. **They tell the models the task; I did not.** Their discussion system prompt
    begins with the task description (Appendix A.4). The published example states
    what must be decided, lists the options, says "There is only one correct
-   evacuation location", and gives the payoff for choosing it. Our prompts
-   contained no question and no scoring rule. The failure we first reported was
+   evacuation location", and gives the payoff for choosing it. My prompts
+   contained no question and no scoring rule. The failure I first reported was
    produced by that omission, which is ours alone.
 2. **Correctness is established differently.** HiddenBench tasks are built so
    that the answer follows by elimination: "every other option should clash with
    at least one fact". Ours rest on a counting convention - most supporting facts
-   wins - that we never stated to the models and that cannot be derived from the
+   wins - that I never stated to the models and that cannot be derived from the
    facts themselves.
 3. **The metric is different.** HiddenBench's default accuracy is the proportion
    of individual agents choosing the correct option after discussion. Every
@@ -209,14 +209,14 @@ Three differences mean our numbers cannot be read against theirs:
 Two further differences worth knowing: HiddenBench agents "are not informed
 whether their information differs from that of others", whereas ours are told
 "Each teammate holds different private information, and no one can answer alone";
-and HiddenBench spans 65 tasks and 15 models against our one template and one
+and HiddenBench spans 65 tasks and 15 models against my one template and one
 model.
 
 What the two share is the qualitative observation that splitting information
 across agents hurts, and that failures concentrate on the option the shared
 evidence favours.
 
-### The lesson we take from this
+### The lesson I take from this
 
 An evaluation can withhold its objective without its authors noticing, and the
 resulting gap can look exactly like a coordination failure: the agents share
