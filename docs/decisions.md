@@ -275,3 +275,61 @@ The last commit containing it is `4cde7e8`; recover it with
 `git show 4cde7e8:experiments/baseline/run_baseline.py`. Nothing outside the
 directory referenced it, and no reported number came from it. The ruff invocation
 in CI and in `README.md` no longer names the now-absent `experiments` path.
+
+## Skip the `verifiers` adapter in v0.2
+
+*2026-11-15, during v0.2 planning.* The plan was to expose `hidden_profile_v2`
+through `verifiers` as a taskset plus a multi-agent `Env`, but only if that
+turned out to be a small, clean wrapper. It does not.
+
+The v1 API documented at `docs.primeintellect.ai` is a good fit on paper: an
+`Env` subclass with `async def run(self, task, agents)`, one `vf.AgentConfig`
+per role so each agent can have its own model, and `agents.<role>.trainable =
+False` to freeze a helper role. That is close to what Grapevine's conditions
+need.
+
+The problem is availability. The latest release of `verifiers` on PyPI is
+0.4.1, which is a different library generation from the one the docs describe.
+The documented install is `git clone PrimeIntellect-ai/verifiers && uv sync`;
+the local commands (`vf-run`, `vf-validate`) run from inside that clone; full
+evaluations go through `prime-rl`; and Harbor tasksets require Python 3.12+
+while this project supports 3.11+. The minimal taskset package layout is not
+specified on the pages that describe building one.
+
+Taking that on means a dependency `uv.lock` cannot pin, a second CLI toolchain
+in CI, and a Python floor raised for a feature nobody has asked for yet. It
+also cuts against the rule that external APIs are pinned to a version actually
+read: a git `main` is not a version.
+
+Decision: no adapter in v0.2. It goes in the README roadmap as "`verifiers` v1
+multi-agent adapter (per-role `AgentConfig`, non-trainable helper roles)",
+without a date, and is revisited when v1 is released to PyPI. TRL GRPO remains
+the only training integration, which is enough for what Step 5 claims.
+
+## PyPI distribution name `grapevine-mas`
+
+*2026-11-15.* The import name `grapevine` is what the code, the docs and the
+committed runs already use, and changing it would break every path in the
+repository for no gain. But `grapevine` on PyPI is taken by an unrelated
+project, so the distribution name has to differ.
+
+`grapevine-mas` (multi-agent systems) was checked against the PyPI JSON API on
+2026-11-15: both `grapevine-mas` and `grapevine_mas` return HTTP 404, so the
+name is free under PyPI's normalisation. `pip install grapevine-mas` then
+`import grapevine` is a common and well-understood split.
+
+Nothing is published in v0.2. The release workflow is prepared and left
+untriggered.
+
+## Pre-register the eval run; decide on spending later
+
+*2026-11-15.* The planned eval run wanted three inexpensive current models from
+different providers. Only `OPENAI_API_KEY` is set in this environment, so that
+design cannot be executed as written.
+
+Rather than quietly narrowing it to one provider now, or dropping it, the
+pre-registration and the analysis script are written during Steps 2-5 — both
+cost nothing and neither commits to a run. Whether the run happens, on which
+models, and under what budget is decided once `hidden_profile_v2` exists and
+there is something worth measuring. Until a run is committed, every document
+says `not run`.
