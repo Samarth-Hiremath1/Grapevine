@@ -1,4 +1,13 @@
-"""Reward-hacking diagnostics.
+"""Reward-hacking diagnostics. **Deprecated: use** ``grapevine audit``.
+
+This module is the v0 tool, kept working for one release because the committed
+study references it and it operates on the pre-protocol :class:`Env` interface.
+Its policies are reimplemented against :mod:`grapevine.protocol` in
+:mod:`grapevine.audit.solvers`, and its verdict is the ``reward_hacking`` check
+in the full battery -- which also sees the leak, shortcut and scorer failures a
+reward check on its own cannot. Removed in 0.3.0; the duplication is deliberate
+and temporary.
+
 
 A verifiable reward is only useful if it *cannot* be earned without the behaviour
 it is meant to incentivise -- here, genuine pooling of privately held

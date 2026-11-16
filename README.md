@@ -1,5 +1,26 @@
 # Grapevine
 
+Grapevine checks whether a multi-agent eval or RL environment measures
+coordination or something else, and gives you environments and GRPO wiring that
+pass that check.
+
+```bash
+grapevine audit hidden_profile
+```
+
+Offline, no API key, under a second on 200 tasks. On the environment behind this
+repository's own first result, it reports three failures — a content-blind
+shortcut that solves 200 of 200 tasks, an objective that never reached the
+models, and a single agent able to answer alone. The committed card is
+[`studies/underspecification/validity_card.md`](studies/underspecification/validity_card.md);
+how the battery works and how it is calibrated is in
+[`docs/audit-battery.md`](docs/audit-battery.md).
+
+The tool exists because that first result was wrong, and the rest of this README
+is that story.
+
+---
+
 **Question:** when the facts needed for a decision are split across LLM agents,
 what breaks?
 
@@ -162,7 +183,9 @@ training loop.
 ## Repository layout
 
 ```
-grapevine/envs/         task families behind a common Env interface
+grapevine/protocol.py   the environment protocol you implement
+grapevine/audit/        the validity battery and the Validity Card
+grapevine/envs/         bundled environments, the registry, protocol adapters
 grapevine/rollout/      async multi-agent engine, prompt builders, provider client
 grapevine/rewards/      exact-match reward, fact-surfacing metric
 grapevine/experiments/  experiment runner, statistics, cross-run comparison, figures

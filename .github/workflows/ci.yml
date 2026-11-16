@@ -31,13 +31,24 @@ jobs:
       - name: Type check (mypy)
         run: .venv/bin/mypy
 
-      - name: Results regenerate byte-identically from committed runs
+      - name: Results and the Validity Card regenerate byte-identically
         run: |
           .venv/bin/python -m studies.underspecification.reproduce
-          git diff --exit-code -- studies/underspecification/figures/results_tables.json studies/underspecification/figures/accuracy_by_condition.csv
+          git diff --exit-code -- \
+            studies/underspecification/figures/results_tables.json \
+            studies/underspecification/figures/accuracy_by_condition.csv \
+            studies/underspecification/validity_card.json \
+            studies/underspecification/validity_card.md
 
       - name: Study prompts still match the committed runs
         run: .venv/bin/python -m studies.underspecification.freeze_prompts --check
+
+      - name: Quickstart works with no API key
+        run: |
+          .venv/bin/grapevine envs
+          # Exits 2 because hidden_profile genuinely fails its audit; that is the
+          # finding the quickstart is meant to show, so a 0 here would be the bug.
+          .venv/bin/grapevine audit hidden_profile --n 50 > /dev/null && exit 1 || test $? -eq 2
 
       - name: Install training extra (CPU-only torch)
         run: |

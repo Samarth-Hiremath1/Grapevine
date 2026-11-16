@@ -132,14 +132,18 @@ VOTE_PROMPT = (
 )
 
 
-#: Shown only in the rule arm (``show_task=True``). States the task's question and
-#: the rule grading uses. Conditions A-D never saw either.
-TASK_STATEMENT = (
-    "Task: {question}\n"
-    "Decision rule: the strongest candidate is the one with the most supporting facts. "
+#: The scoring rule ``hidden_profile`` grades by, in the words a model can act
+#: on. Named separately from the prompt so the environment can report it as part
+#: of its objective and the audit can check it reaches the prompts verbatim.
+SCORING_RULE = (
+    "the strongest candidate is the one with the most supporting facts. "
     "Each fact describing a candidate's strengths counts as one supporting fact for "
     "that candidate."
 )
+
+#: Shown only in the rule arm (``show_task=True``). States the task's question and
+#: the rule grading uses. Conditions A-D never saw either.
+TASK_STATEMENT = "Task: {question}\nDecision rule: " + SCORING_RULE
 
 
 def _with_task(context: str, task: Task, show_task: bool) -> str:

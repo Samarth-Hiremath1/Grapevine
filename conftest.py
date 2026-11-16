@@ -12,6 +12,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_ROOT = str(Path(__file__).resolve().parent)
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
+_ROOT = Path(__file__).resolve().parent
+for _path in (_ROOT, _ROOT / "tests"):
+    # tests/ as well as the root, so `from fixtures.flawed_envs import ...` works
+    # from any test module regardless of which one pytest collects first.
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))

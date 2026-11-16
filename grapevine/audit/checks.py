@@ -1,0 +1,1188 @@
+"""The audit battery: one function per check, each returning a :class:`CheckResult`.
+
+Every check here exists because of a specific mistake, and most of them because
+of a mistake in this repository. The ``audit_findings`` field on each result
+names the finding in ``docs/audit.md`` it would have caught, so the battery
+cannot drift into checking things nobody has ever got wrong.
+
+Checks are model-free and deterministic. They run over a batch of generated
+tasks and interrogate the task construction, the prompts and the scorer -- never
+a policy's behaviour. That is the point: a validity problem should be findable
+before any tokens are spent.
+"""
+
+from __future__ import annotations
+
+import difflib
+import random
+import re
+import statistics
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+from grapevine.audit.card import CheckResult, Status
+from grapevine.audit.solvers import (
+    DEGENERATE_POLICIES,
+    SHORTCUT_SOLVERS,
+    genuine_pooling,
+    mention_count,
+    reference,
+    uniquely_determined,
+    units_without,
+)
+from grapevine.protocol import (
+    AgentView,
+    Condition,
+    DistributedTask,
+    Environment,
+    binomial_tail_p,
+    support_total,
+)
+
+__all__ = ["CHECKS", "CheckContext", "run_checks"]
+
+#: Upper-tail chi-square critical values at alpha = 0.05, by degrees of freedom.
+#: A small table rather than a dependency on scipy; the v0 audit used the same
+#: method and the same df=3 value of 7.81 (``docs/audit.md`` G3).
+_CHI2_CRITICAL_05 = {
+    1: 3.84, 2: 5.99, 3: 7.81, 4: 9.49, 5: 11.07, 6: 12.59, 7: 14.07,
+    8: 15.51, 9: 16.92, 10: 18.31, 11: 19.68, 12: 21.03, 13: 22.36,
+    14: 23.68, 15: 25.00, 16: 26.30, 17: 27.59, 18: 28.87, 19: 30.14,
+    20: 31.41,
+}
+
+
+@dataclass(frozen=True)
+class CheckContext:
+    """Everything a check is given.
+
+    Attributes:
+        env: The environment under audit.
+        tasks: The generated batch, all from the same environment.
+        seed: Base seed the batch came from.
+        alpha: Significance level for "beats chance" and "indistinguishable
+            from pooling" tests.
+        rng_seed: Seed for solvers that break ties at random, so a run is
+            reproducible.
+    """
+
+    env: Environment
+    tasks: tuple[DistributedTask, ...]
+    seed: int
+    alpha: float = 0.05
+    rng_seed: int = 0
+
+    def rng(self) -> random.Random:
+        """A fresh RNG, identical for every check, so results are comparable."""
+        return random.Random(self.rng_seed * 7919 + 1)
+
+    @property
+    def n(self) -> int:
+        """Number of tasks in the batch."""
+        return len(self.tasks)
+
+    @property
+    def chance(self) -> float:
+        """Mean chance accuracy across the batch."""
+        return statistics.fmean(t.chance for t in self.tasks)
+
+
+Check = Callable[[CheckContext], CheckResult]
+
+#: Registered checks, in the order they appear on a card.
+CHECKS: list[Check] = []
+
+
+def _check(fn: Check) -> Check:
+    """Register a check."""
+    CHECKS.append(fn)
+    return fn
+
+
+def _beats_chance(n_correct: int, n: int, chance: float, alpha: float) -> tuple[float, bool]:
+    """Exact one-sided test that an accuracy exceeds chance.
+
+    Returns ``(p_value, beats)``.
+    """
+    p = binomial_tail_p(n_correct, n, chance)
+    return p, p < alpha
+
+
+def _accuracy_row(name: str, n_correct: int, n: int, chance: float, alpha: float) -> dict[str, Any]:
+    """One solver's or policy's line of results."""
+    p, beats = _beats_chance(n_correct, n, chance, alpha)
+    return {
+        "name": name,
+        "n_correct": n_correct,
+        "n": n,
+        "accuracy": n_correct / n if n else 0.0,
+        "chance": chance,
+        "p_value_vs_chance": p,
+        "beats_chance": beats,
+    }
+
+
+# --- 1. Leak -----------------------------------------------------------------
+
+
+def _private_named_option(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:
+    """Name the option that this agent's *private* units are about.
+
+    A deliberately naive reader: it ignores the shared block entirely and picks
+    whichever option its own secret facts mention most. On a hidden-profile task
+    every private fact supports the correct option by construction, so this
+    shortcut can be perfect even when applying the task's own scoring rule to
+    the same view gives the wrong answer.
+    """
+    text = "\n".join(u.text for u in view.private).lower()
+    scores = {option: float(text.count(option.lower())) for option in answer_space}
+    best = max(scores.values())
+    leaders = [o for o in answer_space if scores[o] == best]
+    return rng.choice(leaders) if len(leaders) > 1 else leaders[0]
+
+
+@_check
+def check_leak(ctx: CheckContext) -> CheckResult:
+    """The gold answer, or a statistic sufficient for it, sits in one agent's view."""
+    only_gold_named = 0
+    single_unit_decides = 0
+    gold_verbatim = 0
+    examples: list[dict[str, Any]] = []
+
+    for task in ctx.tasks:
+        leaked_here = False
+        for view in task.views:
+            named = {o for o in task.answer_space if o.lower() in view.render().lower()}
+            if named == {task.gold_answer}:
+                only_gold_named += 1
+                leaked_here = True
+                break
+        # One unit whose support outweighs every option's total support: whoever
+        # holds it can decide the task alone.
+        totals = support_total(task.all_units(), task.answer_space)
+        for unit in task.all_units():
+            if unit.supports != task.gold_answer:
+                continue
+            rivals = max((v for o, v in totals.items() if o != task.gold_answer), default=0.0)
+            if unit.weight > rivals:
+                single_unit_decides += 1
+                leaked_here = True
+                break
+        if any(task.gold_answer in u.text for v in task.views for u in v.private):
+            gold_verbatim += 1
+        if leaked_here and len(examples) < 3:
+            examples.append({"task_id": task.task_id, "gold": task.gold_answer})
+
+    n = ctx.n
+    p_only, beats_only = _beats_chance(only_gold_named, n, ctx.chance, ctx.alpha)
+    p_unit, beats_unit = _beats_chance(single_unit_decides, n, ctx.chance, ctx.alpha)
+
+    detail = {
+        "only_gold_named_in_a_view": _accuracy_row(
+            "only_gold_named_in_a_view", only_gold_named, n, ctx.chance, ctx.alpha
+        ),
+        "one_unit_outweighs_all_rivals": _accuracy_row(
+            "one_unit_outweighs_all_rivals", single_unit_decides, n, ctx.chance, ctx.alpha
+        ),
+        "gold_string_appears_in_some_private_unit": {
+            "n": gold_verbatim,
+            "rate": gold_verbatim / n if n else 0.0,
+            "note": (
+                "Informational. A unit mentioning the gold option is normal -- it is "
+                "evidence. It is only a leak when it settles the answer, which the two "
+                "probes above test."
+            ),
+        },
+        "examples": examples,
+    }
+
+    if beats_only or beats_unit:
+        parts = []
+        if beats_only:
+            parts.append(
+                f"in {only_gold_named}/{n} tasks some agent's view names the gold option "
+                f"and no other (p={p_only:.2g})"
+            )
+        if beats_unit:
+            parts.append(
+                f"in {single_unit_decides}/{n} tasks a single unit outweighs every rival "
+                f"option's total support, so whoever holds it decides alone (p={p_unit:.2g})"
+            )
+        return CheckResult(
+            "leak",
+            "Answer leak into a single view",
+            Status.FAIL,
+            "The answer is available without pooling: " + "; and ".join(parts) + ".",
+            detail,
+            ("P4", "G6"),
+        )
+    return CheckResult(
+        "leak",
+        "Answer leak into a single view",
+        Status.PASS,
+        f"No view names the gold option alone and no single unit settles the task "
+        f"({only_gold_named}/{n} and {single_unit_decides}/{n}, both at or below chance).",
+        detail,
+        ("P4", "G6"),
+    )
+
+
+# --- 2. Solo solvability -----------------------------------------------------
+
+
+@_check
+def check_solo_solvability(ctx: CheckContext) -> CheckResult:
+    """No solver on one agent's view may beat chance."""
+    rng = ctx.rng()
+    probes = {
+        "scoring_rule_on_own_view": reference,
+        "mention_count_on_own_view": mention_count,
+        "named_in_my_private_units": _private_named_option,
+    }
+    rows: list[dict[str, Any]] = []
+    for name, solver in probes.items():
+        for agent_id in range(max(t.n_agents for t in ctx.tasks)):
+            correct = 0
+            applicable = 0
+            for task in ctx.tasks:
+                if agent_id >= task.n_agents:
+                    continue
+                applicable += 1
+                if solver(task.views[agent_id], task.answer_space, rng) == task.gold_answer:
+                    correct += 1
+            if applicable:
+                row = _accuracy_row(
+                    f"{name}[agent {agent_id}]", correct, applicable, ctx.chance, ctx.alpha
+                )
+                row["probe"] = name
+                row["agent_id"] = agent_id
+                rows.append(row)
+
+    beating = [r for r in rows if r["beats_chance"]]
+    detail = {"probes": rows, "chance": ctx.chance}
+    if beating:
+        worst = max(beating, key=lambda r: r["accuracy"])
+        return CheckResult(
+            "solo_solvability",
+            "Solvability from one agent's view",
+            Status.FAIL,
+            f"A single agent can beat chance alone: `{worst['name']}` scores "
+            f"{worst['n_correct']}/{worst['n']} ({worst['accuracy']:.1%}) against "
+            f"{ctx.chance:.1%} chance (p={worst['p_value_vs_chance']:.2g}). "
+            f"{len(beating)} of {len(rows)} probes beat chance. Information that one "
+            "agent can act on alone is not distributed information.",
+            detail,
+            ("G6", "P4"),
+        )
+    best = max(rows, key=lambda r: r["accuracy"]) if rows else None
+    return CheckResult(
+        "solo_solvability",
+        "Solvability from one agent's view",
+        Status.PASS,
+        f"No single-view solver beats {ctx.chance:.1%} chance; the best is "
+        f"{best['accuracy']:.1%} (`{best['name']}`)." if best else "No probes ran.",
+        detail,
+        ("G6", "P4"),
+    )
+
+
+# --- 3. Full-information solvability ----------------------------------------
+
+
+@_check
+def check_full_solvability(ctx: CheckContext) -> CheckResult:
+    """With every unit pooled, the scoring rule must reach the gold answer every time."""
+    correct = 0
+    ties = 0
+    failures: list[dict[str, Any]] = []
+    for task in ctx.tasks:
+        chosen = uniquely_determined(task.all_units(), task.answer_space)
+        if chosen == task.gold_answer:
+            correct += 1
+            continue
+        if chosen is None:
+            ties += 1
+        if len(failures) < 5:
+            failures.append(
+                {
+                    "task_id": task.task_id,
+                    "gold": task.gold_answer,
+                    "rule_chose": chosen,
+                    "reason": "top support is tied" if chosen is None else "rule picks another option",
+                    "support_totals": support_total(task.all_units(), task.answer_space),
+                }
+            )
+    n = ctx.n
+    detail = {
+        "n_correct": correct,
+        "n": n,
+        "accuracy": correct / n if n else 0.0,
+        "n_tied_at_the_top": ties,
+        "note": (
+            "A tie counts as unsolved: the task does not determine an answer, and a "
+            "solver that guessed its way to gold would be measuring the audit's RNG."
+        ),
+        "failures": failures,
+    }
+    if correct == n:
+        return CheckResult(
+            "full_solvability",
+            "Solvability with everything pooled",
+            Status.PASS,
+            f"Applying the stated scoring rule to every unit gives the gold answer in "
+            f"{correct}/{n} tasks.",
+            detail,
+            ("G5",),
+        )
+    return CheckResult(
+        "full_solvability",
+        "Solvability with everything pooled",
+        Status.FAIL,
+        f"The stated scoring rule does not reach the gold answer even with every unit "
+        f"pooled: {correct}/{n} ({correct / n:.1%}). Either the rule the environment "
+        "states is not the rule it scores by, or the task is not solvable as built. "
+        "Agents cannot be expected to find an answer the rule does not imply.",
+        detail,
+        ("G5",),
+    )
+
+
+# --- 4. Shortcuts ------------------------------------------------------------
+
+
+@_check
+def check_shortcuts(ctx: CheckContext) -> CheckResult:
+    """No content-blind shortcut on the full-information view may beat chance."""
+    rng = ctx.rng()
+    rows: list[dict[str, Any]] = []
+    for name, solver in SHORTCUT_SOLVERS.items():
+        correct = sum(
+            solver(task.full_view(), task.answer_space, rng) == task.gold_answer
+            for task in ctx.tasks
+        )
+        rows.append(_accuracy_row(name, correct, ctx.n, ctx.chance, ctx.alpha))
+
+    beating = [r for r in rows if r["beats_chance"]]
+    detail = {"shortcuts": rows, "chance": ctx.chance}
+    if beating:
+        worst = max(beating, key=lambda r: r["accuracy"])
+        return CheckResult(
+            "shortcuts",
+            "Content-blind shortcuts",
+            Status.FAIL,
+            f"`{worst['name']}` solves {worst['n_correct']}/{worst['n']} "
+            f"({worst['accuracy']:.1%}) against {ctx.chance:.1%} chance "
+            f"(p={worst['p_value_vs_chance']:.2g}) without reading what any fact says. "
+            f"{len(beating)} of {len(rows)} shortcuts beat chance, so a result here "
+            "measures whether a model applies the shortcut, not whether it reasons over "
+            "the information.",
+            detail,
+            ("L3", "I1"),
+        )
+    best = max(rows, key=lambda r: r["accuracy"])
+    return CheckResult(
+        "shortcuts",
+        "Content-blind shortcuts",
+        Status.PASS,
+        f"No content-blind shortcut beats {ctx.chance:.1%} chance; the best is "
+        f"`{best['name']}` at {best['accuracy']:.1%}.",
+        detail,
+        ("L3", "I1"),
+    )
+
+
+# --- 5. Minimality -----------------------------------------------------------
+
+
+@_check
+def check_minimality(ctx: CheckContext) -> CheckResult:
+    """Every unit the environment calls required must actually be needed."""
+    if not any(task.required_units for task in ctx.tasks):
+        return CheckResult(
+            "minimality",
+            "Minimality of the required units",
+            Status.SKIPPED,
+            "This environment declares no required units, so there is no claim to check. "
+            "Declaring them lets the audit verify that each one is load-bearing, and lets "
+            "a surfacing metric mean something.",
+            {"tasks_with_required_units": 0},
+        )
+
+    redundant: list[dict[str, Any]] = []
+    checked = 0
+    for task in ctx.tasks:
+        units = task.all_units()
+        for unit_id in task.required_units:
+            checked += 1
+            remaining = units_without(units, unit_id)
+            # Strictly determined, not argmax-with-random-tie-break: a unit whose
+            # removal leaves two options tied IS load-bearing, because the task no
+            # longer has a unique answer without it.
+            still = uniquely_determined(remaining, task.answer_space)
+            if still == task.gold_answer:
+                if len(redundant) < 10:
+                    redundant.append(
+                        {
+                            "task_id": task.task_id,
+                            "unit_id": unit_id,
+                            "answer_without_it": still,
+                        }
+                    )
+    n_redundant_tasks = len({r["task_id"] for r in redundant})
+    detail = {
+        "required_units_checked": checked,
+        "redundant_found": len(redundant),
+        "tasks_affected_in_sample": n_redundant_tasks,
+        "examples": redundant,
+    }
+    if redundant:
+        return CheckResult(
+            "minimality",
+            "Minimality of the required units",
+            Status.WARN,
+            f"{len(redundant)} of {checked} units the environment calls required are not: "
+            f"removing one still leaves the gold answer winning. A surfacing or "
+            f"information-pooling metric built on this set overstates what had to be "
+            f"shared.",
+            detail,
+            ("G5",),
+        )
+    return CheckResult(
+        "minimality",
+        "Minimality of the required units",
+        Status.PASS,
+        f"All {checked} required units are load-bearing: removing any one changes the "
+        "answer the scoring rule gives.",
+        detail,
+        ("G5",),
+    )
+
+
+# --- 6. Diversity ------------------------------------------------------------
+
+
+@_check
+def check_diversity(ctx: CheckContext) -> CheckResult:
+    """Tasks across seeds must differ in more than labels."""
+    unit_texts = [u.text for task in ctx.tasks for u in task.all_units()]
+    distinct_texts = len(set(unit_texts))
+    per_task_textsets = [frozenset(u.text for u in task.all_units()) for task in ctx.tasks]
+    distinct_textsets = len(set(per_task_textsets))
+
+    patterns = []
+    for task in ctx.tasks:
+        totals = support_total(task.all_units(), task.answer_space)
+        patterns.append(tuple(sorted(totals.values(), reverse=True)))
+    distinct_patterns = len(set(patterns))
+
+    # Strip option names out of each unit, so "Avery shipped X" and "Blair
+    # shipped X" collapse to the same template. Template reuse is what makes a
+    # batch one puzzle in N arrangements rather than N problems.
+    templates = set()
+    for task in ctx.tasks:
+        for unit in task.all_units():
+            template = unit.text
+            for option in task.answer_space:
+                template = template.replace(option, "<OPTION>")
+            templates.add(template)
+
+    n = ctx.n
+    detail = {
+        "n_tasks": n,
+        "distinct_unit_texts": distinct_texts,
+        "distinct_unit_text_sets": distinct_textsets,
+        "distinct_unit_templates": len(templates),
+        "distinct_support_patterns": distinct_patterns,
+        "support_patterns": sorted({str(p) for p in patterns})[:10],
+        "mean_units_per_task": statistics.fmean(len(t.all_units()) for t in ctx.tasks),
+    }
+
+    problems = []
+    if n > 1 and distinct_patterns == 1:
+        problems.append(
+            f"every one of the {n} tasks has the identical support pattern "
+            f"{patterns[0]}"
+        )
+    if n > 1 and distinct_textsets < max(2, n // 10):
+        problems.append(
+            f"only {distinct_textsets} distinct sets of unit text across {n} tasks"
+        )
+    if n > 1 and len(templates) <= statistics.fmean(len(t.all_units()) for t in ctx.tasks) * 1.01:
+        problems.append(
+            f"only {len(templates)} distinct unit templates, about one per unit in a "
+            "single task, so every task reuses the whole pool"
+        )
+    if problems:
+        return CheckResult(
+            "diversity",
+            "Diversity across seeds",
+            Status.WARN,
+            "The batch is one puzzle in several arrangements rather than several "
+            "problems: " + "; ".join(problems) + ". Intervals computed over these seeds "
+            "measure variation over permutations of one task, not over tasks.",
+            detail,
+            ("L2",),
+        )
+    return CheckResult(
+        "diversity",
+        "Diversity across seeds",
+        Status.PASS,
+        f"{distinct_patterns} distinct support patterns and {len(templates)} distinct unit "
+        f"templates across {n} tasks.",
+        detail,
+        ("L2",),
+    )
+
+
+# --- 7. Balance --------------------------------------------------------------
+
+
+def _chi2_uniform(counts: Sequence[int]) -> dict[str, Any]:
+    """Chi-square goodness-of-fit against a uniform distribution."""
+    total = sum(counts)
+    k = len(counts)
+    if total == 0 or k < 2:
+        return {"statistic": 0.0, "df": 0, "critical_05": None, "uniform": True}
+    expected = total / k
+    stat = sum((c - expected) ** 2 / expected for c in counts)
+    df = k - 1
+    critical = _CHI2_CRITICAL_05.get(df)
+    return {
+        "counts": list(counts),
+        "statistic": stat,
+        "df": df,
+        "critical_05": critical,
+        "uniform": critical is None or stat <= critical,
+    }
+
+
+@_check
+def check_balance(ctx: CheckContext) -> CheckResult:
+    """Gold position and per-agent information load must not be skewed."""
+    gold_positions = [list(t.answer_space).index(t.gold_answer) for t in ctx.tasks]
+    k = max(len(t.answer_space) for t in ctx.tasks)
+    position_counts = [gold_positions.count(i) for i in range(k)]
+    position = _chi2_uniform(position_counts)
+
+    n_agents = max(t.n_agents for t in ctx.tasks)
+    unit_counts: list[list[int]] = [[] for _ in range(n_agents)]
+    char_counts: list[list[int]] = [[] for _ in range(n_agents)]
+    for task in ctx.tasks:
+        for i, view in enumerate(task.views):
+            unit_counts[i].append(len(view.private))
+            char_counts[i].append(len(view.render()))
+    mean_units = [statistics.fmean(c) if c else 0.0 for c in unit_counts]
+    mean_chars = [statistics.fmean(c) if c else 0.0 for c in char_counts]
+    load_spread = (max(mean_units) - min(mean_units)) if mean_units else 0.0
+    char_spread = (max(mean_chars) - min(mean_chars)) if mean_chars else 0.0
+
+    detail = {
+        "gold_position": position,
+        "mean_private_units_per_agent": mean_units,
+        "mean_rendered_chars_per_agent": mean_chars,
+        "private_unit_spread": load_spread,
+        "rendered_char_spread": char_spread,
+    }
+
+    problems = []
+    if not position["uniform"]:
+        problems.append(
+            f"gold position is not uniform (chi2={position['statistic']:.2f} > "
+            f"{position['critical_05']} at df={position['df']}), counts {position_counts}"
+        )
+    if load_spread >= 1.0:
+        problems.append(
+            f"agents hold unequal numbers of private units (means {[round(m, 2) for m in mean_units]}), "
+            f"a spread of {load_spread:.2f}, so one agent is systematically better informed"
+        )
+    if problems:
+        return CheckResult(
+            "balance",
+            "Positional and per-agent balance",
+            Status.WARN,
+            "The task is not symmetric: " + "; ".join(problems) + ".",
+            detail,
+            ("G3", "L8", "L9"),
+        )
+    return CheckResult(
+        "balance",
+        "Positional and per-agent balance",
+        Status.PASS,
+        f"Gold position is uniform (chi2={position['statistic']:.2f} against a "
+        f"{position['critical_05']} critical value) and agents hold equal numbers of "
+        f"private units.",
+        detail,
+        ("G3", "L8", "L9"),
+    )
+
+
+# --- 8. Objective stated ------------------------------------------------------
+
+
+@_check
+def check_objective(ctx: CheckContext) -> CheckResult:
+    """Every condition's prompts must contain the question and the scoring rule."""
+    probe = ctx.tasks[0]
+    conditions = ctx.env.conditions(probe)
+    if not conditions:
+        return CheckResult(
+            "objective",
+            "Objective stated in the prompts",
+            Status.SKIPPED,
+            "This environment does not describe its conditions, so the audit cannot see "
+            "the prompts it sends and cannot check whether they state the objective. "
+            "Implement Environment.conditions() to enable this check -- the v0 result in "
+            "studies/underspecification/ was wrong for exactly this reason.",
+            {"conditions": []},
+        )
+
+    rows: list[dict[str, Any]] = []
+    for name, condition in sorted(conditions.items()):
+        missing_question = [
+            i for i, p in enumerate(condition.prompts) if probe.objective.question not in p
+        ]
+        missing_rule = [
+            i for i, p in enumerate(condition.prompts) if probe.objective.scoring_rule not in p
+        ]
+        rows.append(
+            {
+                "condition": name,
+                "description": condition.description,
+                "n_prompts": len(condition.prompts),
+                "prompts_missing_question": len(missing_question),
+                "prompts_missing_scoring_rule": len(missing_rule),
+                "states_objective": not missing_question and not missing_rule,
+            }
+        )
+
+    bad = [r for r in rows if not r["states_objective"]]
+    detail = {"probe_task": probe.task_id, "conditions": rows}
+    if bad:
+        names = ", ".join(f"`{r['condition']}`" for r in bad)
+        return CheckResult(
+            "objective",
+            "Objective stated in the prompts",
+            Status.FAIL,
+            f"{len(bad)} of {len(rows)} conditions never state the objective: {names}. "
+            "Agents in those arms are not told what question they are answering or how "
+            "the answer is scored, so a wrong answer there is not evidence of a "
+            "coordination failure -- it may only be evidence that nobody said what to do.",
+            detail,
+            ("I1", "L1"),
+        )
+    return CheckResult(
+        "objective",
+        "Objective stated in the prompts",
+        Status.PASS,
+        f"All {len(rows)} conditions state both the question and the scoring rule in "
+        "every prompt.",
+        detail,
+        ("I1", "L1"),
+    )
+
+
+# --- 9. Condition diff --------------------------------------------------------
+
+
+#: Prompt lines can be long; a card only needs enough of one to recognise it.
+_DIFF_LINE_CHARS = 110
+
+#: Which agent is speaking is not a difference between arms, so the agent index
+#: is normalised before framing is compared. Nothing else is normalised.
+_AGENT_INDEX = re.compile(r"\bAgent \d+\b")
+
+
+def _diff_lines(a: Sequence[str], b: Sequence[str]) -> list[str]:
+    """Unified-diff lines between two line sequences, markers stripped."""
+    return [
+        line
+        for line in difflib.unified_diff(list(a), list(b), lineterm="", n=0)
+        if line[:1] in "+-" and not line.startswith(("---", "+++"))
+    ]
+
+
+def _elide(lines: list[str], limit: int = 4) -> list[str]:
+    """A few diff lines, each truncated, for the card's detail."""
+    out = []
+    for line in lines[:limit]:
+        out.append(
+            line if len(line) <= _DIFF_LINE_CHARS else line[:_DIFF_LINE_CHARS] + " […]"
+        )
+    if len(lines) > limit:
+        out.append(f"[… {len(lines) - limit} more differing line(s)]")
+    return out
+
+
+def _strip_all(line: str, substrings: Sequence[str]) -> str:
+    """``line`` with every declared substring removed.
+
+    Framing is compared line by line, while a declared difference is often a
+    block of several lines -- a task statement, say. So each declaration is
+    split on newlines and its fragments removed individually; otherwise a
+    multi-line declaration would never match anything and would look like an
+    undeclared difference.
+    """
+    for text in substrings:
+        for fragment in text.splitlines():
+            fragment = fragment.strip()
+            if fragment:
+                line = line.replace(fragment, "")
+    return line.strip()
+
+
+def _stripped_framing(framing: Sequence[str], declared: Sequence[str]) -> list[str]:
+    """``framing`` with declared differences removed and blank lines dropped."""
+    return [text for text in (_strip_all(line, declared) for line in framing) if text]
+
+
+def _framing(condition: Condition, task: DistributedTask) -> list[str]:
+    """A condition's prompts with the task's information removed.
+
+    What is left is the *scaffolding*: system prompts, section headers, framing
+    sentences, answer instructions. That is the right thing to compare between
+    arms, because two arms are usually meant to differ in what information they
+    give -- that is the manipulation -- while differing in nothing else.
+
+    The v0 audit's L4 was exactly a scaffolding difference: the
+    full-information arm also had its own system prompt, its own section layout
+    and a "no discussion needed" line, so the gap it was compared against mixed
+    information access with framing.
+
+    Lines are returned as a sorted set, because arms make different numbers of
+    model calls and "this line appears three times rather than once" is not a
+    difference worth reporting.
+    """
+    lines: set[str] = set()
+    for prompt in condition.prompts:
+        stripped = prompt
+        for unit in task.all_units():
+            stripped = stripped.replace(unit.text, "<UNIT>")
+        for line in stripped.splitlines():
+            text = _AGENT_INDEX.sub("Agent <i>", line.strip())
+            if text and text != "- <UNIT>":
+                lines.add(text)
+    return sorted(lines)
+
+
+@_check
+def check_condition_diff(ctx: CheckContext) -> CheckResult:
+    """Between any two arms, only the manipulation under test should differ."""
+    probe = ctx.tasks[0]
+    conditions = ctx.env.conditions(probe)
+    if len(conditions) < 2:
+        return CheckResult(
+            "condition_diff",
+            "Differences between conditions",
+            Status.SKIPPED,
+            "Fewer than two conditions are described, so there is no pair to compare. "
+            "With conditions declared, this check reports every framing difference "
+            "between each pair, which is how the v0 audit found that the "
+            "full-information arm also differed in layout (L4).",
+            {"conditions": sorted(conditions)},
+        )
+
+    names = sorted(conditions)
+    framings = {name: _framing(conditions[name], probe) for name in names}
+    pairs: list[dict[str, Any]] = []
+    violations: list[dict[str, Any]] = []
+    for i, a_name in enumerate(names):
+        for b_name in names[i + 1 :]:
+            a, b = conditions[a_name], conditions[b_name]
+            lines = _diff_lines(framings[a_name], framings[b_name])
+            # Both sides are collected: when an arm swaps one line for another,
+            # each arm declares the line it carries, and both have to come out
+            # before the residual means anything.
+            declared = tuple(
+                text
+                for text in (a.expected_diff.get(b_name), b.expected_diff.get(a_name))
+                if text
+            )
+            entry: dict[str, Any] = {
+                "pair": [a_name, b_name],
+                "n_prompts": [len(a.prompts), len(b.prompts)],
+                "differing_framing_lines": len(lines),
+                "declared_expected_diff": list(declared),
+                "sample": _elide(lines),
+            }
+            if not lines:
+                entry["verdict"] = "framing identical"
+            elif not declared:
+                entry["verdict"] = "undeclared difference"
+            else:
+                residual = _diff_lines(
+                    _stripped_framing(framings[a_name], declared),
+                    _stripped_framing(framings[b_name], declared),
+                )
+                entry["residual_lines_after_removing_declared_diff"] = len(residual)
+                entry["residual_sample"] = _elide(residual)
+                if residual:
+                    entry["verdict"] = "differs beyond its declared difference"
+                    violations.append(entry)
+                else:
+                    entry["verdict"] = "differs only by its declared difference"
+            pairs.append(entry)
+
+    undeclared = [p for p in pairs if p["verdict"] == "undeclared difference"]
+    # Pairs grow quadratically in the number of conditions, so the card keeps the
+    # ones a reader needs to act on and counts the rest rather than printing all
+    # of them.
+    severity = {
+        "differs beyond its declared difference": 0,
+        "undeclared difference": 1,
+        "differs only by its declared difference": 2,
+        "framing identical": 3,
+    }
+    shown_pairs = sorted(
+        pairs, key=lambda e: (severity[e["verdict"]], -e["differing_framing_lines"])
+    )
+    detail = {
+        "compared": (
+            "prompt framing with the task's information removed: an arm is meant to "
+            "differ in what it tells agents, so only the scaffolding is compared"
+        ),
+        "probe_task": probe.task_id,
+        "n_conditions": len(names),
+        "n_pairs": len(pairs),
+        "verdict_counts": {v: sum(1 for e in pairs if e["verdict"] == v) for v in severity},
+        "pairs": shown_pairs[:12],
+        "pairs_omitted": max(0, len(pairs) - 12),
+    }
+
+    if violations:
+        worst = max(violations, key=lambda e: e["residual_lines_after_removing_declared_diff"])
+        return CheckResult(
+            "condition_diff",
+            "Differences between conditions",
+            Status.FAIL,
+            f"{len(violations)} condition pair(s) differ in framing beyond the one "
+            f"difference the environment declares -- worst `{worst['pair'][0]}` against "
+            f"`{worst['pair'][1]}`, with "
+            f"{worst['residual_lines_after_removing_declared_diff']} further differing "
+            "line(s). A contrast between them does not isolate the manipulation it names.",
+            detail,
+            ("L4", "P6"),
+        )
+    if undeclared:
+        shown = ", ".join(f"`{p['pair'][0]}`/`{p['pair'][1]}`" for p in undeclared[:4])
+        return CheckResult(
+            "condition_diff",
+            "Differences between conditions",
+            Status.WARN,
+            f"{len(undeclared)} of {len(pairs)} condition pairs differ in framing in ways "
+            f"the environment does not declare ({shown}). Any difference measured between "
+            "such a pair mixes the intended manipulation with these. Declare the intended "
+            "difference via Condition.expected_diff to turn this into a check rather than "
+            "a report.",
+            detail,
+            ("L4", "P6"),
+        )
+    return CheckResult(
+        "condition_diff",
+        "Differences between conditions",
+        Status.PASS,
+        f"All {len(pairs)} condition pairs have identical framing or differ only by the "
+        "difference the environment declares.",
+        detail,
+        ("L4", "P6"),
+    )
+
+
+# --- 10. Scorer fuzzing -------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _FuzzCase:
+    """One adversarial answer string and whether it should be accepted."""
+
+    label: str
+    build: Callable[[DistributedTask], str | None]
+    should_accept: bool
+    rationale: str = ""
+
+
+def _wrong_option(task: DistributedTask) -> str:
+    return next(o for o in task.answer_space if o != task.gold_answer)
+
+
+#: The contract under test: an answer is accepted iff, after stripping
+#: surrounding whitespace, it is exactly the gold option. Anything looser is a
+#: scorer that guesses, and a scorer that guesses can be farmed.
+_FUZZ_CASES: tuple[_FuzzCase, ...] = (
+    _FuzzCase("gold", lambda t: t.gold_answer, True),
+    _FuzzCase("gold with surrounding spaces", lambda t: f"  {t.gold_answer}  ", True),
+    _FuzzCase("gold with a trailing newline", lambda t: f"{t.gold_answer}\n", True),
+    _FuzzCase("empty string", lambda t: "", False, "resolved to option 0 in v0 (D1)"),
+    _FuzzCase("whitespace only", lambda t: "   ", False),
+    _FuzzCase("None", lambda t: None, False),
+    _FuzzCase("a wrong option", _wrong_option, False),
+    _FuzzCase("one letter", lambda t: t.gold_answer[0], False, "resolved to option 0 in v0"),
+    _FuzzCase("gold lowercased", lambda t: t.gold_answer.lower(), False),
+    _FuzzCase("gold uppercased", lambda t: t.gold_answer.upper(), False),
+    _FuzzCase("gold with punctuation", lambda t: f"{t.gold_answer}.", False),
+    _FuzzCase(
+        "gold inside prose",
+        lambda t: f"I pick {t.gold_answer} over {_wrong_option(t)}",
+        False,
+        "the v0 parser returned the last option named",
+    ),
+    _FuzzCase(
+        "wrong option named last",
+        lambda t: f"{t.gold_answer} is best; {_wrong_option(t)} was close",
+        False,
+    ),
+    _FuzzCase("two options", lambda t: f"{t.gold_answer} and {_wrong_option(t)}", False),
+    _FuzzCase("a prefix of gold", lambda t: t.gold_answer[: max(1, len(t.gold_answer) - 1)], False),
+    _FuzzCase("JSON wrapping gold", lambda t: f'{{"answer": "{t.gold_answer}"}}', False),
+    _FuzzCase("not an option at all", lambda t: "none of the above", False),
+    _FuzzCase("every option listed", lambda t: ", ".join(t.answer_space), False),
+)
+
+
+@_check
+def check_scorer_fuzz(ctx: CheckContext) -> CheckResult:
+    """The scorer must accept exactly the gold option and nothing else."""
+    false_accepts: list[dict[str, Any]] = []
+    false_rejects: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+
+    for case in _FUZZ_CASES:
+        accepted = 0
+        n = 0
+        example: dict[str, Any] | None = None
+        for task in ctx.tasks:
+            answer = case.build(task)
+            n += 1
+            result = task.score(answer)
+            if result.correct:
+                accepted += 1
+                if example is None:
+                    example = {"task_id": task.task_id, "answer": answer}
+        row = {
+            "case": case.label,
+            "should_accept": case.should_accept,
+            "accepted": accepted,
+            "n": n,
+            "example": example,
+        }
+        if case.rationale:
+            row["rationale"] = case.rationale
+        rows.append(row)
+        if case.should_accept and accepted < n:
+            false_rejects.append(row)
+        if not case.should_accept and accepted > 0:
+            false_accepts.append(row)
+
+    detail = {
+        "contract": (
+            "accept iff the answer, stripped of surrounding whitespace, is exactly the "
+            "gold option"
+        ),
+        "cases": rows,
+        "n_false_accepts": len(false_accepts),
+        "n_false_rejects": len(false_rejects),
+    }
+    if false_accepts:
+        worst = max(false_accepts, key=lambda r: r["accepted"])
+        return CheckResult(
+            "scorer_fuzz",
+            "Scorer under adversarial answers",
+            Status.FAIL,
+            f"The scorer accepts {len(false_accepts)} kind(s) of answer it should reject, "
+            f"worst being \"{worst['case']}\" accepted in {worst['accepted']}/{worst['n']} "
+            "tasks. A scorer that guesses is a reward that can be farmed without solving "
+            "anything.",
+            detail,
+            ("D1", "M1"),
+        )
+    if false_rejects:
+        worst = max(false_rejects, key=lambda r: r["n"] - r["accepted"])
+        return CheckResult(
+            "scorer_fuzz",
+            "Scorer under adversarial answers",
+            Status.FAIL,
+            f"The scorer rejects answers it should accept: \"{worst['case']}\" was accepted "
+            f"in only {worst['accepted']}/{worst['n']} tasks. Correct answers scored wrong "
+            "depress every arm and look like a capability limit.",
+            detail,
+            ("D1", "M1"),
+        )
+    return CheckResult(
+        "scorer_fuzz",
+        "Scorer under adversarial answers",
+        Status.PASS,
+        f"All {len(_FUZZ_CASES)} adversarial cases scored as the contract requires over "
+        f"{ctx.n} tasks: no false accepts, no false rejects.",
+        detail,
+        ("D1", "M1"),
+    )
+
+
+# --- 11. Reward hackability ---------------------------------------------------
+
+
+def _two_proportion_p(k1: int, n1: int, k2: int, n2: int) -> float:
+    """Two-sided two-proportion z-test p-value, pooled.
+
+    Returns 1.0 when both proportions are identical, including both 0 or both 1,
+    where the difference is exactly zero and there is no evidence of one.
+    """
+    import math
+
+    if n1 == 0 or n2 == 0:
+        return 1.0
+    p1, p2 = k1 / n1, k2 / n2
+    pooled = (k1 + k2) / (n1 + n2)
+    denom = pooled * (1 - pooled) * (1 / n1 + 1 / n2)
+    if denom <= 0.0:
+        return 1.0 if p1 == p2 else 0.0
+    z = (p1 - p2) / math.sqrt(denom)
+    return float(math.erfc(abs(z) / math.sqrt(2.0)))
+
+
+@_check
+def check_reward_hacking(ctx: CheckContext) -> CheckResult:
+    """Degenerate teams, scored by the task's own reward, must lose to real pooling."""
+    rng = ctx.rng()
+    pooled_reward = 0.0
+    pooled_correct = 0
+    for task in ctx.tasks:
+        result = task.score(genuine_pooling(task, rng))
+        pooled_reward += result.reward
+        pooled_correct += int(result.correct)
+
+    rows: list[dict[str, Any]] = []
+    for name, policy in DEGENERATE_POLICIES.items():
+        total = 0.0
+        correct = 0
+        for task in ctx.tasks:
+            result = task.score(policy(task, rng))
+            total += result.reward
+            correct += int(result.correct)
+        row = _accuracy_row(name, correct, ctx.n, ctx.chance, ctx.alpha)
+        row["mean_reward"] = total / ctx.n if ctx.n else 0.0
+        p_vs_pooling = _two_proportion_p(correct, ctx.n, pooled_correct, ctx.n)
+        row["p_value_vs_pooling"] = p_vs_pooling
+        row["indistinguishable_from_pooling"] = p_vs_pooling > ctx.alpha
+        # A reward above what being right alone would pay means the reward has a
+        # term that is collectable without answering correctly.
+        row["pays_beyond_correctness"] = row["mean_reward"] > row["accuracy"] + 1e-9
+        rows.append(row)
+
+    detail = {
+        "reward": "the environment's own score(), as a training reward would use it",
+        "genuine_pooling": {
+            "n_correct": pooled_correct,
+            "n": ctx.n,
+            "accuracy": pooled_correct / ctx.n if ctx.n else 0.0,
+            "mean_reward": pooled_reward / ctx.n if ctx.n else 0.0,
+        },
+        "policies": rows,
+        "note": (
+            "Shaping terms are not included here: this environment's reward is its "
+            "scorer alone. A run that adds a shaping term must re-audit with it, or the "
+            "check has not seen the reward being optimised."
+        ),
+    }
+
+    matching = [r for r in rows if r["indistinguishable_from_pooling"]]
+    beating = [r for r in rows if r["beats_chance"]]
+    paid = [r for r in rows if r["pays_beyond_correctness"]]
+    if matching or beating or paid:
+        parts = []
+        if matching:
+            worst = max(matching, key=lambda r: r["accuracy"])
+            parts.append(
+                f"`{worst['name']}` earns {worst['accuracy']:.1%} against pooling's "
+                f"{pooled_correct / ctx.n:.1%} and cannot be distinguished from it "
+                f"(p={worst['p_value_vs_pooling']:.2g})"
+            )
+        if beating:
+            worst = max(beating, key=lambda r: r["accuracy"])
+            parts.append(
+                f"`{worst['name']}` beats {ctx.chance:.1%} chance at "
+                f"{worst['accuracy']:.1%} (p={worst['p_value_vs_chance']:.2g})"
+            )
+        if paid:
+            worst = max(paid, key=lambda r: r["mean_reward"] - r["accuracy"])
+            parts.append(
+                f"`{worst['name']}` earns mean reward {worst['mean_reward']:.3f} while "
+                f"answering correctly only {worst['accuracy']:.1%} of the time, so the "
+                "reward pays for something other than being right"
+            )
+        return CheckResult(
+            "reward_hacking",
+            "Reward earnable without pooling",
+            Status.FAIL,
+            "This reward can be earned without pooling private information: "
+            + "; and ".join(parts)
+            + ". Training against it would reward the shortcut.",
+            detail,
+            ("M6",),
+        )
+    best = max(rows, key=lambda r: r["accuracy"])
+    return CheckResult(
+        "reward_hacking",
+        "Reward earnable without pooling",
+        Status.PASS,
+        f"Every degenerate policy scores significantly below genuine pooling "
+        f"({pooled_correct}/{ctx.n}) and at or below chance; the best is `{best['name']}` "
+        f"at {best['accuracy']:.1%}.",
+        detail,
+        ("M6",),
+    )
+
+
+# --- Seed split (not one of the eleven, but cheap and load-bearing for RL) ----
+
+
+@_check
+def check_seed_split(ctx: CheckContext) -> CheckResult:
+    """An environment used for RL should declare disjoint train and eval seeds."""
+    split = ctx.env.seed_split()
+    if split is None:
+        return CheckResult(
+            "seed_split",
+            "Declared train / eval seed split",
+            Status.WARN,
+            "This environment declares no train/eval seed split, so nothing stops an RL "
+            "run from training on the seeds it later reports. Implement "
+            "Environment.seed_split() to make that impossible by construction rather "
+            "than by discipline.",
+            {"seed_split": None},
+        )
+    audited = set(range(ctx.seed, ctx.seed + ctx.n))
+    detail = {
+        "train": [split.train.start, split.train.stop],
+        "eval": [split.eval.start, split.eval.stop],
+        "pilot": [split.pilot.start, split.pilot.stop],
+        "n_train": len(split.train),
+        "n_eval": len(split.eval),
+        "audited_seeds_in_eval": len(audited & set(split.eval)),
+        "audited_seeds_in_train": len(audited & set(split.train)),
+    }
+    return CheckResult(
+        "seed_split",
+        "Declared train / eval seed split",
+        Status.PASS,
+        f"Disjoint split declared: {len(split.train)} train seeds, {len(split.eval)} eval "
+        f"seeds, {len(split.pilot)} pilot. Overlap is refused at construction.",
+        detail,
+    )
+
+
+def run_checks(ctx: CheckContext, only: Sequence[str] | None = None) -> list[CheckResult]:
+    """Run every registered check against ``ctx``.
+
+    Args:
+        ctx: The context to run against.
+        only: Optional check ids to restrict to, for a faster targeted run.
+
+    Returns:
+        One result per check, in registration order.
+    """
+    results = [check(ctx) for check in CHECKS]
+    if only is not None:
+        wanted = set(only)
+        results = [r for r in results if r.check_id in wanted]
+    return results

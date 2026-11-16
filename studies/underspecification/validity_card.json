@@ -1,0 +1,951 @@
+{
+  "schema": "grapevine.validity_card/1",
+  "environment": "hidden_profile",
+  "version": "1",
+  "config": {
+    "n_agents": 3,
+    "n_shared_facts": 6,
+    "n_private_facts_per_agent": 2,
+    "n_distractors": 4,
+    "n_options": 4
+  },
+  "n_tasks": 200,
+  "seed": 1000,
+  "grapevine_version": "0.0.1",
+  "verdict": "fail",
+  "passed": false,
+  "flagged_checks": [
+    "solo_solvability",
+    "shortcuts",
+    "objective"
+  ],
+  "results": [
+    {
+      "check_id": "leak",
+      "title": "Answer leak into a single view",
+      "status": "pass",
+      "summary": "No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance).",
+      "audit_findings": [
+        "P4",
+        "G6"
+      ],
+      "detail": {
+        "only_gold_named_in_a_view": {
+          "name": "only_gold_named_in_a_view",
+          "n_correct": 0,
+          "n": 200,
+          "accuracy": 0.0,
+          "chance": 0.25,
+          "p_value_vs_chance": 1.0,
+          "beats_chance": false
+        },
+        "one_unit_outweighs_all_rivals": {
+          "name": "one_unit_outweighs_all_rivals",
+          "n_correct": 0,
+          "n": 200,
+          "accuracy": 0.0,
+          "chance": 0.25,
+          "p_value_vs_chance": 1.0,
+          "beats_chance": false
+        },
+        "gold_string_appears_in_some_private_unit": {
+          "n": 200,
+          "rate": 1.0,
+          "note": "Informational. A unit mentioning the gold option is normal -- it is evidence. It is only a leak when it settles the answer, which the two probes above test."
+        },
+        "examples": []
+      }
+    },
+    {
+      "check_id": "solo_solvability",
+      "title": "Solvability from one agent's view",
+      "status": "fail",
+      "summary": "A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 9 probes beat chance. Information that one agent can act on alone is not distributed information.",
+      "audit_findings": [
+        "G6",
+        "P4"
+      ],
+      "detail": {
+        "probes": [
+          {
+            "name": "scoring_rule_on_own_view[agent 0]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "scoring_rule_on_own_view",
+            "agent_id": 0
+          },
+          {
+            "name": "scoring_rule_on_own_view[agent 1]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "scoring_rule_on_own_view",
+            "agent_id": 1
+          },
+          {
+            "name": "scoring_rule_on_own_view[agent 2]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "scoring_rule_on_own_view",
+            "agent_id": 2
+          },
+          {
+            "name": "mention_count_on_own_view[agent 0]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "mention_count_on_own_view",
+            "agent_id": 0
+          },
+          {
+            "name": "mention_count_on_own_view[agent 1]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "mention_count_on_own_view",
+            "agent_id": 1
+          },
+          {
+            "name": "mention_count_on_own_view[agent 2]",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "probe": "mention_count_on_own_view",
+            "agent_id": 2
+          },
+          {
+            "name": "named_in_my_private_units[agent 0]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "named_in_my_private_units",
+            "agent_id": 0
+          },
+          {
+            "name": "named_in_my_private_units[agent 1]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "named_in_my_private_units",
+            "agent_id": 1
+          },
+          {
+            "name": "named_in_my_private_units[agent 2]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "named_in_my_private_units",
+            "agent_id": 2
+          }
+        ],
+        "chance": 0.25
+      }
+    },
+    {
+      "check_id": "full_solvability",
+      "title": "Solvability with everything pooled",
+      "status": "pass",
+      "summary": "Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks.",
+      "audit_findings": [
+        "G5"
+      ],
+      "detail": {
+        "n_correct": 200,
+        "n": 200,
+        "accuracy": 1.0,
+        "n_tied_at_the_top": 0,
+        "note": "A tie counts as unsolved: the task does not determine an answer, and a solver that guessed its way to gold would be measuring the audit's RNG.",
+        "failures": []
+      }
+    },
+    {
+      "check_id": "shortcuts",
+      "title": "Content-blind shortcuts",
+      "status": "fail",
+      "summary": "`mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 4 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information.",
+      "audit_findings": [
+        "L3",
+        "I1"
+      ],
+      "detail": {
+        "shortcuts": [
+          {
+            "name": "mention_count",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true
+          },
+          {
+            "name": "first_option",
+            "n_correct": 54,
+            "n": 200,
+            "accuracy": 0.27,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.280765,
+            "beats_chance": false
+          },
+          {
+            "name": "longest_option",
+            "n_correct": 58,
+            "n": 200,
+            "accuracy": 0.29,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.111466,
+            "beats_chance": false
+          },
+          {
+            "name": "shared_only",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false
+          }
+        ],
+        "chance": 0.25
+      }
+    },
+    {
+      "check_id": "minimality",
+      "title": "Minimality of the required units",
+      "status": "pass",
+      "summary": "All 1200 required units are load-bearing: removing any one changes the answer the scoring rule gives.",
+      "audit_findings": [
+        "G5"
+      ],
+      "detail": {
+        "required_units_checked": 1200,
+        "redundant_found": 0,
+        "tasks_affected_in_sample": 0,
+        "examples": []
+      }
+    },
+    {
+      "check_id": "diversity",
+      "title": "Diversity across seeds",
+      "status": "warn",
+      "summary": "The batch is one puzzle in several arrangements rather than several problems: every one of the 200 tasks has the identical support pattern (6.0, 5.0, 1.0, 0.0). Intervals computed over these seeds measure variation over permutations of one task, not over tasks.",
+      "audit_findings": [
+        "L2"
+      ],
+      "detail": {
+        "n_tasks": 200,
+        "distinct_unit_texts": 104,
+        "distinct_unit_text_sets": 200,
+        "distinct_unit_templates": 20,
+        "distinct_support_patterns": 1,
+        "support_patterns": [
+          "(6.0, 5.0, 1.0, 0.0)"
+        ],
+        "mean_units_per_task": 16.0
+      }
+    },
+    {
+      "check_id": "balance",
+      "title": "Positional and per-agent balance",
+      "status": "warn",
+      "summary": "The task is not symmetric: agents hold unequal numbers of private units (means [4.0, 3.0, 3.0]), a spread of 1.00, so one agent is systematically better informed.",
+      "audit_findings": [
+        "G3",
+        "L8",
+        "L9"
+      ],
+      "detail": {
+        "gold_position": {
+          "counts": [
+            54,
+            46,
+            55,
+            45
+          ],
+          "statistic": 1.64,
+          "df": 3,
+          "critical_05": 7.81,
+          "uniform": true
+        },
+        "mean_private_units_per_agent": [
+          4.0,
+          3.0,
+          3.0
+        ],
+        "mean_rendered_chars_per_agent": [
+          610.575,
+          553.675,
+          554.5
+        ],
+        "private_unit_spread": 1.0,
+        "rendered_char_spread": 56.9
+      }
+    },
+    {
+      "check_id": "objective",
+      "title": "Objective stated in the prompts",
+      "status": "fail",
+      "summary": "5 of 10 conditions never state the objective: `communication`, `communication_neutral`, `full_info`, `full_info_matched`, `no_communication`. Agents in those arms are not told what question they are answering or how the answer is scored, so a wrong answer there is not evidence of a coordination failure -- it may only be evidence that nobody said what to do.",
+      "audit_findings": [
+        "I1",
+        "L1"
+      ],
+      "detail": {
+        "probe_task": "hidden_profile-1000",
+        "conditions": [
+          {
+            "condition": "communication",
+            "description": "discussion, agents instructed to share and ask; objective never stated",
+            "n_prompts": 4,
+            "prompts_missing_question": 4,
+            "prompts_missing_scoring_rule": 4,
+            "states_objective": false
+          },
+          {
+            "condition": "communication_neutral",
+            "description": "discussion, no share/ask directive; objective never stated",
+            "n_prompts": 4,
+            "prompts_missing_question": 4,
+            "prompts_missing_scoring_rule": 4,
+            "states_objective": false
+          },
+          {
+            "condition": "communication_neutral_rule",
+            "description": "discussion, no share/ask directive; task and scoring rule stated",
+            "n_prompts": 4,
+            "prompts_missing_question": 0,
+            "prompts_missing_scoring_rule": 0,
+            "states_objective": true
+          },
+          {
+            "condition": "communication_rule",
+            "description": "discussion, agents instructed to share and ask; task and scoring rule stated",
+            "n_prompts": 4,
+            "prompts_missing_question": 0,
+            "prompts_missing_scoring_rule": 0,
+            "states_objective": true
+          },
+          {
+            "condition": "full_info",
+            "description": "one agent, every fact, original flat layout; objective never stated",
+            "n_prompts": 1,
+            "prompts_missing_question": 1,
+            "prompts_missing_scoring_rule": 1,
+            "states_objective": false
+          },
+          {
+            "condition": "full_info_matched",
+            "description": "one agent, every fact, laid out like the team conditions; objective never stated",
+            "n_prompts": 1,
+            "prompts_missing_question": 1,
+            "prompts_missing_scoring_rule": 1,
+            "states_objective": false
+          },
+          {
+            "condition": "full_info_matched_rule",
+            "description": "one agent, every fact, laid out like the team conditions; task and scoring rule stated",
+            "n_prompts": 1,
+            "prompts_missing_question": 0,
+            "prompts_missing_scoring_rule": 0,
+            "states_objective": true
+          },
+          {
+            "condition": "full_info_rule",
+            "description": "one agent, every fact, original flat layout; task and scoring rule stated",
+            "n_prompts": 1,
+            "prompts_missing_question": 0,
+            "prompts_missing_scoring_rule": 0,
+            "states_objective": true
+          },
+          {
+            "condition": "no_communication",
+            "description": "every agent answers alone, majority vote; objective never stated",
+            "n_prompts": 3,
+            "prompts_missing_question": 3,
+            "prompts_missing_scoring_rule": 3,
+            "states_objective": false
+          },
+          {
+            "condition": "no_communication_rule",
+            "description": "every agent answers alone, majority vote; task and scoring rule stated",
+            "n_prompts": 3,
+            "prompts_missing_question": 0,
+            "prompts_missing_scoring_rule": 0,
+            "states_objective": true
+          }
+        ]
+      }
+    },
+    {
+      "check_id": "condition_diff",
+      "title": "Differences between conditions",
+      "status": "warn",
+      "summary": "40 of 45 condition pairs differ in framing in ways the environment does not declare (`communication`/`communication_neutral`, `communication`/`communication_neutral_rule`, `communication`/`full_info`, `communication`/`full_info_matched`). Any difference measured between such a pair mixes the intended manipulation with these. Declare the intended difference via Condition.expected_diff to turn this into a check rather than a report.",
+      "audit_findings": [
+        "L4",
+        "P6"
+      ],
+      "detail": {
+        "compared": "prompt framing with the task's information removed: an arm is meant to differ in what it tells agents, so only the scaffolding is compared",
+        "probe_task": "hidden_profile-1000",
+        "n_conditions": 10,
+        "n_pairs": 45,
+        "verdict_counts": {
+          "differs beyond its declared difference": 0,
+          "undeclared difference": 40,
+          "differs only by its declared difference": 5,
+          "framing identical": 0
+        },
+        "pairs": [
+          {
+            "pair": [
+              "full_info",
+              "no_communication_rule"
+            ],
+            "n_prompts": [
+              1,
+              3
+            ],
+            "differing_framing_lines": 12,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(you have all information; no discussion needed)",
+              "-All available information:",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Full team discussion:",
+              "[\u2026 8 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "full_info_rule",
+              "no_communication"
+            ],
+            "n_prompts": [
+              1,
+              3
+            ],
+            "differing_framing_lines": 12,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(you have all information; no discussion needed)",
+              "-All available information:",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Decision rule: the strongest candidate is the one with the most supporting facts. Each fact describing a cand [\u2026]",
+              "[\u2026 8 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication",
+              "full_info_rule"
+            ],
+            "n_prompts": [
+              4,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "+(you have all information; no discussion needed)",
+              "+All available information:",
+              "-Conversation so far:",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication",
+              "no_communication_rule"
+            ],
+            "n_prompts": [
+              4,
+              3
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Conversation so far:",
+              "+Choose exactly one of these options: Harper, Finley, Avery, Devon.",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_neutral",
+              "full_info_rule"
+            ],
+            "n_prompts": [
+              4,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "+(you have all information; no discussion needed)",
+              "+All available information:",
+              "-Conversation so far:",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_neutral",
+              "no_communication_rule"
+            ],
+            "n_prompts": [
+              4,
+              3
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Conversation so far:",
+              "+Choose exactly one of these options: Harper, Finley, Avery, Devon.",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_neutral_rule",
+              "full_info"
+            ],
+            "n_prompts": [
+              4,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "+(you have all information; no discussion needed)",
+              "+All available information:",
+              "-Conversation so far:",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_neutral_rule",
+              "no_communication"
+            ],
+            "n_prompts": [
+              4,
+              3
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Conversation so far:",
+              "-Decision rule: the strongest candidate is the one with the most supporting facts. Each fact describing a cand [\u2026]",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_rule",
+              "full_info"
+            ],
+            "n_prompts": [
+              4,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "+(you have all information; no discussion needed)",
+              "+All available information:",
+              "-Conversation so far:",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "communication_rule",
+              "no_communication"
+            ],
+            "n_prompts": [
+              4,
+              3
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(no messages yet)",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Conversation so far:",
+              "-Decision rule: the strongest candidate is the one with the most supporting facts. Each fact describing a cand [\u2026]",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "full_info",
+              "full_info_matched_rule"
+            ],
+            "n_prompts": [
+              1,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-(you have all information; no discussion needed)",
+              "-All available information:",
+              "-Based on everything the team surfaced, decide the single best answer. Choose exactly one of these options: Ha [\u2026]",
+              "-Full team discussion:",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          },
+          {
+            "pair": [
+              "full_info_matched",
+              "full_info_rule"
+            ],
+            "n_prompts": [
+              1,
+              1
+            ],
+            "differing_framing_lines": 11,
+            "declared_expected_diff": [],
+            "sample": [
+              "-Choose exactly one of these options: Harper, Finley, Avery, Devon.",
+              "-Facts known to the whole committee:",
+              "-Facts only you know:",
+              "+(you have all information; no discussion needed)",
+              "[\u2026 7 more differing line(s)]"
+            ],
+            "verdict": "undeclared difference"
+          }
+        ],
+        "pairs_omitted": 33
+      }
+    },
+    {
+      "check_id": "scorer_fuzz",
+      "title": "Scorer under adversarial answers",
+      "status": "pass",
+      "summary": "All 18 adversarial cases scored as the contract requires over 200 tasks: no false accepts, no false rejects.",
+      "audit_findings": [
+        "D1",
+        "M1"
+      ],
+      "detail": {
+        "contract": "accept iff the answer, stripped of surrounding whitespace, is exactly the gold option",
+        "cases": [
+          {
+            "case": "gold",
+            "should_accept": true,
+            "accepted": 200,
+            "n": 200,
+            "example": {
+              "task_id": "hidden_profile-1000",
+              "answer": "Avery"
+            }
+          },
+          {
+            "case": "gold with surrounding spaces",
+            "should_accept": true,
+            "accepted": 200,
+            "n": 200,
+            "example": {
+              "task_id": "hidden_profile-1000",
+              "answer": "  Avery  "
+            }
+          },
+          {
+            "case": "gold with a trailing newline",
+            "should_accept": true,
+            "accepted": 200,
+            "n": 200,
+            "example": {
+              "task_id": "hidden_profile-1000",
+              "answer": "Avery\n"
+            }
+          },
+          {
+            "case": "empty string",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null,
+            "rationale": "resolved to option 0 in v0 (D1)"
+          },
+          {
+            "case": "whitespace only",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "None",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "a wrong option",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "one letter",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null,
+            "rationale": "resolved to option 0 in v0"
+          },
+          {
+            "case": "gold lowercased",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "gold uppercased",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "gold with punctuation",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "gold inside prose",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null,
+            "rationale": "the v0 parser returned the last option named"
+          },
+          {
+            "case": "wrong option named last",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "two options",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "a prefix of gold",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "JSON wrapping gold",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "not an option at all",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          },
+          {
+            "case": "every option listed",
+            "should_accept": false,
+            "accepted": 0,
+            "n": 200,
+            "example": null
+          }
+        ],
+        "n_false_accepts": 0,
+        "n_false_rejects": 0
+      }
+    },
+    {
+      "check_id": "reward_hacking",
+      "title": "Reward earnable without pooling",
+      "status": "pass",
+      "summary": "Every degenerate policy scores significantly below genuine pooling (200/200) and at or below chance; the best is `always_first_option` at 27.0%.",
+      "audit_findings": [
+        "M6"
+      ],
+      "detail": {
+        "reward": "the environment's own score(), as a training reward would use it",
+        "genuine_pooling": {
+          "n_correct": 200,
+          "n": 200,
+          "accuracy": 1.0,
+          "mean_reward": 1.0
+        },
+        "policies": [
+          {
+            "name": "verbose_non_answer",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "always_first_option",
+            "n_correct": 54,
+            "n": 200,
+            "accuracy": 0.27,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.280765,
+            "beats_chance": false,
+            "mean_reward": 0.27,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "random_option",
+            "n_correct": 54,
+            "n": 200,
+            "accuracy": 0.27,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.280765,
+            "beats_chance": false,
+            "mean_reward": 0.27,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "no_discussion_majority",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "copy_agent_zero",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "defer_to_largest_view",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
+            "name": "share_nothing_claim_everything",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          }
+        ],
+        "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
+      }
+    },
+    {
+      "check_id": "seed_split",
+      "title": "Declared train / eval seed split",
+      "status": "warn",
+      "summary": "This environment declares no train/eval seed split, so nothing stops an RL run from training on the seeds it later reports. Implement Environment.seed_split() to make that impossible by construction rather than by discipline.",
+      "audit_findings": [],
+      "detail": {
+        "seed_split": null
+      }
+    }
+  ]
+}

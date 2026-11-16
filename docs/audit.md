@@ -292,6 +292,50 @@ has a regression test that fails on the old code.
 | D3 provenance at end of run | **Fixed**, captured at start and end |
 | Cosmetic: "82 tests" | **Fixed**, README no longer quotes a count |
 
+## Found later, by the battery
+
+The checks in `grapevine audit` were written from the findings above, so most of
+what they report here is a rediscovery. One is not.
+
+### A1. Every private fact supports the correct option, so one agent can answer alone
+
+*2026-11-15, found by `grapevine audit hidden_profile`. Severity: **Invalidating**
+for any reading of condition B as a measure of what one agent cannot do.*
+
+`check_solo_solvability` runs three probes on each agent's own view. One of them,
+"name the option my private units are about", picks the correct candidate in
+**200/200** tasks for every one of the three agents, against 25% chance.
+
+The reason is structural: every private fact in this family supports the correct
+option, and the distractors name no candidate at all. So an agent that ignored
+the shared block entirely and asked only "whose name is in my secret notes?"
+would be right every time, with no pooling, no discussion and no reasoning.
+
+**Why the hand audit missed it.** G6 tested solo solvability by applying the
+task's own scoring rule to a single view, and that genuinely gives the decoy
+(shared facts favour it 5 to 2), so G6 read 0/200 and was recorded as clean. The
+probe was right about the rule and wrong about the space of things a model might
+do. P4 asked a different question again — whether one agent's private facts
+leaked into another's context — and also passed. Neither asked whether some
+*other* cheap rule would work.
+
+**What it does and does not change.** It does not change any reported number.
+Condition B scored 0.5% without the task stated and 0/100 with it, so the models
+demonstrably did not use this shortcut; they applied counting over everything
+they could see. What it changes is the interpretation: B's near-zero accuracy is
+a fact about how these models behave, not a property of the task. The task
+permits a solo solution. A different model, or a prompt nudging agents to weigh
+their own information more heavily, could score well in B without any
+coordination at all.
+
+**Consequence for v0.2.** `hidden_profile_v2` must distribute private support
+across options, not give every private fact to the gold candidate. The clean
+control in `tests/fixtures/flawed_envs/` already does this, and
+`tests/test_audit.py::test_a1_a_new_finding_the_hand_audit_missed` pins the
+finding so it cannot quietly disappear.
+
+---
+
 ## Could not check
 
 - **HiddenBench and Stasser & Titus figures and citation details.** No source in
