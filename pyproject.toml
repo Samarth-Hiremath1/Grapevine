@@ -64,7 +64,7 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["grapevine"]
+files = ["grapevine", "studies"]
 strict = true
 warn_unused_ignores = true
 disallow_untyped_defs = true

@@ -16,7 +16,7 @@ objective can produce a coordination failure that looks real — every fact gets
 shared, the team still chooses wrong — and vanishes once the objective is
 stated.
 
-![Accuracy by condition, with and without the task stated](docs/figures/accuracy_by_condition.png)
+![Accuracy by condition, with and without the task stated](studies/underspecification/figures/accuracy_by_condition.png)
 
 ## What this is and isn't
 
@@ -78,6 +78,13 @@ The docs that matter most here are the ones about my own errors:
 - `docs/decisions.md` — every judgement call, dated, including conditions
   registered before they were run.
 
+The experiment itself lives in
+[`studies/underspecification/`](studies/underspecification/README.md). Because
+the finding is about a prompt, the prompts are frozen: the exact strings sent to
+the model are rebuilt from the code and hashed — 14 digests covering all 1,580
+committed episodes — so a template edit that broke reproduction would fail CI
+rather than pass unnoticed.
+
 ## Limitations
 
 - The task has a trivial shortcut: counting name mentions solves 200 of 200
@@ -111,31 +118,26 @@ cp .env.example .env        # put an OpenAI key in .env; it is gitignored
 Rebuild every table and the figure from the committed runs (no API calls):
 
 ```bash
-uv run python -m grapevine.experiments.report_tables
+uv run python -m studies.underspecification.reproduce
 ```
 
-Rerun the experiments. Runs write to a new timestamped directory under `runs/`
-and never overwrite. Costs are what the committed runs cost.
+To see the paid commands that produced the committed runs, each with the cost it
+actually incurred — reconstructed from that run's own manifest, and not executed:
 
 ```bash
-# Task not stated: A, B, C, D, seeds 1000-1199 (~$0.76)
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
-
-# Task and rule stated, seeds 1000-1099 (~$0.38 in total)
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml \
-    --n-episodes 100 --label rule_arm \
-    --conditions full_info_rule,full_info_matched_rule,no_communication_rule,communication_rule,communication_neutral_rule
+uv run python -m studies.underspecification.reproduce --rerun
 ```
 
 Reruns regenerate identical tasks; answers vary because temperature cannot be
-set for this model. Each run directory holds `manifest.json` (config, seeds, git
-commit at start and end, metrics, token and cost totals, failures) and one
-`episodes_<condition>.jsonl` per condition with full transcripts. To compare a
-new run with the committed ones:
+set for this model. A rerun writes a new timestamped directory under
+`studies/underspecification/runs/` and overwrites nothing. Each run directory
+holds `manifest.json` (config, seeds, git commit at start and end, metrics,
+token and cost totals, failures) and one `episodes_<condition>.jsonl` per
+condition with full transcripts. To compare a new run with the committed ones:
 
 ```bash
 uv run python -m grapevine.experiments.compare \
-    --base runs/20260910T065248Z_primary --base-cond communication \
+    --base studies/underspecification/runs/20260910T065248Z_primary --base-cond communication \
     --other runs/<new-run> --other-cond communication_rule
 ```
 
@@ -143,14 +145,14 @@ Read a transcript, with each required fact marked by whether and when it was
 shared:
 
 ```bash
-uv run grapevine view runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
+uv run grapevine view studies/underspecification/runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
 ```
 
 ## Tests
 
 ```bash
 uv run pytest -q
-uv run ruff check grapevine tests
+uv run ruff check grapevine tests studies
 uv run mypy
 ```
 
@@ -161,22 +163,28 @@ training loop.
 
 ```
 grapevine/envs/         task families behind a common Env interface
-grapevine/rollout/      async multi-agent engine and provider client
+grapevine/rollout/      async multi-agent engine, prompt builders, provider client
 grapevine/rewards/      exact-match reward, fact-surfacing metric
-grapevine/experiments/  runner, analysis, cross-run comparison, tables, figure
+grapevine/experiments/  experiment runner, statistics, cross-run comparison, figures
 grapevine/eval/         transcript viewer
 grapevine/diagnostics/  degenerate-policy checks against the reward
 grapevine/train/        TRL GRPO wiring (smoke-tested only; never trained)
-configs/                experiment and training configs
+studies/                one directory per case study: its configs, runs and write-up
+configs/                training configs
 docs/                   results, methodology, assumptions, audit, decisions
-runs/                   committed experiment runs, one directory per run
 ```
 
-Task families plug in through `grapevine/envs/`. `hidden_profile` is the one used
-here. `split_evidence` exists but is excluded from experiments because it leaks
-the answer to one agent (`docs/decisions.md`). The harness is being extended to
-run existing benchmarks as further families; nothing in the results above
-depends on that.
+The library and the evidence are kept apart. `grapevine/` is the installable
+package; `studies/` holds the experiments that justify what it claims, and is
+not installed. The study behind this README is
+[`studies/underspecification/`](studies/underspecification/README.md), which
+reproduces with one command and freezes the exact prompts its runs used.
+
+Task families plug in through `grapevine/envs/`. `hidden_profile` is the one
+used here. `split_evidence` is present but **unregistered**: it leaks the gold
+answer into one agent's view in 100 of 100 generated tasks, so nothing that
+resolves a family by name will hand one out (`docs/decisions.md`). It is either
+fixed or deleted in v0.2.
 
 ## Citation
 

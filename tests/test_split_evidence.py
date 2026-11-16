@@ -88,3 +88,64 @@ def test_invalid_config_rejected() -> None:
         SplitEvidenceConfig(n_agents=1)
     with pytest.raises(ValueError):
         SplitEvidenceConfig(n_options=1)
+
+
+def test_leaks_the_gold_answer_into_one_agents_view() -> None:
+    """The defect that keeps this family unregistered, asserted rather than described.
+
+    The final hop names the terminal station, which is the gold answer, so
+    whichever agent holds that hop can answer with no pooling at all. This is
+    the check `docs/decisions.md` ran by hand over 100 tasks.
+    """
+    env = SplitEvidenceEnv()
+    leaked = sum(
+        any(task.answer in context for context in task.agent_contexts)
+        for task in env.generate_batch(100, 0)
+    )
+    assert leaked == 100, "if this family stops leaking, re-register it and update the reason"
+
+
+def test_unregistered_so_nothing_can_run_it() -> None:
+    """The family is importable but unreachable by name.
+
+    Step 4 of the v0.2 plan either fixes the leak or deletes the family. Until
+    then nothing that resolves a family by name may hand one out, or a condition
+    built on it would silently not measure pooling.
+    """
+    from grapevine.envs import REGISTRY, UNREGISTERED, unavailable_reason
+
+    assert SplitEvidenceEnv.family not in REGISTRY
+    assert SplitEvidenceEnv.family in UNREGISTERED
+    assert "leaks the gold answer" in (unavailable_reason(SplitEvidenceEnv.family) or "")
+    assert unavailable_reason("hidden_profile") is None
+
+
+def test_cli_refuses_it_with_the_reason() -> None:
+    """``grapevine gen split_evidence`` explains itself instead of failing blankly."""
+    from grapevine.cli import main
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["gen", "split_evidence", "--n", "1"])
+    assert "leaks the gold answer" in str(excinfo.value)
+
+
+def test_experiment_runner_refuses_it_with_the_reason(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The experiment runner refuses it at config-load time, not mid-run."""
+    import yaml
+
+    from grapevine.experiments.run import load_config
+
+    config = tmp_path / "bad.yaml"
+    config.write_text(
+        yaml.safe_dump(
+            {
+                "model": {"name": "gpt-5.6-luna"},
+                "env": {"family": "split_evidence"},
+                "rollout": {},
+                "run": {"n_episodes": 1, "seed_start": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="leaks the gold answer"):
+        load_config(config)

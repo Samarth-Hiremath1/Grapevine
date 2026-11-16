@@ -76,18 +76,18 @@ cp .env.example .env        # OPENAI_API_KEY; gitignored
 
 # plan only, no API calls
 uv run python -m grapevine.experiments.run \
-    --config configs/coordination_ablation.yaml --dry-run
+    --config studies/underspecification/configs/coordination_ablation.yaml --dry-run
 
 # task not stated, A-D, seeds 1000-1199
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
+uv run python -m grapevine.experiments.run --config studies/underspecification/configs/coordination_ablation.yaml
 
 # task and rule stated, seeds 1000-1099
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml \
+uv run python -m grapevine.experiments.run --config studies/underspecification/configs/coordination_ablation.yaml \
     --n-episodes 100 --label rule_arm \
     --conditions full_info_rule,full_info_matched_rule,no_communication_rule,communication_rule,communication_neutral_rule
 
 # rebuild every table and the figure from committed runs (no API calls)
-uv run python -m grapevine.experiments.report_tables
+uv run python -m studies.underspecification.reproduce
 ```
 
 Useful flags: `--conditions` (subset; rule conditions are opt-in), `--n-episodes`,
@@ -105,12 +105,12 @@ runs/<UTC timestamp>_<label>/
   episodes_<condition>.jsonl    one episode per line, full transcript
 ```
 
-`docs/figures/` holds the figure, its CSV, and `results_tables.json` with every
+`studies/underspecification/figures/` holds the figure, its CSV, and `results_tables.json` with every
 number in `docs/results.md`.
 
 ## Reproducing the numbers
 
-`report_tables` regenerates all tables and the figure from the committed runs
+`studies.underspecification.reproduce` regenerates all tables and the figure from the committed runs
 with no API calls. Rerunning the experiments regenerates identical tasks (0 of
 200 differ from the committed episodes) but not identical answers, since
 temperature cannot be set for this model. To compare a fresh run with a committed
@@ -118,6 +118,6 @@ one, paired by task id:
 
 ```bash
 uv run python -m grapevine.experiments.compare \
-    --base runs/20260910T065248Z_primary --base-cond communication \
+    --base studies/underspecification/runs/20260910T065248Z_primary --base-cond communication \
     --other runs/<new-run> --other-cond communication
 ```

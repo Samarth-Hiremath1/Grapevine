@@ -2,8 +2,8 @@
 
 Model `gpt-5.6-luna`, procedurally generated hidden-profile tasks, three agents,
 four options (chance 25%). Every number below is recomputed from committed runs
-by `python -m grapevine.experiments.report_tables`, which writes
-`docs/figures/results_tables.json`. Intervals on single conditions are exact
+by `python -m studies.underspecification.reproduce`, which writes
+`studies/underspecification/figures/results_tables.json`. Intervals on single conditions are exact
 Clopper-Pearson 95% intervals; intervals on differences are paired bootstrap 95%
 intervals over the same tasks.
 
@@ -278,7 +278,7 @@ building evaluations, this one very much included.
 - **Condition D was rerun.** The original D run sent the instructed system
   prompt at the aggregation step. It was rerun with the neutral prompt
   throughout: 106/200 → 111/200, a change of +2.5 points [−5.5, +11.0]. Only the
-  rerun is reported; the original is kept in `runs/20260910T065248Z_primary/`.
+  rerun is reported; the original is kept in `studies/underspecification/runs/20260910T065248Z_primary/`.
 - **One model, one task family, one team size, one round budget, four options.**
 
 ## Cost

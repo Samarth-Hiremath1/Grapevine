@@ -1,17 +1,17 @@
-"""Rebuild every table and the main figure in ``docs/results.md`` from committed runs.
+"""Recompute every reported number in this study from its committed runs.
 
-Nothing in the results write-up is typed in by hand: this module reads the run
+Nothing in the write-up is typed in by hand. This module reads the run
 directories listed in :data:`RUNS`, recomputes each number with the same
-functions the runner uses, writes them to ``docs/figures/results_tables.json``,
-prints the tables as Markdown, and redraws the main figure.
+functions the runner used to produce them, and returns one nested dict. The
+entry point that writes the outputs and redraws the figure is
+``studies/underspecification/reproduce.py``.
 
-Usage:
-    python -m grapevine.experiments.report_tables
+Paths in :data:`RUNS` are relative to this study's directory, which every
+function here takes as ``root``.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 from pathlib import Path
@@ -19,7 +19,6 @@ from typing import Any
 
 from grapevine.experiments.analysis import clopper_pearson
 from grapevine.experiments.compare import compare, load_condition
-from grapevine.experiments.figure import make_two_panel_figure
 from grapevine.rewards.reward import compute_surfacing
 from grapevine.rollout.engine import Episode
 
@@ -202,37 +201,3 @@ def _rounded(obj: Any) -> Any:
     if isinstance(obj, list | tuple):
         return [_rounded(v) for v in obj]
     return obj
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Rebuild the tables JSON and the main figure."""
-    parser = argparse.ArgumentParser(prog="python -m grapevine.experiments.report_tables")
-    parser.add_argument("--root", default=".", help="repository root")
-    parser.add_argument("--out-dir", default="docs/figures", help="where to write outputs")
-    args = parser.parse_args(argv)
-    root = Path(args.root)
-    out = root / args.out_dir
-    out.mkdir(parents=True, exist_ok=True)
-
-    r = _rounded(build(root))
-    (out / "results_tables.json").write_text(json.dumps(r, indent=2) + "\n", encoding="utf-8")
-
-    panels = [
-        (
-            "Task and rule not stated\n(seeds 1000-1199, n=200 each)",
-            [(lbl, r["no_rule"][lbl]) for lbl in ("A", "B", "C", "D")],
-        ),
-        (
-            "Task question and scoring rule stated\n(seeds 1000-1099, n=100 each)",
-            [(lbl, r["rule"][lbl]) for lbl in ("A", "A (matched)", "B", "C", "D")],
-        ),
-    ]
-    make_two_panel_figure(panels, out, stem="accuracy_by_condition")
-    print(markdown(r))
-    print(f"\nwrote {out / 'results_tables.json'} and accuracy_by_condition.png/.svg/.csv")
-    print(f"total spend across all committed runs: ${r['total_cost_usd']:.4f}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

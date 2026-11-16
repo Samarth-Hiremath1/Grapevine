@@ -22,7 +22,9 @@ venv/
 .env.*
 !.env.example
 
-# Rollout / training artifacts
+# Rollout / training artifacts. Runs are large, so a run is NOT committed by
+# default: a reported run is added deliberately with `git add -f`, which is why
+# the committed runs under studies/*/runs/ stay tracked despite these patterns.
 runs/
 outputs/
 *.jsonl
@@ -32,8 +34,3 @@ wandb/
 
 # OS
 .DS_Store
-
-# Experiment run artifacts are large and reproducible from the manifest.
-# Reported runs are committed deliberately with `git add -f`.
-runs/
-.env

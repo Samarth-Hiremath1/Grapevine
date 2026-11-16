@@ -99,6 +99,13 @@ FULL_INFO_MATCHED_PROMPT = (
     'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
 )
 
+#: Condition A as run in the committed four-condition and rule arms
+#: (``full_info_presentation="original"``). Kept as a named constant so the
+#: prompt is reconstructible from the code rather than inlined at the call site.
+FULL_INFO_ORIGINAL_SYSTEM_PROMPT = (
+    "You are an expert decision-maker. Reason carefully, then answer."
+)
+
 
 def full_context_matched(task: Task) -> str:
     """Every fact of ``task`` in the same two-block layout agents see in B/C/D.
@@ -274,6 +281,138 @@ def _render_history(messages: list[TranscriptMessage]) -> str:
 _ANSWER_TRIM = " \t\n\"'`.,;:!?*()[]{}"
 
 
+def discussion_messages(
+    task: Task,
+    agent_id: int,
+    history: list[TranscriptMessage],
+    round_no: int,
+    config: RolloutConfig,
+) -> list[Message]:
+    """The exact messages sent for one agent's discussion turn.
+
+    Args:
+        task: The task being discussed.
+        agent_id: Which agent is speaking.
+        history: Messages produced so far, in order.
+        round_no: 1-based discussion round.
+        config: Rollout configuration; its ``prompt_style`` picks the templates
+            and ``show_task`` controls the task statement.
+
+    Returns:
+        The system and user messages, in the order they are sent.
+    """
+    system_tmpl, turn_tmpl = config.discussion_prompts()
+    return [
+        Message("system", system_tmpl.format(agent_id=agent_id, n_agents=task.n_agents)),
+        Message(
+            "user",
+            turn_tmpl.format(
+                context=_with_task(task.agent_contexts[agent_id], task, config.show_task),
+                history=_render_history(history),
+                round_no=round_no,
+                n_rounds=config.n_rounds,
+            ),
+        ),
+    ]
+
+
+def aggregator_messages(
+    task: Task, history: list[TranscriptMessage], config: RolloutConfig
+) -> list[Message]:
+    """The exact messages sent for the aggregator's decision turn.
+
+    The decision step uses the same system prompt as the discussion, so a
+    neutral-style run is neutral end to end (it previously always received the
+    instructed prompt here; see ``docs/audit.md`` L11).
+    """
+    system_tmpl, _ = config.discussion_prompts()
+    agg = config.aggregator_index
+    return [
+        Message("system", system_tmpl.format(agent_id=agg, n_agents=task.n_agents)),
+        Message(
+            "user",
+            AGGREGATOR_PROMPT.format(
+                context=_with_task(task.agent_contexts[agg], task, config.show_task),
+                history=_render_history(history),
+                options=", ".join(task.options),
+            ),
+        ),
+    ]
+
+
+def vote_messages(
+    task: Task, agent_id: int, history: list[TranscriptMessage], config: RolloutConfig
+) -> list[Message]:
+    """The exact messages sent for one agent's individual vote turn."""
+    system_tmpl, _ = config.discussion_prompts()
+    return [
+        Message("system", system_tmpl.format(agent_id=agent_id, n_agents=task.n_agents)),
+        Message(
+            "user",
+            VOTE_PROMPT.format(
+                context=_with_task(task.agent_contexts[agent_id], task, config.show_task),
+                history=_render_history(history),
+                options=", ".join(task.options),
+            ),
+        ),
+    ]
+
+
+def no_communication_messages(
+    task: Task, agent_id: int, config: RolloutConfig
+) -> list[Message]:
+    """The exact messages sent to one agent in the no-communication condition.
+
+    There is no history: the agent never sees another agent's context or output.
+    The system prompt is :data:`SOLO_SYSTEM_PROMPT` whatever ``prompt_style``
+    says, because a share/ask directive is incoherent for an agent with no
+    channel (see ``docs/decisions.md``).
+    """
+    return [
+        Message("system", SOLO_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=task.n_agents)),
+        Message(
+            "user",
+            NO_COMM_PROMPT.format(
+                context=_with_task(task.agent_contexts[agent_id], task, config.show_task),
+                options=", ".join(task.options),
+            ),
+        ),
+    ]
+
+
+def single_agent_messages(task: Task, config: RolloutConfig) -> list[Message]:
+    """The exact messages sent to the one full-information agent (condition A).
+
+    ``config.full_info_presentation`` picks the layout: ``"original"`` is the
+    flat list used in the committed runs; ``"matched"`` uses B/C/D's two-block
+    layout and framing (audit L4).
+    """
+    if config.full_info_presentation == "matched":
+        return [
+            Message("system", FULL_INFO_MATCHED_SYSTEM_PROMPT),
+            Message(
+                "user",
+                FULL_INFO_MATCHED_PROMPT.format(
+                    context=_with_task(full_context_matched(task), task, config.show_task),
+                    options=", ".join(task.options),
+                ),
+            ),
+        ]
+    return [
+        Message("system", FULL_INFO_ORIGINAL_SYSTEM_PROMPT),
+        Message(
+            "user",
+            AGGREGATOR_PROMPT.format(
+                context=_with_task(
+                    "All available information:\n" + task.full_context(), task, config.show_task
+                ),
+                history="(you have all information; no discussion needed)",
+                options=", ".join(task.options),
+            ),
+        ),
+    ]
+
+
 def _options_named(text: str, options: list[str]) -> list[str]:
     """Return the options named in ``text`` as whole words, case-insensitively."""
     return [opt for opt in options if re.search(rf"\b{re.escape(opt)}\b", text, re.IGNORECASE)]
@@ -408,21 +547,11 @@ async def run_episode(
 
     usage_acc = _UsageAccumulator()
     messages: list[TranscriptMessage] = []
-    system_tmpl, turn_tmpl = cfg.discussion_prompts()
 
     # --- Discussion rounds --------------------------------------------------
     for round_no in range(1, cfg.n_rounds + 1):
         for agent_id in range(n_agents):
-            prompt = turn_tmpl.format(
-                context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
-                history=_render_history(messages),
-                round_no=round_no,
-                n_rounds=cfg.n_rounds,
-            )
-            convo = [
-                Message("system", system_tmpl.format(agent_id=agent_id, n_agents=n_agents)),
-                Message("user", prompt),
-            ]
+            convo = discussion_messages(task, agent_id, messages, round_no, cfg)
             completion = usage_acc.add(
                 await agent_clients[agent_id].complete(
                     convo, max_tokens=cfg.max_tokens, temperature=cfg.temperature
@@ -437,15 +566,7 @@ async def run_episode(
     if cfg.aggregation == "vote":
         votes: list[str | None] = []
         for agent_id in range(n_agents):
-            prompt = VOTE_PROMPT.format(
-                context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
-                history=_render_history(messages),
-                options=", ".join(task.options),
-            )
-            convo = [
-                Message("system", system_tmpl.format(agent_id=agent_id, n_agents=n_agents)),
-                Message("user", prompt),
-            ]
+            convo = vote_messages(task, agent_id, messages, cfg)
             completion = usage_acc.add(
                 await agent_clients[agent_id].complete(
                     convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
@@ -459,18 +580,7 @@ async def run_episode(
         team_answer = _majority_vote(votes, task.options)
     else:
         agg = cfg.aggregator_index
-        prompt = AGGREGATOR_PROMPT.format(
-            context=_with_task(task.agent_contexts[agg], task, cfg.show_task),
-            history=_render_history(messages),
-            options=", ".join(task.options),
-        )
-        convo = [
-            # The decision step uses the same system prompt as the discussion, so a
-            # neutral-style run is neutral end to end (it previously always got
-            # the instructed prompt here; see docs/audit.md L11).
-            Message("system", system_tmpl.format(agent_id=agg, n_agents=n_agents)),
-            Message("user", prompt),
-        ]
+        convo = aggregator_messages(task, messages, cfg)
         completion = usage_acc.add(
             await agent_clients[agg].complete(
                 convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
@@ -564,14 +674,7 @@ async def run_no_communication(
     votes: list[str | None] = []
 
     for agent_id in range(n_agents):
-        prompt = NO_COMM_PROMPT.format(
-            context=_with_task(task.agent_contexts[agent_id], task, cfg.show_task),
-            options=", ".join(task.options),
-        )
-        convo = [
-            Message("system", SOLO_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
-            Message("user", prompt),
-        ]
+        convo = no_communication_messages(task, agent_id, cfg)
         completion = usage_acc.add(
             await agent_clients[agent_id].complete(
                 convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature
@@ -622,25 +725,7 @@ async def run_single_agent(
     cfg = config or RolloutConfig()
     usage_acc = _UsageAccumulator()
 
-    if cfg.full_info_presentation == "matched":
-        prompt = FULL_INFO_MATCHED_PROMPT.format(
-            context=_with_task(full_context_matched(task), task, cfg.show_task),
-            options=", ".join(task.options),
-        )
-        system = FULL_INFO_MATCHED_SYSTEM_PROMPT
-    else:
-        prompt = AGGREGATOR_PROMPT.format(
-            context=_with_task(
-                "All available information:\n" + task.full_context(), task, cfg.show_task
-            ),
-            history="(you have all information; no discussion needed)",
-            options=", ".join(task.options),
-        )
-        system = "You are an expert decision-maker. Reason carefully, then answer."
-    convo = [
-        Message("system", system),
-        Message("user", prompt),
-    ]
+    convo = single_agent_messages(task, cfg)
     completion = usage_acc.add(
         await client.complete(
             convo, max_tokens=cfg.max_tokens, temperature=cfg.final_temperature

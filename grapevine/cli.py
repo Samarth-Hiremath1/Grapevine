@@ -18,13 +18,24 @@ import sys
 from dataclasses import fields
 from pathlib import Path
 
-from grapevine.envs import REGISTRY
+from grapevine.envs import REGISTRY, unavailable_reason
 from grapevine.envs.base import Env
 
 
 def _build_env(family: str, overrides: dict[str, int]) -> Env:
-    """Instantiate an environment for ``family`` with integer config overrides."""
+    """Instantiate an environment for ``family`` with integer config overrides.
+
+    Raises:
+        SystemExit: If the family is unknown, or exists but is unregistered
+            because of a known defect (the message says which).
+    """
     if family not in REGISTRY:
+        reason = unavailable_reason(family)
+        if reason is not None:
+            raise SystemExit(
+                f"family '{family}' is not available: it {reason}. "
+                f"Choose from: {', '.join(REGISTRY)}"
+            )
         raise SystemExit(f"unknown family '{family}'. Choose from: {', '.join(REGISTRY)}")
     env_cls, config_cls = REGISTRY[family]
     valid = {f.name for f in fields(config_cls)}
@@ -110,7 +121,11 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
 
 
 def _add_env_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("family", choices=sorted(REGISTRY), help="task family")
+    # Deliberately not `choices=`: an unregistered family should get the
+    # explanation from _build_env rather than argparse's bare "invalid choice".
+    parser.add_argument(
+        "family", metavar="family", help=f"task family ({', '.join(sorted(REGISTRY))})"
+    )
     parser.add_argument("--n", type=int, default=8, help="number of tasks")
     parser.add_argument("--seed", type=int, default=0, help="base seed")
     parser.add_argument("--n-agents", type=int, default=None)

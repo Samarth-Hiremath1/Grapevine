@@ -26,15 +26,18 @@ jobs:
         run: uv sync --locked --extra dev
 
       - name: Lint (ruff)
-        run: .venv/bin/ruff check grapevine tests
+        run: .venv/bin/ruff check grapevine tests studies
 
       - name: Type check (mypy)
         run: .venv/bin/mypy
 
       - name: Results regenerate byte-identically from committed runs
         run: |
-          .venv/bin/python -m grapevine.experiments.report_tables
-          git diff --exit-code -- docs/figures/results_tables.json docs/figures/accuracy_by_condition.csv
+          .venv/bin/python -m studies.underspecification.reproduce
+          git diff --exit-code -- studies/underspecification/figures/results_tables.json studies/underspecification/figures/accuracy_by_condition.csv
+
+      - name: Study prompts still match the committed runs
+        run: .venv/bin/python -m studies.underspecification.freeze_prompts --check
 
       - name: Install training extra (CPU-only torch)
         run: |
