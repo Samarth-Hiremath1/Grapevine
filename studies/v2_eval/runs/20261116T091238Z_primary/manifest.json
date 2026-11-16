@@ -1,0 +1,107 @@
+{
+  "kind": "grapevine.v2_eval.run/1",
+  "phase": "primary",
+  "models": [
+    "gpt-5.6-luna",
+    "gpt-6-luna",
+    "gpt-4o-mini"
+  ],
+  "synthetic": false,
+  "design": {
+    "n_primary": 100,
+    "n_pilot": 20,
+    "primary_seeds": [
+      10000,
+      10100
+    ],
+    "pilot_seeds": [
+      9000,
+      9020
+    ],
+    "n_rounds": 2,
+    "aggregator": 0,
+    "max_output_tokens": 1200,
+    "discussion_temperature": 0.7,
+    "decision_temperature": 0.0,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20261115,
+    "budget_usd": 10.0,
+    "environment": "hidden_profile_v2 v2",
+    "cells": [
+      [
+        "full_info",
+        "stated"
+      ],
+      [
+        "full_info",
+        "unstated"
+      ],
+      [
+        "no_communication",
+        "stated"
+      ],
+      [
+        "no_communication",
+        "unstated"
+      ],
+      [
+        "communication",
+        "stated"
+      ],
+      [
+        "communication",
+        "unstated"
+      ]
+    ]
+  },
+  "estimate": {
+    "phase": "primary",
+    "tasks": 100,
+    "cells_per_model": 6,
+    "per_model": {
+      "gpt-5.6-luna": {
+        "calls": 2200,
+        "input_tokens_est": 1351616,
+        "cost_at_v0_output_length_usd": 0.5591,
+        "cost_if_every_call_hits_cap_usd": 3.4383
+      },
+      "gpt-6-luna": {
+        "calls": 2200,
+        "input_tokens_est": 1351616,
+        "cost_at_v0_output_length_usd": 0.2555,
+        "cost_if_every_call_hits_cap_usd": 1.4552
+      },
+      "gpt-4o-mini": {
+        "calls": 2200,
+        "input_tokens_est": 1351616,
+        "cost_at_v0_output_length_usd": 0.3472,
+        "cost_if_every_call_hits_cap_usd": 1.7867
+      }
+    },
+    "total_at_v0_output_length_usd": 1.1618,
+    "total_if_every_call_hits_cap_usd": 6.6802,
+    "committed_spend_usd": 1.7843,
+    "budget_usd": 10.0
+  },
+  "approved_usd": 6.69,
+  "started_utc": "2026-11-16T09:12:38+00:00",
+  "finished_utc": "2026-11-16T16:03:57+00:00",
+  "git_commit_start": "45e5185c866a4fb26911baa0fa246bec1bcae4e0",
+  "git_dirty_start": false,
+  "git_commit_end": "45e5185c866a4fb26911baa0fa246bec1bcae4e0",
+  "n_calls": 6600,
+  "total_cost_usd": 1.281187,
+  "reasoning_tokens": 705533,
+  "truncated_calls": 14,
+  "temperature_honoured": {
+    "gpt-5.6-luna": false,
+    "gpt-6-luna": false,
+    "gpt-4o-mini": true
+  },
+  "episodes_expected": 1800,
+  "episodes_completed": 1800,
+  "complete": true,
+  "stopped_early": null,
+  "failures": [],
+  "seed_check": "pilot and primary seeds are disjoint (enforced by Design)"
+}
