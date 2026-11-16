@@ -1,3 +1,10 @@
+> **Archived note.** Written for the v0 trainer in `grapevine/train/`, which was
+> replaced by `grapevine.rl` in v0.2 and deleted. It is kept because the NeMo-RL
+> analysis is still the starting point if Grapevine ever adds a second training
+> backend. Paths and class names below refer to the deleted code; nothing here
+> describes something that was built or run. Multi-backend training is on the
+> roadmap, not in this release.
+
 # Attempting the Grapevine smoke config on NVIDIA NeMo-RL
 
 **Status: did not reach a training step.** NeMo-RL installed cleanly, but its GRPO path has no

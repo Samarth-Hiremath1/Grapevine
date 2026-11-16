@@ -3,7 +3,7 @@
 ✅ **PASS** — every check ran and found nothing.
 
 - Tasks audited: **200**, seeds 0–199
-- Grapevine: `0.0.1` · card hash: `f61df3e86f52ed98`
+- Grapevine: `0.0.1` · card hash: `31e3b927e2a2a350`
 - Config: `domains=['hiring', 'vendor', 'site']`, `facts_per_agent=1`, `margin=1`, `n_agents=3`, `n_options=4`, `n_rounds=2`, `pool_sha256=798d96e46481df23d857f769da6905ffa8eba9e01043dc3cc0595248dc3da4ee`, `state_objective=True`, `vary_support=True`
 - Checks: 13 pass
 
@@ -645,6 +645,19 @@
   },
   "policies": [
     {
+      "name": "recite_without_answering",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false
+    },
+    {
       "name": "verbose_non_answer",
       "n_correct": 0,
       "n": 200,
@@ -736,7 +749,7 @@
       "pays_beyond_correctness": false
     }
   ],
-  "alpha_per_probe_vs_chance": 0.007143,
+  "alpha_per_probe_vs_chance": 0.00625,
   "alpha_vs_pooling": 0.05,
   "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
 }

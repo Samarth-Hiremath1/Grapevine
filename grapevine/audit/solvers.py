@@ -252,9 +252,23 @@ def verbose_non_answer(task: DistributedTask, rng: random.Random) -> str:
     ) * 3
 
 
+def recite_without_answering(task: DistributedTask, rng: random.Random) -> str:
+    """One agent recites every fact it holds, and nobody ever answers.
+
+    Under a strict scorer this earns nothing. It is the probe for an
+    *information-surfacing* shaping term -- a bonus for mentioning the facts the
+    task says must be shared. Such a term pays a policy that talks about the
+    right facts whether or not the team reaches a decision, so it is collectable
+    without coordinating at all. ``grapevine.rl`` offers one, off by default, and
+    this is how the audit gate sees it.
+    """
+    return "\n".join(unit.text for unit in task.views[0].units)
+
+
 #: Degenerate team policies scored against the task's own reward. Each reaches
 #: an answer without pooling private information.
 DEGENERATE_POLICIES: dict[str, Policy] = {
+    "recite_without_answering": recite_without_answering,
     "verbose_non_answer": verbose_non_answer,
     "always_first_option": always_first_option,
     "random_option": random_option,

@@ -173,6 +173,24 @@ shared:
 uv run grapevine view studies/underspecification/runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
 ```
 
+## Train with GRPO
+
+**GRPO integration, smoke-tested; no training results in this release.**
+
+```bash
+uv sync --extra rl                                       # torch, transformers, trl, peft
+grapevine train configs/rl_smoke_cpu.yaml --dry-run      # audit gate + plan, no model
+grapevine train configs/rl_smoke_cpu.yaml                # two CPU steps, tiny random model
+grapevine eval --policy runs/<run>/policy                # held-out seeds, beside the baselines
+```
+
+Training refuses to start on an environment its audit flags, including when the
+flag comes from the reward itself: the optional surfacing shaping term is
+collectable without answering, so turning it on needs `--allow-flagged`, which
+the run manifest records. Frozen partners are separately loaded copies, and a
+test proves they are unchanged after an optimiser step. What has and has not
+been run is in [`docs/rl.md`](docs/rl.md).
+
 ## Tests
 
 ```bash
@@ -181,8 +199,8 @@ uv run ruff check grapevine tests studies
 uv run mypy
 ```
 
-CI runs all three on every push, plus a two-step CPU smoke test of the GRPO
-training loop.
+CI runs these on a core-only install, and separately runs the GRPO smoke and
+isolation tests with the `[rl]` extra.
 
 ## Repository layout
 
@@ -194,10 +212,9 @@ grapevine/rollout/      async multi-agent engine, prompt builders, provider clie
 grapevine/rewards/      exact-match reward, fact-surfacing metric
 grapevine/experiments/  experiment runner, statistics, cross-run comparison, figures
 grapevine/eval/         transcript viewer
-grapevine/diagnostics/  degenerate-policy checks against the reward
-grapevine/train/        TRL GRPO wiring (smoke-tested only; never trained)
+grapevine/rl/           GRPO via TRL behind the audit gate ([rl] extra; smoke-tested, never trained)
 studies/                one directory per case study: its configs, runs and write-up
-configs/                training configs
+configs/                GRPO configs: a CPU smoke config CI runs, a GPU config marked not run
 docs/                   results, methodology, assumptions, audit, decisions
 ```
 

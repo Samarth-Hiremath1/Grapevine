@@ -652,6 +652,19 @@
         },
         "policies": [
           {
+            "name": "recite_without_answering",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false,
+            "mean_reward": 0.0,
+            "p_value_vs_pooling": 0.0,
+            "indistinguishable_from_pooling": false,
+            "pays_beyond_correctness": false
+          },
+          {
             "name": "verbose_non_answer",
             "n_correct": 0,
             "n": 200,
@@ -743,7 +756,7 @@
             "pays_beyond_correctness": false
           }
         ],
-        "alpha_per_probe_vs_chance": 0.007143,
+        "alpha_per_probe_vs_chance": 0.00625,
         "alpha_vs_pooling": 0.05,
         "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
       }

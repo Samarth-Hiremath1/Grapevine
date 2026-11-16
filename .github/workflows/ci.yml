@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -56,12 +56,52 @@ jobs:
           # finding the quickstart is meant to show, so a 0 here would be the bug.
           .venv/bin/grapevine audit hidden_profile --n 50 > /dev/null && exit 1 || test $? -eq 2
 
-      - name: Install training extra (CPU-only torch)
+      - name: Core stays light (grapevine.rl imports no torch)
         run: |
-          uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-          uv pip install "trl>=0.11" "transformers>=4.44" "datasets>=2.20" "accelerate>=0.33"
+          .venv/bin/python - <<'EOF'
+          import importlib.util, sys
+          assert importlib.util.find_spec("torch") is None, "core install pulled in torch"
+          import grapevine, grapevine.rl, grapevine.rl.grpo, grapevine.rl.eval  # noqa: F401
+          heavy = [m for m in ("torch", "transformers", "trl", "peft") if m in sys.modules]
+          assert not heavy, f"importing grapevine.rl loaded {heavy}"
+          EOF
 
-      - name: Tests (includes the 2-step CPU GRPO smoke test)
+      - name: Tests on the core install (model-loading tests skip)
+        run: .venv/bin/pytest -q
+
+  rl-smoke:
+    # GRPO integration, smoke-tested. These runs prove the loop is wired and that
+    # frozen partners stay frozen; they are not training and report no results.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install locked environment with the [rl] extra (CPU torch on Linux)
+        run: uv sync --locked --extra dev --extra rl
+
+      - name: GRPO smoke run, isolation test and its negative control
         env:
           HF_HUB_DOWNLOAD_TIMEOUT: "60"
-        run: .venv/bin/pytest -q
+        run: .venv/bin/pytest -q tests/test_rl_training.py
+
+      - name: The shipped smoke config runs through the CLI
+        env:
+          HF_HUB_DOWNLOAD_TIMEOUT: "60"
+        run: |
+          .venv/bin/grapevine train configs/rl_smoke_cpu.yaml
+          .venv/bin/python - <<'EOF'
+          import json
+          m = json.load(open("runs/rl_smoke_cpu/manifest.json"))
+          assert m["global_step"] == 2, m["global_step"]
+          assert m["reportable"] is False and m["synthetic"] is True
+          assert m["partners_frozen"] is True
+          EOF
+
+      - name: The GPU config passes the audit gate (dry run, no model)
+        run: .venv/bin/grapevine train configs/rl_single_gpu.yaml --dry-run

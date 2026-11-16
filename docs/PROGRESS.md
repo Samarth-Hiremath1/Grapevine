@@ -270,3 +270,85 @@ the version recorded in Step 1, provably frozen partners, the audit gate, LoRA,
 and `grapevine eval`. Honestly labelled: no training results.
 
 **Spend:** $1.5322 cumulative. $0.00 this step.
+
+---
+
+## Step 5 — RL and post-training infrastructure
+
+*2026-11-15. Branch `v0.2`.*
+
+**GRPO integration, smoke-tested; no training results in this release.**
+
+**Done**
+
+- **`grapevine.rl` behind an `[rl]` extra**, pinned to TRL 1.18 — the version
+  whose docs were read in Step 1, replacing a stale `trl>=0.11`. The reward
+  contract was then confirmed from the installed 1.18.0 source. A core-only
+  install pulls in no torch and `import grapevine.rl` loads nothing heavy; CI
+  asserts both.
+- **Rewards.** Team outcome from the environment's own scorer by default. An
+  optional information-surfacing shaping term, off by default, because it is
+  collectable without answering: the audit gained a `recite_without_answering`
+  policy, and any positive weight now fails `reward_hacking`.
+  `RewardedEnvironment` wraps an environment so the audit scores with the
+  training reward itself. Shared, split and surfacing-weighted credit helpers;
+  nothing counterfactual.
+- **A protocol-native rollout** that runs any `DistributedTask` (the v0 engine
+  only runs the legacy `Task`), records every prompt — which the v0 episodes
+  never did — states the objective in every turn (asserted per turn), and tags
+  turns with role, round, trainable and synthetic.
+- **The isolation bug is fixed and proven fixed.** Frozen partners are
+  separately loaded models, eval mode, `requires_grad` off. A test takes an
+  optimiser step that demonstrably moves the policy and checks the partner's
+  weight hash, its greedy output, and that it shares no tensor storage with the
+  policy. A negative control rebuilds the v0 bug — a partner wrapping the policy
+  object — and requires it to fail the same check. LoRA trains only `lora_`
+  parameters and leaves the partner untouched; the policy client is bound to
+  `trainer.model`, the PEFT-wrapped one. Endpoint and scripted partners too.
+- **Self-play**, recorded as `partners_frozen: false`. Not through
+  `rollout_func` as planned; reasoning in `docs/decisions.md`.
+- **The audit gate.** `grapevine train` audits the environment with the training
+  reward on its training seeds before loading any model, refuses a failing card
+  or an environment with no seed split, and records `--allow-flagged` in the
+  manifest when it is used.
+- **Run manifest** with model, seed, environment version, card hash, reward
+  config, partners and whether frozen, provenance at start and end, and
+  `reportable` with reasons. Every run in this release is not reportable: none
+  has a pre-registration.
+- **`grapevine eval --policy`** on held-out seeds only, beside chance, the best
+  content-blind shortcut, a common-ground-only team and a no-talk team, with
+  Clopper-Pearson intervals. Synthetic reports say so.
+- **Configs.** `configs/rl_smoke_cpu.yaml` runs in CI; `configs/rl_single_gpu.yaml`
+  opens with `# not run`.
+- **Deleted** `grapevine/train/`, its configs and smoke test, and
+  `grapevine/diagnostics/` with the `diagnose` subcommand. The NeMo-RL notes
+  moved to `docs/notes/nemo_rl.md`, marked archived.
+- **CI split in two.** `core` proves the light install; `rl-smoke` runs the smoke
+  run, isolation tests, the CLI smoke config and a GPU-config dry run from the
+  lock. Linux now locks CPU torch instead of side-stepping the lock with
+  `uv pip install`.
+- `docs/rl.md`: reward design, partners, gate, manifest, configs, eval, and a
+  table of exactly what has and has not been run.
+
+**What the smoke run actually shows.** Two steps complete through TRL with
+`loss 0` and `grad_norm 0`: a random model earns the same zero reward on every
+completion, so GRPO has no advantage to follow and changes nothing. That is the
+honest outcome of a wiring test, and why the isolation test adds a
+completion-dependent reward of its own.
+
+**Not done from the brief:** the `verifiers` adapter (skipped by decision in
+Step 1), and refreshing a frozen partner from the policy every N steps (frozen
+copy and endpoint were implemented instead; the brief asked for one of the
+three).
+
+**Checks:** 330 passed, 0 skipped with `[rl]` installed. `ruff` clean, `mypy
+--strict` clean over 42 files. Both committed Validity Cards regenerated for the
+new audit policy with unchanged verdicts — v1 still fails on the same three
+checks, v2 still passes all thirteen.
+
+**Next**
+
+Step 6 — the eval run: write the pre-registration and the analysis script, then
+stop for a decision on keys and budget, as agreed in Step 1.
+
+**Spend:** $1.5322 cumulative. $0.00 this step.

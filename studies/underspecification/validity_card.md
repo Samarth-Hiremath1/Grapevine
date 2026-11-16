@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 1000–1199
-- Grapevine: `0.0.1` · card hash: `6be9f6e31a2164ba`
+- Grapevine: `0.0.1` · card hash: `5e4429b1885fda65`
 - Config: `n_agents=3`, `n_distractors=4`, `n_options=4`, `n_private_facts_per_agent=2`, `n_shared_facts=6`
 - Checks: 3 fail, 4 warn, 6 pass
 
@@ -876,6 +876,19 @@
   },
   "policies": [
     {
+      "name": "recite_without_answering",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false
+    },
+    {
       "name": "verbose_non_answer",
       "n_correct": 0,
       "n": 200,
@@ -967,7 +980,7 @@
       "pays_beyond_correctness": false
     }
   ],
-  "alpha_per_probe_vs_chance": 0.007143,
+  "alpha_per_probe_vs_chance": 0.00625,
   "alpha_vs_pooling": 0.05,
   "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
 }
