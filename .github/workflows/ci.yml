@@ -42,6 +42,8 @@ jobs:
 
       - name: Pre-registered eval prompts still match the pre-registration
         run: .venv/bin/python -m studies.v2_eval.freeze --check
+      - name: H1 investigation is reproducible
+        run: .venv/bin/python -m studies.v2_eval.h1_investigation --check
 
       - name: hidden_profile_v2's Validity Card regenerates byte-identically
         run: |

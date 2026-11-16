@@ -124,7 +124,14 @@ class TestSpendingGuards:
         pilot = run.estimate(list(CANDIDATE_MODELS), "pilot")
         primary = run.estimate(list(CANDIDATE_MODELS), "primary")
         worst = pilot["total_if_every_call_hits_cap_usd"] + primary["total_if_every_call_hits_cap_usd"]
-        assert pilot["committed_spend_usd"] + worst < DESIGN.budget_usd
+        # Measured from the spend before this eval: its own committed runs are
+        # already inside the worst case and must not be counted twice.
+        eval_spend = sum(
+            json.loads(m.read_text(encoding="utf-8")).get("total_cost_usd", 0.0)
+            for m in Path("studies/v2_eval/runs").glob("*/manifest.json")
+        )
+        assert pilot["committed_spend_usd"] - eval_spend + worst < DESIGN.budget_usd
+        assert pilot["committed_spend_usd"] < DESIGN.budget_usd
 
     def test_a_live_run_needs_an_approval(self, capsys: pytest.CaptureFixture[str]) -> None:
         assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna"]) == 2

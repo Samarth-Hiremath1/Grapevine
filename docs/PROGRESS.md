@@ -413,3 +413,32 @@ stop for a decision on keys and budget, as agreed in Step 1.
 then the analysis, once.
 
 **Spend:** $1.7843 cumulative. $0.2521 this step.
+
+---
+
+## Step 6 — Primary run and the H1 investigation
+
+*2026-11-16. Branch `v0.2`. Run at commit `45e5185`, working tree clean.*
+
+**Done**
+
+- Samarth approved the primary run with a $6.69 ceiling; recorded in the
+  pre-registration before any call.
+- Ran it: 6,600 calls, 1,800/1,800 episodes, $1.2812, 14 truncated calls.
+  Ran the pre-registered analysis once. Both committed unchanged
+  (`studies/v2_eval/runs/20261116T091238Z_primary/`).
+- The pre-registration's H1 reading was triggered: `gpt-4o-mini`'s
+  `no_communication`/unstated cell is above chance. As §10 requires, this was
+  investigated before reporting anything else. Finding: the battery has no
+  solver that applies the scoring rule to an agent's private facts alone, and
+  on v2 that solver picks gold for every agent. Re-executable as
+  `python -m studies.v2_eval.h1_investigation`; CI checks it.
+- A pre-run budget test counted this eval's own spend twice once the runs
+  existed; it now measures from the spend before the eval.
+
+**Checks:** 359 passed. `ruff`, `mypy --strict` clean.
+
+**Next:** Samarth decides how the audit gap is handled before the results are
+written up.
+
+**Spend:** $3.0655 cumulative. $1.2812 this step.
