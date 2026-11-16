@@ -386,3 +386,30 @@ stop for a decision on keys and budget, as agreed in Step 1.
 **Next:** the pilot, then a separate approval before the primary run.
 
 **Spend:** $1.5322 cumulative. $0.00 this step.
+
+---
+
+## Step 6 — Pilot
+
+*2026-11-16. Branch `v0.2`. Run at commit `15a1e5d`, working tree clean.*
+
+**Done**
+
+- Ran the approved pilot: `gpt-5.6-luna`, `gpt-6-luna`, `gpt-4o-mini` on the
+  20 pilot tasks (seeds 9000–9019), six cells each. 1,320 calls, 360/360
+  episodes, $0.2521 against a $1.34 ceiling. Committed unchanged as
+  `studies/v2_eval/runs/20261116T074017Z_pilot/`.
+- The three pre-registered pilot checks:
+  - rejected parameters: 0 errors; every call finished `stop` or `length`;
+  - truncation: 1 call of 1,320 (`gpt-6-luna`), below the 2% threshold, so
+    the 1,200-token cap stays;
+  - parse failures: 0 of 360 episodes.
+- No design change. Pilot accuracies were not read and are not a result
+  (the analysis script refuses pilot runs).
+
+**Checks:** see the commit.
+
+**Next:** a separate approval for the primary run (100 tasks, 6,600 calls),
+then the analysis, once.
+
+**Spend:** $1.7843 cumulative. $0.2521 this step.

@@ -289,3 +289,5 @@ Recorded here, dated, before the step they affect.
 | 2026-11-15 | Models: **`gpt-5.6-luna`, `gpt-6-luna`, `gpt-4o-mini`** | Samarth's choice, on the §8 estimates |
 | 2026-11-15 | Pilot approved with a hard ceiling of **$1.34** (`--approve-usd 1.34`) | Samarth's approval; estimate $0.2316 at v0 output length, $1.3353 if every call hits the cap |
 | 2026-11-15 | Runner now loads the key from `.env`, and refuses to run without one | A fix found before any call, not a design change: the runner had never loaded `.env`, so it could not have reached the API |
+| 2026-11-16 | Pilot run `20261116T074017Z_pilot` committed unchanged: 1,320 calls, 360/360 episodes, $0.2521 | Run as approved. The three pilot checks: no rejected parameters (0 errors; every call returned `stop` or `length`); 1 truncated call of 1,320, below the 2% threshold; 0 parse failures. Pilot accuracies were not read |
+| 2026-11-16 | **No change** to the design: output cap stays at 1,200 tokens, prompts and models unchanged | None of the three checks crossed its threshold, so §9 allows no change |
