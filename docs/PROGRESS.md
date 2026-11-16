@@ -352,3 +352,37 @@ Step 6 — the eval run: write the pre-registration and the analysis script, the
 stop for a decision on keys and budget, as agreed in Step 1.
 
 **Spend:** $1.5322 cumulative. $0.00 this step.
+
+---
+
+## Step 6 — Pre-registration (the run follows separately)
+
+*2026-11-15. Branch `v0.2`. Committed before any call to a model.*
+
+**Done**
+
+- `docs/prereg/hidden_profile_v2_eval.md`: question, four hypotheses with
+  directions, six cells (three conditions × objective stated or not), N=100 on
+  v2's eval seeds 10000–10099, a 20-task pilot on its pilot seeds 9000–9019
+  (disjointness enforced in code), the exact prompts pinned by SHA-256, seven
+  paired contrasts per model with Bonferroni intervals, and a reading committed
+  in advance for every outcome.
+- `studies/v2_eval/`: the design, a runner with per-call logging and three
+  spending guards, the analysis script the pre-registration names, and the
+  prompt freeze. The analysis refuses synthetic, pilot and incomplete runs.
+- The six arms are audited: `objective` fails exactly the three unstated arms,
+  and all 15 pairs differ in framing only by what each declares.
+- The client now records each call's finish reason and hidden reasoning tokens,
+  and treats a call that hit the cap as a named failure — the data the v0 audit
+  lacked for L10.
+- Candidate prices checked against the provider's pricing page; `gpt-6-luna` and
+  `gpt-5-nano` added. How `gpt-6-luna` handles `temperature` is unverified and
+  says so.
+- Samarth chose all three candidate models and approved the pilot with a hard
+  ceiling of $1.34. Both are recorded in the pre-registration's §11.
+
+**Checks:** 359 passed. `ruff`, `mypy --strict` clean. Both freeze checks pass.
+
+**Next:** the pilot, then a separate approval before the primary run.
+
+**Spend:** $1.5322 cumulative. $0.00 this step.

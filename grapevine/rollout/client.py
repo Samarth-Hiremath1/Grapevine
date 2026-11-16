@@ -30,12 +30,33 @@ class Message:
 
 @dataclass
 class Completion:
-    """The result of one model call, including usage and estimated cost."""
+    """The result of one model call, including usage and estimated cost.
+
+    ``finish_reason`` and ``reasoning_tokens`` were added after the v0 audit
+    could not confirm why condition D produced empty answers (``docs/audit.md``
+    L10): the likely cause was hidden reasoning tokens exhausting the output cap,
+    but usage was only logged per episode and the finish reason not at all.
+    """
 
     text: str
     prompt_tokens: int
     completion_tokens: int
     cost_usd: float
+    #: The provider's stop reason, e.g. ``"stop"`` or ``"length"``; ``None`` when
+    #: the client cannot know (scripted, local).
+    finish_reason: str | None = None
+    #: Hidden reasoning tokens, billed as output and counted inside
+    #: ``completion_tokens`` by providers that report them.
+    reasoning_tokens: int = 0
+
+    @property
+    def truncated(self) -> bool:
+        """True when the provider stopped because the output cap was reached.
+
+        A truncated answer is a named failure, never scored as a wrong answer:
+        the model was cut off, not mistaken.
+        """
+        return self.finish_reason == "length"
 
 
 @dataclass
@@ -61,6 +82,11 @@ DEFAULT_PRICING: dict[str, Pricing] = {
     "gpt-5.6-luna": Pricing(0.0002, 0.0012),
     "gpt-5.6-terra": Pricing(0.002, 0.012),
     "gpt-4o-mini": Pricing(0.00015, 0.0006),
+    # Candidates for the v2 eval run, standard (non-batch) list prices from
+    # developers.openai.com/api/docs/pricing, checked 2026-11-15. gpt-5.6-luna
+    # and gpt-4o-mini above were re-checked the same day and are unchanged.
+    "gpt-6-luna": Pricing(0.0001, 0.0005),
+    "gpt-5-nano": Pricing(0.00005, 0.0004),
     "gpt-4.1-mini": Pricing(0.0004, 0.0016),
     "gpt-4.1-nano": Pricing(0.0001, 0.0004),
     "claude-3-5-haiku-latest": Pricing(0.0008, 0.004),
@@ -166,7 +192,7 @@ async def _with_retry(
 
 #: Model-name prefixes whose APIs take ``max_completion_tokens`` rather than the
 #: older ``max_tokens``. Sending ``max_tokens`` to these returns a 400.
-_MAX_COMPLETION_TOKENS_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+_MAX_COMPLETION_TOKENS_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
 
 
 def uses_max_completion_tokens(model: str) -> bool:
@@ -177,7 +203,7 @@ def uses_max_completion_tokens(model: str) -> bool:
 #: Model families that reject any explicit ``temperature`` other than the
 #: default of 1. Sending 0.0 to these returns a 400, so the field is omitted and
 #: the effective temperature is 1.0.
-_FIXED_TEMPERATURE_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+_FIXED_TEMPERATURE_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
 
 
 def supports_temperature(model: str) -> bool:
@@ -252,15 +278,19 @@ class OpenAICompatibleClient(LLMClient):
             response = await _with_retry(_do, self.retry, self._rng)
         response.raise_for_status()
         data = response.json()
-        text = data["choices"][0]["message"]["content"] or ""
+        choice = data["choices"][0]
+        text = choice["message"]["content"] or ""
         usage = data.get("usage", {})
         prompt_tokens = int(usage.get("prompt_tokens", 0))
         completion_tokens = int(usage.get("completion_tokens", 0))
+        details = usage.get("completion_tokens_details") or {}
         completion = Completion(
             text=text,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cost_usd=self.pricing.cost(prompt_tokens, completion_tokens),
+            finish_reason=choice.get("finish_reason"),
+            reasoning_tokens=int(details.get("reasoning_tokens") or 0),
         )
         self._record(completion)
         return completion
