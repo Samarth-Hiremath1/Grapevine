@@ -23,6 +23,7 @@ any particular model.
 from __future__ import annotations
 
 import random
+import re
 from collections.abc import Callable, Sequence
 
 from grapevine.protocol import AgentView, DistributedTask, InfoUnit, support_total
@@ -32,6 +33,8 @@ __all__ = [
     "SHORTCUT_SOLVERS",
     "Policy",
     "Solver",
+    "count_mentions",
+    "fewest_mentions",
     "first_option",
     "longest_option",
     "mention_count",
@@ -45,6 +48,21 @@ Solver = Callable[[AgentView, Sequence[str], random.Random], str]
 
 #: A policy picks an option given the whole task, modelling a team.
 Policy = Callable[[DistributedTask, random.Random], str]
+
+
+def count_mentions(text: str, option: str) -> int:
+    """How often ``option`` is named in ``text``, counting whole words only.
+
+    Plain substring counting is wrong here, and not academically: a control
+    fixture in this repository used the phrase "listed alphabetically", which
+    made every such sentence count as a mention of an option called "Alpha".
+    Any name-matching measurement inherits that error -- the mention-count
+    probes below, and a surfacing metric that looks for a fact's subject in a
+    message. :func:`~grapevine.audit.checks.check_name_hygiene` reports when an
+    environment's names collide this way.
+    """
+    pattern = re.compile(rf"(?<![A-Za-z]){re.escape(option)}(?![A-Za-z])", re.IGNORECASE)
+    return len(pattern.findall(text))
 
 
 def _argmax(scores: dict[str, float], answer_space: Sequence[str], rng: random.Random) -> str:
@@ -95,8 +113,23 @@ def mention_count(view: AgentView, answer_space: Sequence[str], rng: random.Rand
     v0 template, where every strength fact began with the candidate's name, so
     name frequency was a sufficient statistic for the answer.
     """
-    text = view.render().lower()
-    scores = {option: float(text.count(option.lower())) for option in answer_space}
+    text = view.render()
+    scores = {option: float(count_mentions(text, option)) for option in answer_space}
+    return _argmax(scores, answer_space, rng)
+
+
+def fewest_mentions(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:
+    """Pick the option whose name appears *least* often in the text.
+
+    The inverse of :func:`mention_count`, and not a hypothetical: the obvious way
+    to stop name-counting from solving a task is to add mentions of the wrong
+    options until the right one is no longer the most-named. Overshoot and the
+    right one becomes the *least*-named, which is just as cheap to exploit. An
+    environment has to make mention counts uninformative, not merely
+    non-monotonic in the answer.
+    """
+    text = view.render()
+    scores = {option: -float(count_mentions(text, option)) for option in answer_space}
     return _argmax(scores, answer_space, rng)
 
 
@@ -132,6 +165,7 @@ def shared_only(view: AgentView, answer_space: Sequence[str], rng: random.Random
 #: is excluded: it is the intended solution, not a shortcut.
 SHORTCUT_SOLVERS: dict[str, Solver] = {
     "mention_count": mention_count,
+    "fewest_mentions": fewest_mentions,
     "first_option": first_option,
     "longest_option": longest_option,
     "shared_only": shared_only,

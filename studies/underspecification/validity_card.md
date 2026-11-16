@@ -3,16 +3,16 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 1000–1199
-- Grapevine: `0.0.1` · card hash: `70591e98ef4a6741`
+- Grapevine: `0.0.1` · card hash: `6be9f6e31a2164ba`
 - Config: `n_agents=3`, `n_distractors=4`, `n_options=4`, `n_private_facts_per_agent=2`, `n_shared_facts=6`
-- Checks: 3 fail, 4 warn, 5 pass
+- Checks: 3 fail, 4 warn, 6 pass
 
 ## Summary
 
 | | Check | Status | Finding |
 |---|---|---|---|
 | ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 9 probes beat chance. Information that one agent can act on alone is not distributed information. |
-| ❌ | `shortcuts` | fail | `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 4 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information. |
+| ❌ | `shortcuts` | fail | `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 5 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information. |
 | ❌ | `objective` | fail | 5 of 10 conditions never state the objective: `communication`, `communication_neutral`, `full_info`, `full_info_matched`, `no_communication`. Agents in those arms are not told what question they are answering or how the answer is scored, so a wrong answer there is not evidence of a coordination failure -- it may only be evidence that nobody said what to do. |
 | ⚠️ | `diversity` | warn | The batch is one puzzle in several arrangements rather than several problems: every one of the 200 tasks has the identical support pattern (6.0, 5.0, 1.0, 0.0). Intervals computed over these seeds measure variation over permutations of one task, not over tasks. |
 | ⚠️ | `balance` | warn | The task is not symmetric: agents hold unequal numbers of private units (means [4.0, 3.0, 3.0]), a spread of 1.00, so one agent is systematically better informed. |
@@ -20,6 +20,7 @@
 | ⚠️ | `seed_split` | warn | This environment declares no train/eval seed split, so nothing stops an RL run from training on the seeds it later reports. Implement Environment.seed_split() to make that impossible by construction rather than by discipline. |
 | ✅ | `leak` | pass | No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance). |
 | ✅ | `full_solvability` | pass | Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks. |
+| ✅ | `name_hygiene` | pass | No option name is a substring of another, and none occurs inside an ordinary word, across 200 tasks. |
 | ✅ | `minimality` | pass | All 1200 required units are load-bearing: removing any one changes the answer the scoring rule gives. |
 | ✅ | `scorer_fuzz` | pass | All 18 adversarial cases scored as the contract requires over 200 tasks: no false accepts, no false rejects. |
 | ✅ | `reward_hacking` | pass | Every degenerate policy scores significantly below genuine pooling (200/200) and at or below chance; the best is `always_first_option` at 27.0%. |
@@ -135,13 +136,14 @@
       "agent_id": 2
     }
   ],
-  "chance": 0.25
+  "chance": 0.25,
+  "alpha_per_probe": 0.005556
 }
 ```
 
 ### ❌ `shortcuts` — Content-blind shortcuts
 
-**fail.** `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 4 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information.
+**fail.** `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 5 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information.
 
 *Exists because of L3, I1 in `docs/audit.md`.*
 
@@ -156,6 +158,15 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true
+    },
+    {
+      "name": "fewest_mentions",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false
     },
     {
       "name": "first_option",
@@ -185,7 +196,8 @@
       "beats_chance": false
     }
   ],
-  "chance": 0.25
+  "chance": 0.25,
+  "alpha_per_probe": 0.01
 }
 ```
 
@@ -664,6 +676,20 @@
 }
 ```
 
+### ✅ `name_hygiene` — Option names are distinguishable in text
+
+**pass.** No option name is a substring of another, and none occurs inside an ordinary word, across 200 tasks.
+
+*Exists because of G11, L5 in `docs/audit.md`.*
+
+```json
+{
+  "names_that_are_substrings_of_other_names": [],
+  "names_colliding_with_ordinary_words": [],
+  "n_tasks_scanned": 200
+}
+```
+
 ### ✅ `minimality` — Minimality of the required units
 
 **pass.** All 1200 required units are load-bearing: removing any one changes the answer the scoring rule gives.
@@ -941,6 +967,8 @@
       "pays_beyond_correctness": false
     }
   ],
+  "alpha_per_probe_vs_chance": 0.007143,
+  "alpha_vs_pooling": 0.05,
   "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
 }
 ```

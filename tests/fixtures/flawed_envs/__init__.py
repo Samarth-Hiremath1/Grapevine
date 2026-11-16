@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from grapevine.protocol import (
     AgentView,
@@ -49,11 +49,17 @@ from grapevine.protocol import (
 __all__ = ["CLEAN_CONTROL", "FLAWED_ENVS", "ControlEnv", "Defect"]
 
 #: Equal-length option names, so "pick the longest option" cannot correlate
-#: with the answer.
+#: with the answer. None is a substring of another, and a test asserts none
+#: occurs inside any pool sentence -- see `name_hygiene`.
 _NAMES = (
     "Alpha", "Bravo", "Delta", "Gamma", "Kilo", "Lima", "Mike", "Oscar",
     "Romeo", "Sierra", "Tango", "Victor",
 )
+
+#: Names that hide inside ordinary English words, for the `name_hygiene`
+#: fixture: "Art" in "particular", "Ever" in "however", "Owen" in "shown",
+#: "Rose" in "prose". Counting these names also counts word fragments.
+_COLLIDING_NAMES = ("Art", "Ever", "Owen", "Rose", "Hart", "Reed")
 
 #: Supporting-fact templates. Larger than any single task uses, so tasks differ
 #: in content and not only in labels.
@@ -78,7 +84,10 @@ _SUPPORT = (
 #: Decision-irrelevant mentions. These name an option without being evidence
 #: about it, which is what keeps mention counts uninformative.
 _NEUTRAL = (
-    "was listed alphabetically in the panel packet",
+    # Deliberately not "listed alphabetically": that phrase hides the option
+    # name "Alpha" inside an ordinary word, which is what `name_hygiene` flags
+    # and what this pool got wrong on the first attempt.
+    "was listed in name order in the panel packet",
     "appears in the scheduling thread for the debrief",
     "was copied on the original role description",
     "had an interview slot moved for room availability",
@@ -86,6 +95,18 @@ _NEUTRAL = (
     "was on the shortlist circulated before the loop",
     "has a profile in the shared candidate folder",
     "was referenced in the recruiter's weekly update",
+    "is named in the room booking for the second loop",
+    "shows up in the panel's calendar invitation",
+    "was added to the distribution list last Tuesday",
+    "has a folder in the shared drive for this role",
+    "appears in the agenda for the hiring sync",
+    "was mentioned when the timeline was circulated",
+    "is listed in the coordinator's tracking sheet",
+    "was included in the reminder sent that morning",
+    "turns up in the thread about interview logistics",
+    "is noted in the printout the panel was handed",
+    "was copied on the scheduling correction",
+    "appears once in the recruiter's handover notes",
 )
 
 
@@ -125,6 +146,8 @@ class ControlEnv(Environment):
         verbosity_bonus: Add a reward term for long answers.
         single_template: Build every task from the same facts and the same
             support pattern.
+        colliding_names: Use option names that hide inside ordinary words, so
+            counting a name also counts word fragments.
     """
 
     leak_decisive_unit: bool = False
@@ -137,6 +160,7 @@ class ControlEnv(Environment):
     gold_always_first: bool = False
     verbosity_bonus: bool = False
     single_template: bool = False
+    colliding_names: bool = False
 
     name: str = "control"
     version: str = "1"
@@ -157,7 +181,8 @@ class ControlEnv(Environment):
         rng = random.Random(seed if not self.single_template else 0)
         n_agents = 3
 
-        options = list(rng.sample(_NAMES, 4))
+        pool = _COLLIDING_NAMES if self.colliding_names else _NAMES
+        options = list(rng.sample(pool, 4))
         gold, decoy, other, spare = options
         if self.gold_always_first:
             options = [gold, decoy, other, spare]
@@ -198,8 +223,6 @@ class ControlEnv(Environment):
         # Neutral mentions keep the mention counts away from the gold option.
         for who in (spare, spare, other, decoy):
             shared_units.append(InfoUnit(f"s{len(shared_units)}", neutral_fact(who), None))
-        shared = tuple(shared_units)
-
         # --- Private blocks: gold support, but never a block only about gold --
         views: list[AgentView] = []
         required: list[str] = []
@@ -235,7 +258,27 @@ class ControlEnv(Environment):
                         weight=float(n_gold + n_decoy + 1),
                     )
                 )
-            views.append(AgentView(agent_id=agent_id, shared=shared, private=tuple(private)))
+            views.append(AgentView(agent_id=agent_id, shared=(), private=tuple(private)))
+
+        # --- Equalise mention counts ----------------------------------------
+        # Counting option names must be uninformative, in both directions. It is
+        # not enough to stop the gold option being the most-named: overshoot and
+        # it becomes the least-named, which is exactly as cheap to exploit.
+        # Padding goes in the shared block, where it cannot tilt any one agent's
+        # private view.
+        mentioned: dict[str, int] = {option: 0 for option in options}
+        for unit in list(shared_units) + [u for v in views for u in v.private]:
+            for option in options:
+                mentioned[option] += unit.text.count(option)
+        target = max(mentioned.values())
+        if not self.gold_leads_mentions:
+            for option in options:
+                for _ in range(target - mentioned[option]):
+                    shared_units.append(
+                        InfoUnit(f"s{len(shared_units)}", neutral_fact(option), None)
+                    )
+        shared = tuple(shared_units)
+        views = [replace(view, shared=shared) for view in views]
 
         declared = tuple(required)
         if self.over_declare_required:
@@ -448,6 +491,16 @@ FLAWED_ENVS: dict[str, tuple[ControlEnv, Defect]] = {
             "the reward adds a bonus for long answers, collectable without answering",
             "reward_hacking",
             "fail",
+        ),
+    ),
+    "colliding_names": (
+        ControlEnv(name="flawed_colliding_names", colliding_names=True),
+        Defect(
+            "colliding_names",
+            "option names also occur inside ordinary words, so any name-matching "
+            "measurement counts word fragments",
+            "name_hygiene",
+            "warn",
         ),
     ),
     "one_puzzle": (

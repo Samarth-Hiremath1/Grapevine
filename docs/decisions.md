@@ -333,3 +333,29 @@ cost nothing and neither commits to a run. Whether the run happens, on which
 models, and under what budget is decided once `hidden_profile_v2` exists and
 there is something worth measuring. Until a run is committed, every document
 says `not run`.
+
+## Keep `split_evidence` as a negative example rather than fixing or deleting it
+
+*2026-11-15, Step 4.* The plan said to fix the family so it passes its audit or
+delete it, whichever was cheaper. Deleting is cheaper — fixing means redesigning
+the hop chain so the terminal station is identified by a property rather than
+named, which is task-design work the release does not need now that
+`hidden_profile_v2` fills the environment slot.
+
+I kept it anyway, and this is the reason. `split_evidence` is the only
+environment in this repository that leaked its answer *for real*: it was
+registered, nearly used for condition B, and caught by hand before any run
+(`docs/decisions.md`, 2026-09-08). The leak check now reproduces that hand count
+exactly — the gold answer is readable from a single agent's view in 100 of 100
+generated tasks — which is the strongest available evidence that the check works
+on something other than a fixture I planted myself. A synthetic flawed
+environment can always be accused of being built to be caught.
+
+The risk of keeping it is that someone runs it. That is guarded four ways: it is
+in `UNREGISTERED` so nothing resolving a family by name hands one out, the CLI
+refuses it with the reason, the experiment runner refuses it at config-load
+time, and `grapevine audit split_evidence` reports FAIL with the finding. A test
+asserts the leak itself, so re-registering it without a fix fails.
+
+If this looks like dodging the instruction rather than answering it, delete the
+module, its adapter entry and its tests; nothing else depends on it.

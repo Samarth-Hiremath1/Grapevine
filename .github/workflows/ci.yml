@@ -40,6 +40,12 @@ jobs:
             studies/underspecification/validity_card.json \
             studies/underspecification/validity_card.md
 
+      - name: hidden_profile_v2's Validity Card regenerates byte-identically
+        run: |
+          .venv/bin/grapevine audit hidden_profile_v2 --n 200 --seed 0 \
+            --out environments/hidden_profile_v2
+          git diff --exit-code -- environments/hidden_profile_v2
+
       - name: Study prompts still match the committed runs
         run: .venv/bin/python -m studies.underspecification.freeze_prompts --check
 

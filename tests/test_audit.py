@@ -24,8 +24,9 @@ import pytest
 from fixtures.flawed_envs import CLEAN_CONTROL, FLAWED_ENVS
 
 from grapevine.audit import CHECK_IDS, CHECKS, Status, ValidityCard, audit, check_ids
-from grapevine.audit.checks import CheckContext, run_checks
+from grapevine.audit.checks import CheckContext, family_alpha, run_checks
 from grapevine.envs import get_environment
+from grapevine.protocol import binomial_tail_p
 
 #: 200 tasks matches the v0 study's N and gives the binomial tests the power to
 #: separate a 100%-accurate shortcut from chance beyond any doubt.
@@ -62,12 +63,18 @@ class TestRegistry:
         assert len(set(CHECK_IDS)) == len(CHECK_IDS)
         assert check_ids() == CHECK_IDS
 
-    def test_the_documented_twelve_checks_are_present(self) -> None:
+    def test_the_documented_checks_are_present(self) -> None:
+        """Pinned so adding a check is a deliberate, documented act.
+
+        ``docs/audit-battery.md`` lists these, and a check added without
+        updating that page fails here.
+        """
         assert set(CHECK_IDS) == {
             "leak",
             "solo_solvability",
             "full_solvability",
             "shortcuts",
+            "name_hygiene",
             "minimality",
             "diversity",
             "balance",
@@ -108,9 +115,7 @@ class TestCard:
 
     def test_skipped_never_counts_as_passing(self) -> None:
         """An environment that declares nothing must not look checked."""
-        from grapevine.envs import get_environment as _get
-
-        card = audit(_get("split_evidence"), n_tasks=20, seed=0)
+        card = audit(get_environment("split_evidence"), n_tasks=20, seed=0)
         objective = card.get("objective")
         assert objective.status is Status.SKIPPED
         assert "cannot" in objective.summary.lower()
@@ -138,6 +143,55 @@ class TestCard:
         results = run_checks(CheckContext(env=CLEAN_CONTROL, tasks=tasks, seed=0))
         uncited = [r.check_id for r in results if not r.audit_findings]
         assert uncited == ["seed_split"]
+
+
+class TestMultiplicity:
+    """A check that runs several probes must correct for running several probes.
+
+    This is not a nicety. Five shortcut probes at an uncorrected alpha of 0.05
+    fail roughly one clean environment in four, and a validity auditor that
+    cries wolf that often is one people learn to ignore. ``docs/audit.md`` S3
+    applied the same correction to the study's four paired comparisons.
+    """
+
+    def test_alpha_is_divided_by_the_number_of_probes(self) -> None:
+        assert family_alpha(0.05, 5) == pytest.approx(0.01)
+        assert family_alpha(0.05, 1) == pytest.approx(0.05)
+        assert family_alpha(0.05, 0) == pytest.approx(0.05)
+
+    def test_uncorrected_alpha_would_fail_clean_environments(self) -> None:
+        """Demonstrated rather than asserted from theory.
+
+        Simulates five probes that are genuinely at chance over 200 tasks and
+        counts how often at least one clears an uncorrected 0.05. The answer is
+        around one run in five; with the correction it is around one in twenty.
+        """
+        import random
+
+        rng = random.Random(20261115)
+        n, trials, n_probes = 200, 2000, 5
+        uncorrected = corrected = 0
+        for _ in range(trials):
+            p_values = [
+                binomial_tail_p(sum(rng.random() < 0.25 for _ in range(n)), n, 0.25)
+                for _ in range(n_probes)
+            ]
+            uncorrected += any(p < 0.05 for p in p_values)
+            corrected += any(p < family_alpha(0.05, n_probes) for p in p_values)
+        assert uncorrected / trials > 0.12, uncorrected / trials
+        assert corrected / trials < 0.06, corrected / trials
+
+    def test_the_correction_is_recorded_on_the_card(self) -> None:
+        """A reader must be able to see which threshold was used."""
+        card = audit(CLEAN_CONTROL, n_tasks=50, seed=0)
+        assert card.get("shortcuts").detail["alpha_per_probe"] < 0.05
+        assert card.get("solo_solvability").detail["alpha_per_probe"] < 0.05
+        assert card.get("reward_hacking").detail["alpha_per_probe_vs_chance"] < 0.05
+
+    def test_the_correction_does_not_hide_a_real_shortcut(self) -> None:
+        """v0's name counting solved 200/200; no correction could mask that."""
+        card = audit(get_environment("hidden_profile"), n_tasks=200, seed=1000)
+        assert card.get("shortcuts").status is Status.FAIL
 
 
 # --- 2. Calibration ----------------------------------------------------------

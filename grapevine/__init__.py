@@ -31,8 +31,14 @@ Subpackages:
 """
 
 from grapevine.audit import CheckResult, Status, ValidityCard, audit, check_ids
-from grapevine.envs import get_environment, list_environments, register_environment
+from grapevine.envs import (
+    DEFAULT_ENVIRONMENT,
+    get_environment,
+    list_environments,
+    register_environment,
+)
 from grapevine.envs.base import Env, Task
+from grapevine.envs.hidden_profile_v2 import HiddenProfileV2, HiddenProfileV2Config
 from grapevine.protocol import (
     AgentView,
     Condition,
@@ -66,7 +72,10 @@ __all__ = [
     "ValidityCard",
     "audit",
     "check_ids",
-    # The registry.
+    # The registry and the bundled environment that passes its audit.
+    "DEFAULT_ENVIRONMENT",
+    "HiddenProfileV2",
+    "HiddenProfileV2Config",
     "get_environment",
     "list_environments",
     "register_environment",

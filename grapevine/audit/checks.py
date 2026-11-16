@@ -25,6 +25,7 @@ from grapevine.audit.card import CheckResult, Status
 from grapevine.audit.solvers import (
     DEGENERATE_POLICIES,
     SHORTCUT_SOLVERS,
+    count_mentions,
     genuine_pooling,
     mention_count,
     reference,
@@ -40,7 +41,7 @@ from grapevine.protocol import (
     support_total,
 )
 
-__all__ = ["CHECKS", "CheckContext", "run_checks"]
+__all__ = ["CHECKS", "CheckContext", "family_alpha", "run_checks"]
 
 #: Upper-tail chi-square critical values at alpha = 0.05, by degrees of freedom.
 #: A small table rather than a dependency on scipy; the v0 audit used the same
@@ -100,10 +101,27 @@ def _check(fn: Check) -> Check:
     return fn
 
 
+def family_alpha(alpha: float, n_probes: int) -> float:
+    """``alpha`` Bonferroni-corrected for the number of probes in one check.
+
+    This matters more than it sounds. A check that runs five shortcut probes at
+    an uncorrected 0.05 has a family-wise false-alarm rate near 23%, so roughly
+    one environment in four would be failed for nothing. For a validity auditor
+    that is the worst available failure mode: it teaches people to ignore the
+    tool. ``docs/audit.md`` S3 applied the same correction to the study's four
+    paired comparisons.
+
+    ``tests/test_audit.py`` demonstrates the uncorrected error rate rather than
+    asserting it, so the reasoning stays in the repository.
+    """
+    return alpha / max(1, n_probes)
+
+
 def _beats_chance(n_correct: int, n: int, chance: float, alpha: float) -> tuple[float, bool]:
     """Exact one-sided test that an accuracy exceeds chance.
 
-    Returns ``(p_value, beats)``.
+    Returns ``(p_value, beats)``. ``alpha`` should already be corrected for the
+    number of probes in the calling check -- see :func:`family_alpha`.
     """
     p = binomial_tail_p(n_correct, n, chance)
     return p, p < alpha
@@ -135,8 +153,8 @@ def _private_named_option(view: AgentView, answer_space: Sequence[str], rng: ran
     shortcut can be perfect even when applying the task's own scoring rule to
     the same view gives the wrong answer.
     """
-    text = "\n".join(u.text for u in view.private).lower()
-    scores = {option: float(text.count(option.lower())) for option in answer_space}
+    text = "\n".join(u.text for u in view.private)
+    scores = {option: float(count_mentions(text, option)) for option in answer_space}
     best = max(scores.values())
     leaders = [o for o in answer_space if scores[o] == best]
     return rng.choice(leaders) if len(leaders) > 1 else leaders[0]
@@ -240,9 +258,11 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         "mention_count_on_own_view": mention_count,
         "named_in_my_private_units": _private_named_option,
     }
+    n_agents = max(t.n_agents for t in ctx.tasks)
+    alpha = family_alpha(ctx.alpha, len(probes) * n_agents)
     rows: list[dict[str, Any]] = []
     for name, solver in probes.items():
-        for agent_id in range(max(t.n_agents for t in ctx.tasks)):
+        for agent_id in range(n_agents):
             correct = 0
             applicable = 0
             for task in ctx.tasks:
@@ -253,14 +273,14 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
                     correct += 1
             if applicable:
                 row = _accuracy_row(
-                    f"{name}[agent {agent_id}]", correct, applicable, ctx.chance, ctx.alpha
+                    f"{name}[agent {agent_id}]", correct, applicable, ctx.chance, alpha
                 )
                 row["probe"] = name
                 row["agent_id"] = agent_id
                 rows.append(row)
 
     beating = [r for r in rows if r["beats_chance"]]
-    detail = {"probes": rows, "chance": ctx.chance}
+    detail = {"probes": rows, "chance": ctx.chance, "alpha_per_probe": alpha}
     if beating:
         worst = max(beating, key=lambda r: r["accuracy"])
         return CheckResult(
@@ -355,16 +375,17 @@ def check_full_solvability(ctx: CheckContext) -> CheckResult:
 def check_shortcuts(ctx: CheckContext) -> CheckResult:
     """No content-blind shortcut on the full-information view may beat chance."""
     rng = ctx.rng()
+    alpha = family_alpha(ctx.alpha, len(SHORTCUT_SOLVERS))
     rows: list[dict[str, Any]] = []
     for name, solver in SHORTCUT_SOLVERS.items():
         correct = sum(
             solver(task.full_view(), task.answer_space, rng) == task.gold_answer
             for task in ctx.tasks
         )
-        rows.append(_accuracy_row(name, correct, ctx.n, ctx.chance, ctx.alpha))
+        rows.append(_accuracy_row(name, correct, ctx.n, ctx.chance, alpha))
 
     beating = [r for r in rows if r["beats_chance"]]
-    detail = {"shortcuts": rows, "chance": ctx.chance}
+    detail = {"shortcuts": rows, "chance": ctx.chance, "alpha_per_probe": alpha}
     if beating:
         worst = max(beating, key=lambda r: r["accuracy"])
         return CheckResult(
@@ -392,7 +413,105 @@ def check_shortcuts(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 5. Minimality -----------------------------------------------------------
+# --- 5. Name hygiene ---------------------------------------------------------
+
+
+@_check
+def check_name_hygiene(ctx: CheckContext) -> CheckResult:
+    """Option names must be distinguishable in text.
+
+    Everything that matches on names depends on this: the mention-count probes
+    above, and any surfacing or information-pooling metric that looks for a
+    fact's subject in a message. The v0 audit checked the narrow version of it
+    (G11, option names that are substrings of each other) and found none. The
+    broader version -- a name that also occurs inside an ordinary word -- bit a
+    fixture in this very repository, where "listed alphabetically" counted as a
+    mention of an option named "Alpha".
+    """
+    substring_of_each_other: list[dict[str, Any]] = []
+    collisions: list[dict[str, Any]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    seen_collisions: set[tuple[str, str]] = set()
+
+    for task in ctx.tasks:
+        for option in task.answer_space:
+            for other in task.answer_space:
+                if option != other and option.lower() in other.lower():
+                    pair = (option, other)
+                    if pair not in seen_pairs:
+                        seen_pairs.add(pair)
+                        substring_of_each_other.append({"name": option, "inside": other})
+        text = task.full_view().render()
+        lowered = text.lower()
+        for option in task.answer_space:
+            whole = count_mentions(text, option)
+            raw = lowered.count(option.lower())
+            if raw > whole:
+                key = (task.task_id, option)
+                if key not in seen_collisions and len(collisions) < 10:
+                    seen_collisions.add(key)
+                    # Show the first word the name is hiding inside.
+                    offender = next(
+                        (
+                            word
+                            for word in text.split()
+                            if option.lower() in word.lower()
+                            and count_mentions(word, option) == 0
+                        ),
+                        None,
+                    )
+                    collisions.append(
+                        {
+                            "task_id": task.task_id,
+                            "name": option,
+                            "whole_word_mentions": whole,
+                            "substring_occurrences": raw,
+                            "hidden_inside": offender,
+                        }
+                    )
+
+    detail = {
+        "names_that_are_substrings_of_other_names": substring_of_each_other,
+        "names_colliding_with_ordinary_words": collisions,
+        "n_tasks_scanned": ctx.n,
+    }
+    problems = []
+    if substring_of_each_other:
+        example = substring_of_each_other[0]
+        problems.append(
+            f"{len(substring_of_each_other)} option name(s) are substrings of another "
+            f"option's name, e.g. {example['name']!r} inside {example['inside']!r}"
+        )
+    if collisions:
+        example = collisions[0]
+        problems.append(
+            f"{len(collisions)} option name(s) also occur inside ordinary words, e.g. "
+            f"{example['name']!r} inside {example['hidden_inside']!r}"
+        )
+    if problems:
+        return CheckResult(
+            "name_hygiene",
+            "Option names are distinguishable in text",
+            Status.WARN,
+            "Name matching is unreliable here: "
+            + "; ".join(problems)
+            + ". Any measurement that looks for an option's name in text -- a "
+            "mention count, a surfacing rate -- is partly counting word fragments.",
+            detail,
+            ("G11", "L5"),
+        )
+    return CheckResult(
+        "name_hygiene",
+        "Option names are distinguishable in text",
+        Status.PASS,
+        "No option name is a substring of another, and none occurs inside an ordinary "
+        f"word, across {ctx.n} tasks.",
+        detail,
+        ("G11", "L5"),
+    )
+
+
+# --- 6. Minimality -----------------------------------------------------------
 
 
 @_check
@@ -459,7 +578,7 @@ def check_minimality(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 6. Diversity ------------------------------------------------------------
+# --- 7. Diversity ------------------------------------------------------------
 
 
 @_check
@@ -535,7 +654,7 @@ def check_diversity(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 7. Balance --------------------------------------------------------------
+# --- 8. Balance --------------------------------------------------------------
 
 
 def _chi2_uniform(counts: Sequence[int]) -> dict[str, Any]:
@@ -617,7 +736,7 @@ def check_balance(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 8. Objective stated ------------------------------------------------------
+# --- 9. Objective stated ------------------------------------------------------
 
 
 @_check
@@ -682,7 +801,7 @@ def check_objective(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 9. Condition diff --------------------------------------------------------
+# --- 10. Condition diff --------------------------------------------------------
 
 
 #: Prompt lines can be long; a card only needs enough of one to recognise it.
@@ -888,7 +1007,7 @@ def check_condition_diff(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 10. Scorer fuzzing -------------------------------------------------------
+# --- 11. Scorer fuzzing -------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -1018,7 +1137,7 @@ def check_scorer_fuzz(ctx: CheckContext) -> CheckResult:
     )
 
 
-# --- 11. Reward hackability ---------------------------------------------------
+# --- 12. Reward hackability ---------------------------------------------------
 
 
 def _two_proportion_p(k1: int, n1: int, k2: int, n2: int) -> float:
@@ -1051,6 +1170,11 @@ def check_reward_hacking(ctx: CheckContext) -> CheckResult:
         pooled_reward += result.reward
         pooled_correct += int(result.correct)
 
+    # The beats-chance family is corrected; the indistinguishable-from-pooling
+    # test is not, because there the risk runs the other way -- a smaller alpha
+    # would make a policy *more* likely to be called a match for pooling, which
+    # is the conclusion we must not reach lightly.
+    alpha = family_alpha(ctx.alpha, len(DEGENERATE_POLICIES))
     rows: list[dict[str, Any]] = []
     for name, policy in DEGENERATE_POLICIES.items():
         total = 0.0
@@ -1059,7 +1183,7 @@ def check_reward_hacking(ctx: CheckContext) -> CheckResult:
             result = task.score(policy(task, rng))
             total += result.reward
             correct += int(result.correct)
-        row = _accuracy_row(name, correct, ctx.n, ctx.chance, ctx.alpha)
+        row = _accuracy_row(name, correct, ctx.n, ctx.chance, alpha)
         row["mean_reward"] = total / ctx.n if ctx.n else 0.0
         p_vs_pooling = _two_proportion_p(correct, ctx.n, pooled_correct, ctx.n)
         row["p_value_vs_pooling"] = p_vs_pooling
@@ -1078,6 +1202,8 @@ def check_reward_hacking(ctx: CheckContext) -> CheckResult:
             "mean_reward": pooled_reward / ctx.n if ctx.n else 0.0,
         },
         "policies": rows,
+        "alpha_per_probe_vs_chance": alpha,
+        "alpha_vs_pooling": ctx.alpha,
         "note": (
             "Shaping terms are not included here: this environment's reward is its "
             "scorer alone. A run that adds a shaping term must re-audit with it, or the "

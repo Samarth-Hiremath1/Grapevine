@@ -525,7 +525,22 @@ def binomial_tail_p(k: int, n: int, p: float) -> float:
     if n <= 0:
         return 1.0
     k = max(0, min(k, n))
+    if k == 0:
+        return 1.0
+    if not 0.0 < p < 1.0:
+        return 1.0 if p >= 1.0 else 0.0
+    # Log space throughout: math.comb(20000, 5000) overflows a float, and the
+    # battery is run over tens of thousands of tasks when checking a generator.
+    log_p = math.log(p)
+    log_q = math.log1p(-p)
     total = 0.0
     for i in range(k, n + 1):
-        total += math.comb(n, i) * (p**i) * ((1.0 - p) ** (n - i))
+        log_term = (
+            math.lgamma(n + 1)
+            - math.lgamma(i + 1)
+            - math.lgamma(n - i + 1)
+            + i * log_p
+            + (n - i) * log_q
+        )
+        total += math.exp(log_term)
     return min(1.0, total)

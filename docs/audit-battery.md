@@ -1,6 +1,6 @@
 # The audit battery
 
-`grapevine audit <env>` runs twelve model-free checks over a batch of generated
+`grapevine audit <env>` runs thirteen model-free checks over a batch of generated
 tasks and emits a Validity Card. It needs no API key, no network and no GPU, and
 it takes under a second on 200 tasks.
 
@@ -16,7 +16,7 @@ gate. A warning does not fail the command: a limitation that is reported and
 understood is not the same as an environment that does not measure what it
 claims.
 
-## Why these twelve
+## Why these thirteen
 
 Each check exists because of a specific mistake, and all but one because of a
 mistake in this repository. Every `CheckResult` carries the `docs/audit.md`
@@ -28,7 +28,8 @@ has ever got wrong.
 | `leak` | The gold answer, or a statistic sufficient for it, sits in one agent's view | P4, G6 |
 | `solo_solvability` | Some solver on a single view beats chance, so pooling is optional | G6, P4, **A1** |
 | `full_solvability` | The stated scoring rule does not reach the answer even with everything pooled | G5 |
-| `shortcuts` | A content-blind solver — counting names, first option, longest option, shared facts only — beats chance | L3, I1 |
+| `shortcuts` | A content-blind solver — most-named, least-named, first option, longest option, shared facts only — beats chance | L3, I1 |
+| `name_hygiene` | An option name is a substring of another, or hides inside an ordinary word, so name matching counts word fragments | G11, L5 |
 | `minimality` | A unit the environment calls required is not load-bearing | G5 |
 | `diversity` | Every seed is the same puzzle rearranged | L2 |
 | `balance` | Gold position is skewed, or one agent is systematically better informed | G3, L8, L9 |
@@ -67,7 +68,7 @@ that all point at the answer, conditions that never state the objective, a
 baseline that changes framing as well as information, over-declared required
 units, the v0 parser's lenient matching, gold always listed first, a reward
 bonus for verbosity, and a generator that emits one task forever. CI requires
-the check named for each defect to fire, and the control to pass all twelve.
+the check named for each defect to fire, and the control to pass all thirteen.
 
 A planted defect usually trips more than one check — a leak really does also
 make a task solo-solvable. The requirement is that the responsible check
@@ -114,8 +115,8 @@ is a fact about these models, not a property of the task.
   `pass`.
 - **It only sees the opening prompts.** Later turns embed a transcript that does
   not exist before a rollout.
-- **Twelve checks are not all the checks.** Passing means twelve known failure
-  modes were looked for and not found.
+- **Thirteen checks are not all the checks.** Passing means thirteen known
+  failure modes were looked for and not found.
 
 ## Writing an auditable environment
 
@@ -134,6 +135,24 @@ part is what makes a check possible:
 - **`conditions()`**, optional, to enable `objective` and `condition_diff`.
 - **`seed_split()`**, optional, so an RL user cannot train on eval seeds.
 
-`tests/fixtures/flawed_envs/__init__.py` is a working example that passes all
-twelve, and `grapevine/envs/adapters.py` shows how an environment that predates
-the protocol is wrapped rather than rewritten.
+`grapevine/envs/hidden_profile_v2.py` is the bundled environment that passes all
+thirteen, with each design choice traced to the finding it answers; its card is
+`environments/hidden_profile_v2/validity_card.md`.
+`tests/fixtures/flawed_envs/__init__.py` is a smaller worked example, and
+`grapevine/envs/adapters.py` shows how an environment that predates the protocol
+is wrapped rather than rewritten.
+
+## Several probes, one threshold
+
+A check that runs several probes corrects for it. Five shortcut probes at an
+uncorrected alpha of 0.05 fail roughly one clean environment in four, and an
+auditor that cries wolf that often is one people learn to ignore. The
+"beats chance" families are Bonferroni-corrected within each check and the
+threshold used is recorded on the card as `alpha_per_probe`. The
+"indistinguishable from pooling" test is *not* corrected, because there a
+smaller alpha would make a degenerate policy more likely to be called a match
+for real pooling, which is the conclusion to reach least lightly.
+
+`docs/audit.md` S3 applied the same correction to the study's four paired
+comparisons. `tests/test_audit.py` demonstrates the uncorrected error rate by
+simulation rather than asserting it from theory.

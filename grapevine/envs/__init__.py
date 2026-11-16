@@ -6,6 +6,7 @@ from typing import Any
 from grapevine.envs.adapters import HiddenProfileV1, SplitEvidenceV1
 from grapevine.envs.base import Env, Task
 from grapevine.envs.hidden_profile import HiddenProfileConfig, HiddenProfileEnv
+from grapevine.envs.hidden_profile_v2 import HiddenProfileV2, HiddenProfileV2Config
 from grapevine.envs.split_evidence import SplitEvidenceConfig, SplitEvidenceEnv
 from grapevine.protocol import Environment
 
@@ -40,9 +41,16 @@ UNREGISTERED: dict[str, str] = {
 #: audit's job is to say so, not to hide them. What :data:`UNREGISTERED` governs
 #: is whether an environment may be *run* to produce results.
 ENVIRONMENTS: dict[str, Callable[[], Environment]] = {
+    "hidden_profile_v2": HiddenProfileV2,
     "hidden_profile": HiddenProfileV1,
     "split_evidence": SplitEvidenceV1,
 }
+
+#: The environment to reach for unless you have a reason not to: the one that
+#: passes its own audit. ``hidden_profile`` is kept because the committed case
+#: study is built on it and because an auditable example of a flawed environment
+#: is worth having; ``split_evidence`` is kept as a worked negative example.
+DEFAULT_ENVIRONMENT = "hidden_profile_v2"
 
 
 def get_environment(name: str) -> Environment:
@@ -100,7 +108,10 @@ def unavailable_reason(family: str) -> str | None:
 
 
 __all__ = [
+    "DEFAULT_ENVIRONMENT",
     "ENVIRONMENTS",
+    "HiddenProfileV2",
+    "HiddenProfileV2Config",
     "Env",
     "Environment",
     "HiddenProfileV1",

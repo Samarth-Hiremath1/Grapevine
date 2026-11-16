@@ -167,7 +167,8 @@
             "agent_id": 2
           }
         ],
-        "chance": 0.25
+        "chance": 0.25,
+        "alpha_per_probe": 0.005556
       }
     },
     {
@@ -191,7 +192,7 @@
       "check_id": "shortcuts",
       "title": "Content-blind shortcuts",
       "status": "fail",
-      "summary": "`mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 4 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information.",
+      "summary": "`mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 5 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information.",
       "audit_findings": [
         "L3",
         "I1"
@@ -206,6 +207,15 @@
             "chance": 0.25,
             "p_value_vs_chance": 0.0,
             "beats_chance": true
+          },
+          {
+            "name": "fewest_mentions",
+            "n_correct": 0,
+            "n": 200,
+            "accuracy": 0.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 1.0,
+            "beats_chance": false
           },
           {
             "name": "first_option",
@@ -235,7 +245,23 @@
             "beats_chance": false
           }
         ],
-        "chance": 0.25
+        "chance": 0.25,
+        "alpha_per_probe": 0.01
+      }
+    },
+    {
+      "check_id": "name_hygiene",
+      "title": "Option names are distinguishable in text",
+      "status": "pass",
+      "summary": "No option name is a substring of another, and none occurs inside an ordinary word, across 200 tasks.",
+      "audit_findings": [
+        "G11",
+        "L5"
+      ],
+      "detail": {
+        "names_that_are_substrings_of_other_names": [],
+        "names_colliding_with_ordinary_words": [],
+        "n_tasks_scanned": 200
       }
     },
     {
@@ -934,6 +960,8 @@
             "pays_beyond_correctness": false
           }
         ],
+        "alpha_per_probe_vs_chance": 0.007143,
+        "alpha_vs_pooling": 0.05,
         "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
       }
     },

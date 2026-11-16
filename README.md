@@ -5,7 +5,8 @@ coordination or something else, and gives you environments and GRPO wiring that
 pass that check.
 
 ```bash
-grapevine audit hidden_profile
+grapevine audit hidden_profile_v2   # the bundled environment that passes
+grapevine audit hidden_profile      # the one this repository's first result used
 ```
 
 Offline, no API key, under a second on 200 tasks. On the environment behind this
@@ -13,7 +14,10 @@ repository's own first result, it reports three failures — a content-blind
 shortcut that solves 200 of 200 tasks, an objective that never reached the
 models, and a single agent able to answer alone. The committed card is
 [`studies/underspecification/validity_card.md`](studies/underspecification/validity_card.md);
-how the battery works and how it is calibrated is in
+`hidden_profile_v2` is built to answer every one of those findings and has a
+committed passing card at
+[`environments/hidden_profile_v2/validity_card.md`](environments/hidden_profile_v2/validity_card.md).
+How the battery works and how it is calibrated is in
 [`docs/audit-battery.md`](docs/audit-battery.md).
 
 The tool exists because that first result was wrong, and the rest of this README
