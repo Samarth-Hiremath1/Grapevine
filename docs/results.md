@@ -7,7 +7,7 @@ by `python -m studies.underspecification.reproduce`, which writes
 Clopper-Pearson 95% intervals; intervals on differences are paired bootstrap 95%
 intervals over the same tasks.
 
-![Accuracy by condition, with and without the task stated](figures/accuracy_by_condition.png)
+![Accuracy by condition, with and without the task stated](../studies/underspecification/figures/accuracy_by_condition.png)
 
 ## What holds
 
