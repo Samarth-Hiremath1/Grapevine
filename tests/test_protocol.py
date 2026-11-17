@@ -253,3 +253,15 @@ class TestBinomialTailP:
     def test_handles_degenerate_inputs(self) -> None:
         assert binomial_tail_p(0, 0, 0.25) == 1.0
         assert binomial_tail_p(0, 10, 0.25) == pytest.approx(1.0)
+
+
+def test_the_package_version_has_one_source_of_truth() -> None:
+    """``__version__`` and the distribution metadata must agree; cards record it."""
+    import tomllib
+    from pathlib import Path
+
+    import grapevine
+
+    meta = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert meta["name"] == "grapevine-mas"
+    assert grapevine.__version__ == meta["version"]

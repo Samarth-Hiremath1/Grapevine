@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 0–199
-- Grapevine: `0.0.1` · card hash: `9485d874dbddf007`
+- Grapevine: `0.2.0` · card hash: `9485d874dbddf007`
 - Config: `domains=['hiring', 'vendor', 'site']`, `facts_per_agent=1`, `margin=1`, `n_agents=3`, `n_options=4`, `n_rounds=2`, `pool_sha256=798d96e46481df23d857f769da6905ffa8eba9e01043dc3cc0595248dc3da4ee`, `state_objective=True`, `vary_support=True`
 - Checks: 1 fail, 12 pass
 

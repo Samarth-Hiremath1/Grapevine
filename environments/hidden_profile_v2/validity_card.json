@@ -19,7 +19,7 @@
   },
   "n_tasks": 200,
   "seed": 0,
-  "grapevine_version": "0.0.1",
+  "grapevine_version": "0.2.0",
   "verdict": "fail",
   "passed": false,
   "flagged_checks": [
