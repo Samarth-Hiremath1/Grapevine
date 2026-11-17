@@ -7,7 +7,14 @@ the best venue only wins once their private notes are pooled. It implements the
 :class:`grapevine.Environment` protocol and passes every check on its eval
 seeds. The comments say which check each design choice is there for.
 
-"Passes" is a statistical statement. Audited over 40 disjoint seed ranges, a
+"Passes" means the battery's thirteen checks found nothing; it does not mean
+one agent cannot answer alone. An external review found that "pick an option my
+private notes name, other than the most-named" is right for every agent here,
+because each agent's notes name only gold and its pointer, and the pointer more
+often (``docs/audit-battery.md``, "Known gaps"). Treat this as an example of
+the protocol, not of a sound environment.
+
+"Passes" is also a statistical statement. Audited over 40 disjoint seed ranges, a
 clean environment like this one fails about one in twenty, always on
 `shortcuts`, at the battery's 5% false-alarm rate
 (``studies/battery_calibration/README.md``). Audit on the seeds you will

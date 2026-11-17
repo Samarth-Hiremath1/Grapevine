@@ -12,7 +12,8 @@ Prepared on the `v0.2` branch. Not tagged and not published.
 ### Added
 
 - `grapevine audit`: an offline validity battery of thirteen checks that writes
-  a Validity Card, calibrated against planted-flaw fixtures. Exit code 2 when a
+  a Validity Card, tested against planted-flaw fixtures it must catch and a
+  clean control it must pass. Exit code 2 when a
   check fails.
 - The environment protocol: `Environment`, `DistributedTask`, `AgentView`,
   `InfoUnit`, `Objective`, `Condition`, `SeedSplit`, `ScoreResult`, `Scorer`,
@@ -27,7 +28,8 @@ Prepared on the `v0.2` branch. Not tagged and not published.
   (`studies/v2_eval/`), its runs, and its analysis.
 - `grapevine verify-claims` and `docs/claims.yaml`: every registered number in
   the documentation is re-derived from a committed run or a deterministic
-  computation, and must appear verbatim where it is claimed.
+  computation, and must appear verbatim where it is claimed. A claim can also
+  assert values its wording implies but does not print (`expect`).
 - Examples under `examples/`, each executed by the test suite.
 - A documentation site (MkDocs, built with `--strict`).
 - Packaging as `grapevine-mas`, typed (`py.typed`), tested on Python 3.11–3.13.
@@ -38,6 +40,18 @@ Prepared on the `v0.2` branch. Not tagged and not published.
   facts alone. `hidden_profile_v2` passed without it and fails with it. Added
   as a fourth `solo_solvability` probe; recorded as A2 in `docs/audit.md`. The
   RL gate now refuses `hidden_profile_v2` unless `--allow-flagged` is passed.
+
+### Fixed
+
+- `minimality` reported the size of its 10-entry sample as the total count of
+  redundant units. Found by the external review (`docs/review-v0.2.md`, M3).
+
+### Found by the review
+
+- An independent review found single-view shortcuts the battery has no probe
+  for, in every bundled and example environment, and that a partial answer leak
+  passes. Documented under "Known gaps" in `docs/audit-battery.md`; not fixed in
+  this release. Response to every finding: `docs/review-v0.2-response.md`.
 
 ### Changed
 

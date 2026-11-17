@@ -21,7 +21,15 @@ reads the facts from one that only counts names.
 ## A complete example
 
 `examples/02_write_an_environment.py` is a whole environment in one file that
-passes every check on its eval seeds. The comments say which check each design
+passes every check on its eval seeds.
+
+!!! warning "Passing is not the same as sound"
+    An external review found that this example can be solved from one agent's
+    view by a probe the battery does not have: pick an option the agent's
+    private notes name, other than the most-named. It shows how to implement
+    the protocol; it is not a design to copy as-is. See "Known gaps" in
+    [the audit battery](audit-battery.md#known-gaps).
+ The comments say which check each design
 choice is there for. The two that matter most:
 
 - **Private notes must not point at the answer.** Each agent holds support for

@@ -9,7 +9,7 @@
 # Not yet registered, and therefore not machine-checked: the surfacing metric's
 # precision, recall and label count (README "Limitations", docs/audit.md L5) --
 # recall depends on pool sizes no committed file stores, and who produced the
-# labels is an open question (docs/PROGRESS.md, Step 8); "12 fact sentences"
+# labels is an open question (docs/review-v0.2-response.md, M5); "12 fact sentences"
 # and the support pattern (6, 5, 1, 0) in the README; the HiddenBench figures,
 # which come from the paper, not from a run.
 
@@ -85,7 +85,7 @@ claims:
   - {id: readme.v0.shortcut.limitations, file: README.md, template: "counting name mentions solves {n_correct} of {n}",
      source: {json: *v0card, path: [results, 3, detail, shortcuts, 0]}}
   - {id: readme.v0.one-pattern, file: README.md, template: "All {n_tasks} tasks share one support pattern",
-     source: {json: *v0card, path: [results, 6, detail]}}
+     source: {json: *v0card, path: [results, 6, detail]}, expect: {distinct_support_patterns: 1}}
   - {id: readme.v0.prompt-freeze, file: README.md, template: "{digests} digests covering all {episodes:,}",
      source: {call: "studies.claims_sources:v0_prompt_freeze"}}
 
@@ -151,8 +151,8 @@ claims:
   - {id: v2.h1.4o, file: studies/v2_eval/README.md,
      template: "`gpt-4o-mini`, unstated: {correct}/{n}, 95% [{ci95[0]:.1%}, {ci95[1]:.1%}]",
      source: {json: *v2r, path: [cells, gpt-4o-mini, no_communication/unstated]}}
-  - {id: v2.h1.luna.max-6, file: studies/v2_eval/README.md, template: "all four cells (at most {correct}/{n})",
-     source: {json: *v2r, path: [cells, gpt-6-luna, no_communication/unstated]}}
+  - {id: v2.h1.luna.max, file: studies/v2_eval/README.md, template: "all four cells (at most {correct}/{n})",
+     source: {call: "studies.claims_sources:v2_luna_no_communication_max"}}
   - {id: v2.solver, file: studies/v2_eval/README.md, template: "every time ({solver_gold}/{solver_agents} agents",
      source: {call: "studies.v2_eval.h1_investigation:investigate"}}
 
@@ -175,6 +175,35 @@ claims:
   - {id: battery.false-fail.venue, file: docs/audit-battery.md, template: "fails {failed} times in {audits}",
      source: {call: "studies.battery_calibration.false_fail:measure", path: [venue_choice]}}
 
+  # --- Exploratory follow-up to the review (studies/v2_eval/review_followup.py)
+  - {id: v2.followup.surfacing, file: studies/v2_eval/README.md,
+     template: "In {not_all_gold_surfaced} of the {correct} correct communication episodes",
+     source: {call: "studies.v2_eval.review_followup:surfacing", path: [gpt-5.6-luna]}}
+  - {id: v2.followup.h3-6.truncated, file: studies/v2_eval/README.md,
+     template: "Of the {only_full} tasks only `full_info` got right, {only_full_comm_failed_to_answer} are communication",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna]}}
+  - {id: v2.followup.h3-6.seed, file: studies/v2_eval/README.md, template: "moving to {value!p:+.1f} with a different bootstrap seed",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna, bonferroni_lower_by_seed, "1"]}}
+  - {id: v2.followup.layout-cue, file: studies/v2_eval/README.md,
+     template: "gives gold on {value[0]} of {value[1]} tasks from v2's eval split",
+     source: {call: "studies.v2_eval.review_followup:probes",
+              path: ["hidden_profile_v2 (eval 10000-10199)", full_info_most_named_in_private_block]}}
+
+  - {id: response.surfacing, file: docs/review-v0.2-response.md,
+     template: "gives {not_all_gold_surfaced} of {correct} correct `gpt-5.6-luna` communication episodes",
+     source: {call: "studies.v2_eval.review_followup:surfacing", path: [gpt-5.6-luna]}}
+  - {id: response.m4, file: docs/review-v0.2-response.md,
+     template: "({only_full} v {only_comm} discordant, {only_full_comm_failed_to_answer} truncated, McNemar {mcnemar_p:.3f}",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna]}}
+  - {id: response.leak.0.1, file: docs/review-v0.2-response.md, template: "exactly ({leaky_tasks},",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [0]}}
+  - {id: response.leak.0.2, file: docs/review-v0.2-response.md, template: ", {leaky_tasks}, ",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [1]}, expect: {leak: pass}}
+  - {id: response.leak.0.3, file: docs/review-v0.2-response.md, template: "{leaky_tasks} of 200)",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [2]}}
+  - {id: response.probe.control, file: docs/review-v0.2-response.md,
+     template: "is also {value[0]}/{value[1]} on the clean control",
+     source: {call: "studies.v2_eval.review_followup:probes", path: ["control (eval 1000-1199)", named_not_most_named]}}
   # --- Spend ------------------------------------------------------------------
   - {id: progress.spend, file: docs/PROGRESS.md, template: "**Spend:** ${value:.4f} cumulative. $0.00 this step.",
      source: {call: "studies.v2_eval.run:committed_spend"}}

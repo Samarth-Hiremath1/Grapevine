@@ -71,6 +71,8 @@ nav:
       - "v0: methodology": methodology.md
       - "v0: experiment": experiment.md
       - "v0.2: pre-registered eval": prereg/hidden_profile_v2_eval.md
+      - "v0.2: external review": review-v0.2.md
+      - "v0.2: response to the review": review-v0.2-response.md
   - Project:
       - Changelog: changelog.md
       - Decisions: decisions.md

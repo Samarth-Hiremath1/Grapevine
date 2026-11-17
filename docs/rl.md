@@ -29,10 +29,10 @@ column except `prompt` by name. `max_prompt_length` no longer exists in 1.18's
 
 | | Status |
 |---|---|
-| Two-step CPU smoke run, tiny random model, scripted partners | **run in CI**; `loss 0`, `grad_norm 0` |
-| Frozen-partner isolation test, with a negative control | **run in CI** |
-| LoRA: only adapter weights train; partner untouched | **run in CI** |
-| Self-play: one step, recorded as not frozen | **run in CI** |
+| Two-step CPU smoke run, tiny random model, scripted partners | **run locally, 2026-11-16; configured for CI, not yet run there**; `loss 0`, `grad_norm 0` |
+| Frozen-partner isolation test, with a negative control | **run locally, 2026-11-16; configured for CI, not yet run there** |
+| LoRA: only adapter weights train; partner untouched | **run locally, 2026-11-16; configured for CI, not yet run there** |
+| Self-play: one step, recorded as not frozen | **run locally, 2026-11-16; configured for CI, not yet run there** |
 | `configs/rl_single_gpu.yaml`, a 0.5B model with LoRA | **not run** |
 | Any multi-seed run, any learning curve, any accuracy | **not run** |
 

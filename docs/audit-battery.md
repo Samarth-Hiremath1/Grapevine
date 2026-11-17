@@ -61,6 +61,9 @@ A battery nobody has shown a known-bad input is a battery that passes
 everything, and an environment auditor that passes everything is worse than
 none: it launders a flawed environment as a checked one.
 
+The limit of this, stated first: it shows the battery catches the flaws its
+author thought to plant (see "Known gaps" below).
+
 So `tests/fixtures/flawed_envs/` holds one environment per planted defect, each
 being the clean control with exactly one flag flipped — a decisive unit that
 leaks the answer, a gold option named more often than any other, private units
@@ -74,7 +77,7 @@ fire, and the control to pass all thirteen.
 
 A planted defect usually trips more than one check — a leak really does also
 make a task solo-solvable. The requirement is that the responsible check
-catches it; the tests record the collateral rather than tolerating it silently.
+catches it. The other checks a defect trips are not asserted by the tests.
 
 On top of that, the battery is required to rediscover this repository's own v0
 findings, by finding number: L3 (name counting solves 200/200), I1 (the
@@ -138,6 +141,35 @@ control had the same layout as v2.
 - **Thirteen checks are not all the checks.** Passing means thirteen known
   failure modes were looked for and not found.
 
+## Known gaps
+
+Found by the external review (`docs/review-v0.2.md`) and re-derived in
+`studies/v2_eval/review_followup.md`. None is fixed in this release.
+
+- **Single-view shortcuts outside the probe list.** "Pick an option my private
+  notes name, other than the most-named" is right for every agent in
+  `hidden_profile_v2`, in the clean control and in the example environment:
+  each agent's private notes name gold and one other option, and the other is
+  always named more. "Pick the option with the least shared support" also beats
+  chance in all three, because gold never appears in the shared facts. The
+  battery has neither probe. The example "passes every check" only relative to
+  the battery.
+- **A layout cue in the full-information prompt.** Presentation-matching puts
+  every gold fact under "Facts only you know", and the most-named option there
+  is gold. `condition_diff` compares framing between arms; nothing audits what a
+  prompt's sections give away.
+- **Partial leaks pass.** `leak` tests the share of leaking tasks against chance
+  accuracy, so a decisive unit in 43 of 200 tasks passes `leak` and
+  `solo_solvability`. Its two probes also run at an uncorrected 0.05, unlike the
+  rest of the battery.
+- **Calibration is circular.** The planted flaws and the clean control were
+  written by the person who wrote the checks, and the control was rewritten
+  after A2 to pass the new probe. A fixture set from someone else would be a
+  real test.
+- **Smaller mechanics.** `objective` and `condition_diff` inspect only the first
+  task. `balance` counts units per agent but not which way they point. Summaries
+  say "at or below chance" where they mean "not significantly above".
+
 ## Writing an auditable environment
 
 Implement `Environment.generate(seed) -> DistributedTask`. That is the minimum;
@@ -167,7 +199,8 @@ is wrapped rather than rewritten.
 ## Several probes, one threshold
 
 A check that runs several probes corrects for it. Five shortcut probes at an
-uncorrected alpha of 0.05 fail roughly one clean environment in four, and an
+uncorrected alpha of 0.05 fail roughly one clean environment in five (the
+simulation in `tests/test_audit.py`), and an
 auditor that cries wolf that often is one people learn to ignore. The
 "beats chance" families are Bonferroni-corrected within each check and the
 threshold used is recorded on the card as `alpha_per_probe`. The

@@ -31,7 +31,7 @@ Both are in the record, with the numbers that went with them.
 
 | | Status |
 |---|---|
-| `grapevine audit` and the Validity Card | Calibrated against planted flaws; [how](audit-battery.md) |
+| `grapevine audit` and the Validity Card | Tested against planted flaws; has [known gaps](audit-battery.md#known-gaps) |
 | `hidden_profile_v2` | Bundled; fails one check, `solo_solvability`, found by its own eval |
 | `grapevine.rl` (TRL GRPO) | **GRPO integration, smoke-tested; no training results in this release.** |
 | The v0 case study | Audited and reproducible from committed runs |

@@ -11,13 +11,16 @@ Example:
     >>> card.verdict
     <Status.FAIL: 'fail'>
     >>> card.flagged_checks
-    ('shortcuts',)
+    ('solo_solvability', 'shortcuts', 'objective')
 
 The battery is calibrated, not merely asserted: ``tests/fixtures/flawed_envs/``
 holds environments with exactly one planted defect each plus a clean control,
 and CI requires every planted flaw to be flagged and the control to pass. It is
 also required to rediscover the findings of this repository's own v0 audit
 (``docs/audit.md``), by finding number.
+
+That shows it catches the flaws its author thought to plant. It does not show
+there are no others: see "Known gaps" in ``docs/audit-battery.md``.
 """
 
 from __future__ import annotations
@@ -48,8 +51,8 @@ CHECK_IDS: tuple[str, ...] = tuple(fn.__name__.removeprefix("check_") for fn in 
 def check_ids() -> tuple[str, ...]:
     """The ids of every registered check, in card order.
 
-    Useful for ``--only`` on the command line and for the training entry point's
-    ``--allow-flagged`` list.
+    Useful for ``--only`` on the command line, and for reading which checks the
+    training entry point's audit gate refused on.
     """
     return CHECK_IDS
 

@@ -14,6 +14,16 @@ and v2 fails it. Written up as A2 in [`docs/audit.md`](../../docs/audit.md); the
 investigation is [`h1_investigation.md`](h1_investigation.md). Every number
 below was produced on v2 as it is, and is read with that in mind.
 
+**And read this second.** An external review (`docs/review-v0.2.md`) found
+more. In the communication arm, agent 0 gives the team's answer and can reach
+gold from its own private facts; the eval never measured whether facts were
+actually pooled; and further single-view cues exist, including one in the
+full-information prompt's layout. The readings below were revised in response,
+on 2026-11-16, after the analysis: the pre-registered numbers are unchanged,
+and where a reading changed, the original wording is quoted so the change is
+visible. The review's findings are re-derived, exploratorily, in
+[`review_followup.md`](review_followup.md).
+
 ## What was run
 
 | | Pilot | Primary |
@@ -45,16 +55,26 @@ result.
 **H3 — the main contrast** (`full_info − communication`, stated; predicted
 within ±5 points with the 95% interval including 0).
 
-- `gpt-5.6-luna`: +3.0 points, 95% [−2.0, +8.0]. **The v0 finding replicates**
-  on this environment for this model, in the pre-registered sense. Not a
-  general property of LLM teams.
+- `gpt-5.6-luna`: +3.0 points, 95% [−2.0, +8.0]. The numbers meet the H3
+  prediction, but **this is not a replication.** The pre-registered reading
+  that calls it one says "on an environment with no known shortcut", and since
+  A2 v2 has one: agent 0, who decides, reaches gold from its own private facts.
+  An interval that includes 0 is also not an equivalence result: the data are
+  consistent with a gap of up to 8 points (11 after Bonferroni). Read: **no gap
+  detected; that a team matches full information is not established.** In 16
+  of the 95 correct communication episodes, agents 1 and 2 did not surface
+  every gold fact they held (exploratory, `review_followup.md`). *Originally
+  written: "The v0 finding replicates on this environment for this model, in
+  the pre-registered sense."*
 - `gpt-6-luna`: +7.0 points, 95% [+2.0, +13.0], Bonferroni [+0.0, +15.0].
-  **This falls between the pre-registered readings.** It is not a replication
-  (the 95% interval excludes 0, and the mean is outside ±5), not a coordination
-  gap (the Bonferroni interval does not exclude 0; its lower bound is exactly
-  0), and not "inconclusive" as defined (that reading needs the interval to
-  include 0). The pre-registration did not anticipate this case, so no reading
-  is claimed.
+  **The H3 prediction was not met** (the mean is outside ±5 and the 95%
+  interval excludes 0), and no pre-registered reading applies: the "gap"
+  reading needs a Bonferroni interval excluding 0, and its lower bound sits at
+  the boundary, moving to −1.0 with a different bootstrap seed (exploratory).
+  Of the 8 tasks only `full_info` got right, 4 are communication episodes that
+  were truncated and so did not answer; they count as wrong, as the
+  pre-registration requires. *Originally: "falls between the pre-registered
+  readings … its lower bound is exactly 0".*
 - `gpt-4o-mini`: +28.0 points, Bonferroni [+11.0, +45.0]. Read through H4 as a
   capability result. The transcript audit the "gap" reading requires before a
   coordination claim has not been done, and no coordination claim is made.
@@ -65,12 +85,18 @@ within ±5 points with the 95% interval including 0).
 - `gpt-5.6-luna`: supported in both: +11.0 in `full_info`, +34.0 in
   `communication`, both Bonferroni intervals above 0.
 - `gpt-6-luna`: +25.0 in `communication`; **+0.0 in `full_info`**, 95%
-  [−3.0, +3.0]. By the pre-registered reading, for this model the rule is
-  recoverable from the facts without being stated, and the v0
-  underspecification explanation does not carry over to `full_info`.
+  [−3.0, +3.0]. The pre-registered reading for a null here is that the rule is
+  recoverable from the facts without being stated. There is an untested
+  alternative it did not anticipate: in the `full_info` prompt every gold fact
+  sits in the block headed "Facts only you know", and naming the most-named
+  option in that block gives gold on 200 of 200 tasks from v2's eval split (exploratory,
+  `review_followup.md`). So the null may reflect a layout cue rather than a
+  recoverable rule; it is not read either way.
 - `gpt-4o-mini`: **the opposite direction** in `full_info` (−24.0, Bonferroni
   [−37.0, −12.0]); −11.0 in `communication`, interval including 0. Stating the
-  rule made this model worse with full information. Bounded by H4.
+  rule made this model worse with full information. Bounded by H4, but "a
+  capability result" is a label, not an explanation: the same layout cue is an
+  untested alternative, and this was not audited.
 
 **H1 — no communication at or below chance in both cells.**
 
@@ -87,6 +113,9 @@ within ±5 points with the 95% interval including 0).
 - Nothing about `no_communication` as a lower bound for v2: since A2, the task
   allows one agent to answer alone, and these cells only show which models did
   not.
+- That information was pooled in any correct communication episode. The
+  eval did not measure surfacing; the exploratory proxy above suggests it often
+  was not complete.
 - Nothing from the pilot.
 
 ## Results, as the analysis wrote them

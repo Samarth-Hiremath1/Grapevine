@@ -21,7 +21,7 @@ single-agent shortcut the battery had no probe for; the probe is now in, and
 v2's card at
 [`environments/hidden_profile_v2/validity_card.md`](environments/hidden_profile_v2/validity_card.md)
 fails `solo_solvability` (A2 in [`docs/audit.md`](docs/audit.md)).
-How the battery works and how it is calibrated is in
+How the battery works, how it is tested, and what it misses is in
 [`docs/audit-battery.md`](docs/audit-battery.md).
 
 The tool exists because that first result was wrong, and the rest of this README
@@ -36,7 +36,7 @@ yet**. From a clone, on Python 3.11, 3.12 or 3.13:
 git clone https://github.com/Samarth-Hiremath1/Grapevine.git
 cd Grapevine
 uv sync --extra dev                       # or: pip install -e ".[dev]"
-python examples/02_write_an_environment.py
+uv run python examples/02_write_an_environment.py
 ```
 
 [`examples/`](examples/README.md) has three offline examples, each run by the
@@ -118,18 +118,26 @@ Three models, 100 held-out tasks, six cells each, pre-registered before any
 call; $1.28 for the run. Read model by model against the pre-registration in
 [`studies/v2_eval/README.md`](studies/v2_eval/README.md):
 
-- `gpt-5.6-luna` replicates the v0 finding: with the objective stated, the
-  communicating team was within 3 points of one agent holding every fact
-  (95% interval [−2, +8]).
-- `gpt-6-luna` falls between the pre-registered readings, so no reading is
-  claimed.
+- `gpt-5.6-luna`: with the objective stated, the communicating team was
+  within 3 points of one agent holding every fact (95% interval [−2, +8]). No
+  gap detected, but **not a replication**: the agent who decides can reach the
+  answer from its own private facts, and pooling was not measured.
+- `gpt-6-luna` missed the pre-registered prediction, and no pre-registered
+  reading applies.
 - `gpt-4o-mini` scored 62/100 with every fact and the objective stated, below
   the 90% the pre-registration required, so its contrasts are capability
   results, not coordination results.
 
 The eval also found a single-agent shortcut in `hidden_profile_v2` that the
 audit battery had no probe for. The probe is now in the battery and v2 fails it
-(A2 in [`docs/audit.md`](docs/audit.md)).
+(A2 in [`docs/audit.md`](docs/audit.md)). An external review then found more
+(`docs/review-v0.2.md`), and the response to each finding is in
+[`docs/review-v0.2-response.md`](docs/review-v0.2-response.md).
+
+**What a passing card means.** That these thirteen checks found nothing. It is
+not proof that an environment measures coordination: the review found
+single-view shortcuts the battery has no probe for in every environment here,
+including the example that passes.
 
 ## How it was checked
 
@@ -170,7 +178,9 @@ The full list, each with its numbers, is in `docs/results.md`.
 
 ## Reproduce
 
-Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.11 or later. The
+byte-identical regeneration below is checked on 3.11, the version in
+`.python-version`.
 
 ```bash
 git clone https://github.com/Samarth-Hiremath1/Grapevine.git

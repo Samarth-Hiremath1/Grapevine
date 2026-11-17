@@ -1,8 +1,11 @@
 # Pre-registration: does the v0 result survive on an audited environment?
 
-**Status: pre-registered, not run.** Committed 2026-11-15, before any call to a
-model for this study. No pilot has been run. Every document reports this result
-as `not run` until a primary run is committed under `studies/v2_eval/runs/`.
+**Status: run.** Pre-registered and committed 2026-11-15, before any call to a
+model for this study. Pilot and primary runs committed 2026-11-16 under
+`studies/v2_eval/runs/`; the results are read in `studies/v2_eval/README.md`.
+Everything below this line is as registered, except §11, which is appended to.
+*(This status line was updated 2026-11-16; it originally read "Status:
+pre-registered, not run … No pilot has been run.")*
 
 **Models chosen and pilot approved 2026-11-15** (§11). The primary run needs its
 own approval after the pilot.

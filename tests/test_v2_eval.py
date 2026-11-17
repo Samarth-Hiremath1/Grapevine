@@ -26,6 +26,20 @@ from studies.v2_eval.design import (
 )
 
 
+@pytest.fixture(scope="module")
+def card():  # type: ignore[no-untyped-def]
+    """The eval's arms, audited once for the module."""
+    return audit(EvalDesign(), n_tasks=100, seed=DESIGN.primary_seeds[0])
+
+
+@pytest.fixture(scope="module")
+def run_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    out = tmp_path_factory.mktemp("v2eval") / "run"
+    assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna", "--scripted",
+                     "--out", str(out)]) == 0
+    return out
+
+
 class TestDesign:
     def test_six_cells(self) -> None:
         assert len(CELLS) == 6
@@ -60,9 +74,6 @@ class TestDesign:
 class TestTheArmsAreAudited:
     """The pre-registered prompts are checked by the battery, not just written down."""
 
-    @pytest.fixture(scope="class")
-    def card(self):  # type: ignore[no-untyped-def]
-        return audit(EvalDesign(), n_tasks=100, seed=DESIGN.primary_seeds[0])
 
     def test_only_the_unstated_arms_fail_the_objective_check(self, card) -> None:  # type: ignore[no-untyped-def]
         """That is the manipulation, so it is the one failure there should be."""
@@ -177,12 +188,6 @@ class TestSpendingGuards:
 
 
 class TestScriptedRunAndAnalysis:
-    @pytest.fixture(scope="class")
-    def run_dir(self, tmp_path_factory: pytest.TempPathFactory) -> Path:
-        out = tmp_path_factory.mktemp("v2eval") / "run"
-        assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna", "--scripted",
-                         "--out", str(out)]) == 0
-        return out
 
     def test_the_manifest_is_complete_and_synthetic(self, run_dir: Path) -> None:
         manifest = json.loads((run_dir / "manifest.json").read_text())

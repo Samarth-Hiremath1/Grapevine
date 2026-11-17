@@ -49,6 +49,8 @@ jobs:
         run: .venv/bin/python -m studies.v2_eval.h1_investigation --check
       - name: v2 eval results block matches the analysis output
         run: .venv/bin/python -m studies.v2_eval.report --check
+      - name: Review follow-up is reproducible
+        run: .venv/bin/python -m studies.v2_eval.review_followup --check
       - name: Battery false-fail measurement is reproducible
         run: .venv/bin/python -m studies.battery_calibration.false_fail --check
       - name: Every registered number in the docs re-derives from its source
