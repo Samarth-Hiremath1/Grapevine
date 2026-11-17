@@ -250,7 +250,7 @@ Each with its number, because a clean-looking limitations section is a bad sign.
 - **200 tasks, one puzzle.** Every task uses the (6, 5, 1, 0) pattern and the
   same 12 fact sentences, varying names, assignment, filler and order. The
   intervals describe variation over arrangements, not over content.
-- **The surfacing metric is a string matcher.** Against 40 hand labels: precision
+- **The surfacing metric is a string matcher.** Against 40 model labels (`docs/audit_surfacing_labels.md`): precision
   1.00 (20/20), recall about 0.86. It never credits an unshared fact, so the 100%
   reading isn't inflated, but it undercounts paraphrase. Only C's prompt asks for
   verbatim facts and the matcher rewards verbatim wording, so part of the C-vs-D

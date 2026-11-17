@@ -247,7 +247,7 @@ building evaluations, this one very much included.
   biased by it. With the task stated the effect disappears: C, D and matched A
   are 100% in every position except one D error at position 3.
 - **The surfacing metric misses about one genuine surfacing in seven.** Against
-  40 hand-labelled (fact, message) pairs from the task-not-stated C and D
+  40 model-labelled (fact, message) pairs (`docs/audit_surfacing_labels.md`) from the task-not-stated C and D
   transcripts, it has precision 1.00 (20/20) and recall about 0.86 (weighted by
   how often the metric fires; 8 of 20 pairs it scored as not surfaced were
   surfaced in paraphrase). It never credits a fact that was not shared, so C's

@@ -85,8 +85,8 @@ The docs that matter most here are the ones about my own errors:
 - All 200 tasks share one support pattern (correct 6, decoy 5, others 1 and 0)
   and the same 12 fact sentences: one puzzle in 200 arrangements, not 200
   problems.
-- The surfacing metric has precision 1.00 and recall about 0.86 against 40 hand
-  labels; it undercounts paraphrased sharing.
+- The surfacing metric has precision 1.00 and recall about 0.86 against 40 model
+  labels, not human ones (`docs/audit_surfacing_labels.md`); it undercounts paraphrased sharing.
 - Temperature is stuck at 1.0 for this model, so reruns regenerate the same tasks
   but not the same answers.
 - The rule arm is N=100 against N=200.

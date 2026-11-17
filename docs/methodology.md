@@ -138,7 +138,7 @@ decoy, so decoy rate is the complement of accuracy minus parse failures. It is i
 
 **Surfacing rate.** Mean fraction of required private facts appearing in the
 discussion (C and D only), matched against the known fact strings by normalised
-substring, content-token overlap, or difflib ratio at 0.7. Against 40 hand labels
+substring, content-token overlap, or difflib ratio at 0.7. Against 40 model labels (`docs/audit_surfacing_labels.md`)
 it has precision 1.00 and recall about 0.86: it misses paraphrase and never
 credits an unshared fact.
 

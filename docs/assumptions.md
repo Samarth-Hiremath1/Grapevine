@@ -320,5 +320,8 @@ Things that cannot be settled by checking this repository:
   three-day window; no re-run was done to measure between-run drift.
 - Whether results hold for any other model, team size, round budget, or option
   count. Only one setting of each was ever run.
-- Whether the hand labels used for the surfacing metric's precision and recall
-  are themselves correct, since one person produced them.
+- Whether the labels used for the surfacing metric's precision and recall
+  are themselves correct, since one labeller produced them. *Corrected
+  2026-11-16: that labeller was a model, not a person
+  (`docs/audit_surfacing_labels.md`); this line originally said "the hand
+  labels … since one person produced them".*
