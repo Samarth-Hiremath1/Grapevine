@@ -26,7 +26,7 @@ has ever got wrong.
 | Check | What it catches | Came from |
 |---|---|---|
 | `leak` | In any task, a view names only the gold option or holds a unit that outweighs every rival. Zero tolerance | P4, G6, **M2** |
-| `solo_solvability` | Some solver on a single view beats chance, so pooling is optional. Six probes per agent, a learned probe, and the smallest advantage the audit could have seen | G6, P4, **A1**, **A2**, **M1** |
+| `solo_solvability` | A reliable solo shortcut: one agent's view lets a probe commit to the answer and never be wrong (`fail`); otherwise the single-view advantage, measured with an interval and the audit's power (`measured`) | G6, P4, **A1**, **A2**, **M1** |
 | `full_solvability` | The stated scoring rule does not reach the answer even with everything pooled | G5 |
 | `shortcuts` | A content-blind solver — most-named, least-named, first option, longest option, shared facts only — beats chance | L3, I1 |
 | `name_hygiene` | An option name is a substring of another, or hides inside an ordinary word, so name matching counts word fragments | G11, L5 |
@@ -36,7 +36,7 @@ has ever got wrong.
 | `objective` | A condition's prompts never state the question or the scoring rule | I1, L1 |
 | `condition_diff` | Two arms differ in framing beyond the manipulation under test | L4, P6 |
 | `scorer_fuzz` | The scorer accepts answers it should reject, or rejects ones it should accept | D1, M1 |
-| `reward_hacking` | A degenerate team earns the reward without pooling, or the reward pays for something other than being right | M6 |
+| `reward_hacking` | A non-pooling team earns as much as pooling, or the reward pays for something other than being right (`fail`); otherwise what a non-pooling team earns (`measured`) | M6 |
 | `seed_split` | No declared train/eval split, so an RL run can train on the seeds it reports | — |
 
 ## The four statuses
@@ -77,10 +77,12 @@ bonus for verbosity, and a generator that emits one task forever. Added after
 the v2 eval and the external review: the control's two earlier layouts, each a
 real shortcut (A2, M1); gold left out of the shared facts; agent 0 always
 holding gold's largest share; and a decisive leak in 5%, 10% and 20% of tasks.
-CI requires the check named for each defect to fire, on several disjoint seed
-ranges for the review's findings. It requires the control to pass every check
-except the two that are power-limited (see "Why a pass is a bound" below), and
-to trip those only through probes that read the support the task is about.
+CI requires the check named for each defect to report its declared status, on
+several disjoint seed ranges for the review's findings; the graded leak
+(`gold_share_bias`) is declared `measured`, not `fail`. It requires the control
+to pass every other check and to report `measured`, never `fail`, on the two
+that measure, and that the zero-information diagnostic, when it rejects, does so
+only through probes that read the support the task is about.
 
 A planted defect usually trips more than one check — a leak really does also
 make a task solo-solvable. The requirement is that the responsible check
@@ -150,53 +152,41 @@ control had the same layout as v2.
 
 ## Why a pass is a bound
 
-`solo_solvability` asks that no solver on one agent's view beat chance. For an
-environment whose answer is the argmax of summed evidence -- every environment
-in this repository, and elimination rules too, counting an elimination as
-negative evidence -- that cannot be guaranteed by any design:
+`solo_solvability` used to fail whenever any probe beat chance. For an
+environment whose answer is the unique argmax of evidence summed over what each
+agent sees, with the answer uniformly distributed over the options, that
+requirement cannot be met: some single view always carries information about
+the answer, and the Bayes-optimal guess from it beats chance. The assumptions,
+the argument, and where it does not apply are in
+[`docs/validity-card.md`](validity-card.md#why-zero-information-is-a-diagnostic-not-a-requirement).
 
-> Suppose every single view were independent of which option is gold. Then in
-> each view, gold's expected evidence equals the average option's. Summing
-> over views, gold's expected total equals the average option's expected total.
-> But gold is the unique argmax of the total, so its total is always strictly
-> above the average, and so is its expectation. Contradiction. So some view
-> carries information about the answer, and the Bayes-optimal solver on that
-> view beats chance.
+Under the old rule, the same environment passed or failed depending on whether
+200 tasks happened to be enough to see a lean that is always there. So the
+check now separates three cases:
 
-So a pass means the single-view advantage is below what this audit can detect,
-not that it is zero. Two numbers make that concrete, and every card reports the
-first:
+- **A reliable solo shortcut fails.** A probe that commits to one option on at
+  least 20 tasks and is never wrong. v0 `hidden_profile` and
+  `hidden_profile_v2` fail this way; so do both earlier control layouts.
+- **Anything less is measured.** The card reports single-agent accuracy from a
+  held-out learned probe, chance, the advantage, a 95% interval, the share of the
+  pooling gain, and the audit's power. The status is `measured` whether or not
+  the zero-information test rejects at this n.
+- **Under 20 tasks is inconclusive.**
 
-- **Minimum detectable accuracy.** At 200 tasks, with the Bonferroni threshold
-  over `solo_solvability`'s 19 probes, a per-agent probe usually misses a true
-  single-view accuracy below 37.2% (`minimum_detectable_accuracy` on the card).
-  Every pass this battery has given was at roughly that resolution.
-- **What a careful design leaves.** The clean control and the example name every
-  option equally often in every block, fix the totals so gold wins by exactly
-  one, and split each total over the agents at random. Their exact Bayes-optimal
-  single-view accuracy is 29.8% against 25% chance
-  (`tests/test_audit.py::TestTheControlsSingleViewBound`, with 6 mentions per
-  option per agent). Larger views lean less, never zero.
+The strict zero-information test is still run and reported, labelled as a
+diagnostic. Every card states the minimum detectable accuracy: at 200 tasks, a
+per-agent probe usually misses a true single-view accuracy below 37.2%.
 
-That lean is real, so the battery sees it on some seed ranges and not others:
-over 40 ranges each, `solo_solvability` fails the control 17 times and
-`reward_hacking` -- where "everyone votes their own view" aggregates three small
-leans -- 17 times (`studies/battery_calibration/README.md`). At 2,000 tasks it
-fails every time (`TestTheControlsSingleViewBound`). The tests require that,
-when these two checks fire on the control, only probes that read the support
-the task is about fire, never names-only or shared-block probes.
+The clean control and the example show the difference. Their exact
+Bayes-optimal single-view accuracy is 29.8% against 25% chance. Over 40 seed
+ranges each, the zero-information diagnostic rejects on 17 for the control and
+`solo_solvability` reports `measured` on all 40
+(`studies/battery_calibration/README.md`). The twin test certifies, for most
+views, that an indistinguishable instance with a different answer exists.
 
-The honest reading of `solo_solvability`, then: a failure on a names-only,
-shared-block or layout probe, or at an accuracy far above what the margin
-forces, is a shortcut; a marginal failure on the scoring rule applied to one
-view is the irreducible lean, and its size should be compared with what pooling
-adds (100% here). The check does not make that comparison for you; it would
-need a tolerance, and choosing one is a decision this release does not take.
-
-Only non-additive rules escape the argument. "The option with an odd number of
-supporting facts wins" can be secret-shared so that every single view is
-exactly uninformative, but it is not a hidden profile, and the protocol's
-reference solver is additive.
+`reward_hacking` follows the same rule: a non-pooling team that beats chance is
+a measured advantage, and fails only when it cannot be told apart from pooling
+or the reward pays for something other than being right.
 
 ## Known gaps
 
@@ -277,6 +267,7 @@ change, that noise failed clean environments about one audit in twenty, on
 **What that leaves.** The correction is within a check, not across checks or
 repeated audits, and a check can still be wrong at its nominal rate. Measured
 over 40 disjoint seed ranges (`studies/battery_calibration/README.md`), each
-clean environment fails outside the power-limited checks in 1 audit of 40:
-`first_option`, because the gold option happened to be listed first in 66 of
-200 tasks of a uniformly shuffled order. That is an ordinary type I error.
+clean environment's verdict is `measured` on 38 and differs on 2, both ordinary
+type I errors on the randomised gold position: `shortcuts` fails once, because
+`first_option` was right in 66 of 200 tasks, and `balance` warns once, on a
+chi-square of 9.64 against 7.81. Neither is the measured advantage.

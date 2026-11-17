@@ -36,14 +36,12 @@ most:
 - **Gold wins by exactly one fact.** That makes every gold fact necessary, and
   keeps the single-view lean as small as an additive task allows.
 
-!!! warning "Expect `solo_solvability` and `reward_hacking` to fail sometimes"
-    For a task decided by summed evidence, some single view always leans
-    towards the answer; here the best possible single-view accuracy is about
-    30% against 25% chance. The audit sees a lean that small on some seed ranges
-    and not others, and always at large n. When it fires on this design it
-    fires only through probes that read the support facts. That is the
-    irreducible lean, not a shortcut: see
-    [why a pass is a bound](audit-battery.md#why-a-pass-is-a-bound).
+!!! note "`solo_solvability` and `reward_hacking` report `measured`"
+    For a task decided by summed evidence, some single view leans towards the
+    answer (assumptions in [the Validity Card](validity-card.md)). Here the best
+    possible single-view accuracy is about 30% against 25% chance. The card
+    reports that advantage with an interval rather than failing on it; it fails
+    only on a confirmed shortcut.
 
 ```python
 --8<-- "examples/02_write_an_environment.py"

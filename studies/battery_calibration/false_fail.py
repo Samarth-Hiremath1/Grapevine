@@ -5,12 +5,13 @@
 
 Deterministic: every audit is seeded, so the output is identical on every run.
 
-* **False positives.** The test suite's clean control and the example in
-  ``examples/02_write_an_environment.py`` are audited on 40 disjoint ranges of
-  200 seeds each. Failures are split into the two power-limited checks
-  (``solo_solvability``, ``reward_hacking``), which see the single-view lean that
-  every argmax-of-summed-evidence task has (``docs/audit-battery.md``, "Why a
-  pass is a bound"), and everything else, which should never fail.
+* **Stability and false positives.** The test suite's clean control and the
+  example in ``examples/02_write_an_environment.py`` are audited on 40 disjoint
+  ranges of 200 seeds each, and the overall verdict and the status of each check
+  are counted. ``solo_solvability`` and ``reward_hacking`` measure the
+  single-view lean every such task has (``docs/validity-card.md``); they should
+  report ``measured`` on every range, whatever the zero-information diagnostic
+  says.
 * **Missed defects.** Every planted-flaw fixture, ``hidden_profile_v2`` and the
   v0 ``hidden_profile`` are audited on 10 disjoint ranges, and each run counts as
   a detection when the check responsible reports the expected status.
@@ -75,14 +76,25 @@ def measure() -> dict[str, Any]:
         failed = 0
         failed_elsewhere = 0
         by_check: Counter[str] = Counter()
+        verdicts: Counter[str] = Counter()
+        power_limited: dict[str, Counter[str]] = {c: Counter() for c in POWER_LIMITED}
+        diagnostic_rejected: Counter[str] = Counter()
         for k in range(N_RANGES):
             card = audit(env, n_tasks=N_TASKS, seed=k * N_TASKS)
             failed += not card.passed
             failed_elsewhere += any(c not in POWER_LIMITED for c in card.flagged_checks)
             by_check.update(card.flagged_checks)
+            verdicts[card.verdict.value] += 1
+            for c in POWER_LIMITED:
+                result = card.get(c)
+                power_limited[c][result.status.value] += 1
+                diagnostic_rejected[c] += bool(result.detail["zero_information_diagnostic"]["rejected"])
         out[env.name] = {
             "audits": N_RANGES, "failed": failed, "failed_outside_power_limited": failed_elsewhere,
             "by_check": dict(sorted(by_check.items())),
+            "verdicts": dict(sorted(verdicts.items())),
+            "power_limited_statuses": {c: dict(sorted(v.items())) for c, v in power_limited.items()},
+            "zero_information_rejected": dict(sorted(diagnostic_rejected.items())),
         }
     return out
 
@@ -143,20 +155,24 @@ def markdown(clean: dict[str, Any], caught: dict[str, Any]) -> str:
         f"Each audited on {N_RANGES} disjoint ranges of {N_TASKS} seeds "
         f"(seeds 0 to {N_RANGES * N_TASKS - 1}).",
         "",
-        "| Environment | Audits | Failed | Failed outside `solo_solvability` and `reward_hacking` | Failing checks |",
-        "|---|---:|---:|---:|---|",
+        "| Environment | Audits | Overall verdicts | Failing checks | `solo_solvability` | `reward_hacking` | Zero-information diagnostic rejected (solo / reward) |",
+        "|---|---:|---|---|---|---|---|",
     ]
+    def counts(d: dict[str, int]) -> str:
+        return ", ".join(f"{k} ×{v}" for k, v in d.items()) or "none"
     for name, row in clean.items():
         checks = ", ".join(f"`{c}` ×{n}" for c, n in row["by_check"].items()) or "none"
-        lines.append(f"| `{name}` | {row['audits']} | {row['failed']} | "
-                     f"{row['failed_outside_power_limited']} | {checks} |")
+        pl = row["power_limited_statuses"]
+        zr = row["zero_information_rejected"]
+        lines.append(f"| `{name}` | {row['audits']} | {counts(row['verdicts'])} | {checks} | "
+                     f"{counts(pl['solo_solvability'])} | {counts(pl['reward_hacking'])} | "
+                     f"{zr['solo_solvability']} / {zr['reward_hacking']} |")
     lines += [
         "",
-        "A failure of `solo_solvability` or `reward_hacking` here is not a false alarm in",
-        "the usual sense: these environments really do lean towards the answer from one",
-        "view, as every argmax-of-summed-evidence task must, and the battery sees the lean",
-        f"on some seed ranges and not others. At {N_TASKS} tasks a per-agent probe usually",
-        f"misses a true single-view accuracy below {mda:.1%}.",
+        "The zero-information diagnostic rejects on some ranges and not others, because",
+        "these environments really do lean towards the answer from one view and the lean",
+        f"is near what {N_TASKS} tasks can detect (a per-agent probe usually misses a true",
+        f"single-view accuracy below {mda:.1%}). The statuses do not follow it.",
         "",
         "## Negative controls",
         "",

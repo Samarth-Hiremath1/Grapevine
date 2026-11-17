@@ -587,12 +587,42 @@ release checklist.
 - Validity Cards regenerated. No committed run, result table or pre-registered
   number changed. 90 claims verify.
 
-**Open, for Samarth:**
+**Open, for Samarth:** settled in the next entry, except the release checklist.
 
-- Whether `solo_solvability` should carry an explicit tolerance, so that the
-  irreducible single-view lean is told apart from a shortcut by the check
-  (`docs/decisions.md`, last entry).
-- Who produced the 40 v0 surfacing labels (review M5, `CLAUDE.md` rule 8).
-- Everything in `launch/release-checklist.md`.
+---
+
+## Step 8, final — Classify instead of threshold; label provenance
+
+*2026-11-16. Branch `v0.2`. No API calls, no GPU, no new environments.*
+
+**Done**
+
+- Two new statuses, `measured` and `inconclusive`. `solo_solvability` fails only
+  on a reliable solo shortcut (a probe that commits on at least 20 tasks and is
+  never wrong), and otherwise reports single-agent accuracy from a held-out
+  learned probe, chance, advantage, a 95% interval, the share of the pooling
+  gain and the audit's power. `reward_hacking` fails only on a non-pooling team
+  that matches pooling or a reward that pays beyond correctness. The strict
+  zero-information test is a labelled diagnostic.
+- A twin test: per agent, how many views an indistinguishable instance with a
+  different answer certifies as not determining it.
+- Recalibrated: every fixture reports its declared status; the graded leak
+  `gold_share_bias` is declared `measured`. Over 40 seed ranges the clean
+  control and example report `measured` on both measuring checks every time,
+  though the diagnostic rejects on 17; the overall verdict is `measured` on 38,
+  with one `shortcuts` failure and one `balance` warning, both type I errors.
+- `docs/validity-card.md` specifies the card, every threshold, and the
+  impossibility argument with its assumptions; the argument was corrected to
+  require a uniformly distributed answer, and its identity is tested.
+- The 40 v0 surfacing labels are model labels, established from the session
+  transcript that made them. Every description is corrected.
+- No committed run, result table or pre-registered number changed. 90 claims
+  verify.
+
+**Classifications (n = 200):** v0 `hidden_profile` fail; `hidden_profile_v2`
+fail (reliable solo shortcut); clean control and example measured.
+
+**Open, for Samarth:** `launch/release-checklist.md`, starting with its section 0.
+GitHub CI has not run.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.

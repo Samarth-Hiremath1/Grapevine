@@ -134,13 +134,15 @@ audit battery had no probe for. The probe is now in the battery and v2 fails it
 (`docs/review-v0.2.md`), and the response to each finding is in
 [`docs/review-v0.2-response.md`](docs/review-v0.2-response.md).
 
-**What a passing card means.** That these thirteen checks found nothing at the
-sample size audited, and the card says how small an effect that could have
-missed. It is never a guarantee against shortcuts. For a task decided by summed
-evidence, one agent's view always carries *some* information about the answer;
-a pass bounds how much (`docs/audit-battery.md`, "Why a pass is a bound"). The
-review's two concrete findings -- a names-only shortcut and partial answer
-leaks -- are now caught; what the battery still cannot see is listed there too.
+**What a passing card means.** That no check confirmed a validity failure at the
+sample size audited. It is never a guarantee against shortcuts. A card separates
+a confirmed failure (`fail`: a leak, or a single view that lets a probe commit
+to the answer and never be wrong) from a measured partial-information advantage
+(`measured`: what one agent can do, with an interval and the audit's power)
+and from too little evidence (`inconclusive`). For a task decided by summed
+evidence, some agent's view always carries some information about the answer,
+under assumptions stated in [`docs/validity-card.md`](docs/validity-card.md); the
+card measures how much, and leaves judging it to you.
 
 ## How it was checked
 
@@ -167,8 +169,8 @@ rather than pass unnoticed.
 - All 200 tasks share one support pattern (correct 6, decoy 5, others 1 and 0)
   and the same 12 fact sentences: one puzzle in 200 arrangements, not 200
   problems.
-- The surfacing metric has precision 1.00 and recall about 0.86 against 40 hand
-  labels; it undercounts paraphrased sharing.
+- The surfacing metric has precision 1.00 and recall about 0.86 against 40 model
+  labels, not human ones (`docs/audit_surfacing_labels.md`); it undercounts paraphrased sharing.
 - Temperature is stuck at 1.0 for this model, so reruns regenerate the same tasks
   but not the same answers.
 - The rule arm is N=100 against N=200.

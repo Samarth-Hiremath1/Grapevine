@@ -9,7 +9,7 @@
 # Not yet registered, and therefore not machine-checked: the surfacing metric's
 # precision, recall and label count (README "Limitations", docs/audit.md L5) --
 # recall depends on pool sizes no committed file stores, and who produced the
-# labels is an open question (docs/review-v0.2-response.md, M5); "12 fact sentences"
+# labels were a model (docs/audit_surfacing_labels.md); "12 fact sentences"
 # and the support pattern (6, 5, 1, 0) in the README; the HiddenBench figures,
 # which come from the paper, not from a run.
 
@@ -174,30 +174,14 @@ claims:
      source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
   - {id: battery.bound, file: docs/audit-battery.md, template: "single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
      source: {call: "studies.battery_calibration.bound:control_bound"}}
-  - {id: battery.solo-fails, file: docs/audit-battery.md, template: "`solo_solvability` fails the control {by_check[solo_solvability]} times",
-     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
-  - {id: battery.hacking-fails, file: docs/audit-battery.md, template: "leans -- {by_check[reward_hacking]} times",
-     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
-  - {id: battery.outside.control, file: docs/audit-battery.md,
-     template: "fails outside the power-limited checks in {failed_outside_power_limited} audit of {audits}",
-     source: {json: studies/battery_calibration/results.json, path: [clean, control]}, expect: {failed_outside_power_limited: 1}}
-  - {id: battery.outside.venue, file: docs/audit-battery.md,
-     template: "fails outside the power-limited checks in {failed_outside_power_limited} audit of {audits}",
-     source: {json: studies/battery_calibration/results.json, path: [clean, venue_choice]}}
-  - {id: battery.first-option, file: docs/audit-battery.md, template: "listed first in {n_correct} of {n}",
-     source: {call: "studies.claims_sources:control_first_option_1200"}}
   - {id: battery.detection, file: docs/audit-battery.md, template: "is caught on {detected} of {runs} ranges",
      source: {call: "studies.battery_calibration.false_fail:detection_floor"}}
   - {id: readme.mda, file: docs/review-v0.2-response.md, template: "usually misses a true single-view accuracy below {value:.1%}",
      source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
   - {id: response.bound, file: docs/review-v0.2-response.md, template: "best single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
      source: {call: "studies.battery_calibration.bound:control_bound"}}
-  - {id: response.solo-fails, file: docs/review-v0.2-response.md, template: "`solo_solvability` fails it {by_check[solo_solvability]} times",
-     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
   - {id: decisions.bound, file: docs/decisions.md, template: "exact Bayes-optimal single-view accuracy of {bayes:.1%} against {chance:.0%}",
      source: {call: "studies.battery_calibration.bound:control_bound"}}
-  - {id: decisions.solo-fails, file: docs/decisions.md, template: "sees that on {by_check[solo_solvability]} of {audits} seed ranges",
-     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
 
   # --- Exploratory follow-up to the review (studies/v2_eval/review_followup.py)
   - {id: v2.followup.surfacing, file: studies/v2_eval/README.md,
@@ -228,6 +212,22 @@ claims:
   - {id: response.probe.control, file: docs/review-v0.2-response.md,
      template: "is also {value[0]}/{value[1]} on the clean control",
      source: {call: "studies.v2_eval.review_followup:probes", path: ["control as reviewed (eval 1000-1199)", named_not_most_named]}}
+  - {id: battery.stable.control, file: docs/audit-battery.md,
+     template: "the zero-information diagnostic rejects on {zero_information_rejected[solo_solvability]} for the control and `solo_solvability` reports `measured` on all {power_limited_statuses[solo_solvability][measured]}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: battery.verdicts.control, file: docs/audit-battery.md, template: "verdict is `measured` on {verdicts[measured]} and differs on 2",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}, expect: {verdicts: {fail: 1, measured: 38, warn: 1}}}
+  - {id: battery.verdicts.venue, file: docs/audit-battery.md, template: "verdict is `measured` on {verdicts[measured]} and differs on 2",
+     source: {json: studies/battery_calibration/results.json, path: [clean, venue_choice]}, expect: {verdicts: {fail: 1, measured: 38, warn: 1}}}
+  - {id: battery.first-option, file: docs/audit-battery.md, template: "`first_option` was right in {n_correct} of {n} tasks",
+     source: {call: "studies.claims_sources:control_first_option_1200"}}
+  - {id: response.stable, file: docs/review-v0.2-response.md,
+     template: "the control is `measured` on all {power_limited_statuses[solo_solvability][measured]}, though the diagnostic rejects on {zero_information_rejected[solo_solvability]}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: decisions.diagnostic, file: docs/decisions.md, template: "sees that on {zero_information_rejected[solo_solvability]} of {audits} seed ranges",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: spec.bound, file: docs/validity-card.md, template: "single-view accuracy, {bayes:.1%}, is computed",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
   # --- Spend ------------------------------------------------------------------
   - {id: progress.spend, file: docs/PROGRESS.md, template: "**Spend:** ${value:.4f} cumulative. $0.00 this step.",
      source: {call: "studies.v2_eval.run:committed_spend"}}

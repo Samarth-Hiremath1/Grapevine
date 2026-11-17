@@ -109,9 +109,8 @@ class TestCard:
         assert a.content_hash() != c.content_hash()
 
     def test_verdict_is_the_worst_status_that_ran(self, control_card: ValidityCard) -> None:
-        severity = [Status.PASS, Status.SKIPPED, Status.WARN, Status.FAIL]
         ran = [r.status for r in control_card.results]
-        worst = max((st for st in ran if st is not Status.SKIPPED), key=severity.index)
+        worst = max((st for st in ran if st is not Status.SKIPPED), key=lambda st: st.rank)
         assert control_card.verdict is worst
         assert control_card.passed == (Status.FAIL not in ran)
         assert set(control_card.flagged_checks) == {
@@ -225,11 +224,15 @@ class TestCleanControl:
     """
 
     @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
-    def test_every_check_that_is_not_power_limited_passes(self, seed: int) -> None:
+    def test_every_check_passes_and_the_advantage_is_measured(self, seed: int) -> None:
+        """The overall verdict is the same on every seed range: measured, never fail."""
         card = audit(CLEAN_CONTROL, n_tasks=N, seed=seed)
-        not_passing = {r.check_id: r.summary for r in card.results
+        not_passing = {r.check_id: r.status.value for r in card.results
                        if r.status is not Status.PASS and r.check_id not in POWER_LIMITED}
         assert not_passing == {}, not_passing
+        for check in POWER_LIMITED:
+            assert card.get(check).status is Status.MEASURED, card.get(check).summary
+        assert card.verdict is Status.MEASURED and card.passed
 
     @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
     def test_only_the_irreducible_lean_is_ever_detected(self, seed: int) -> None:
@@ -237,8 +240,7 @@ class TestCleanControl:
         card = audit(CLEAN_CONTROL, n_tasks=N, seed=seed)
         solo = {r["probe"] for r in card.get("solo_solvability").detail["probes"] if r["beats_chance"]}
         assert solo <= READS_SUPPORT, solo
-        hacking = {p["name"] for p in card.get("reward_hacking").detail["policies"]
-                   if p["beats_chance"] or p["indistinguishable_from_pooling"] or p["pays_beyond_correctness"]}
+        hacking = set(card.get("reward_hacking").detail["zero_information_diagnostic"]["policies_beating_chance"])
         assert hacking <= LEAN_POLICIES, hacking
 
     def test_control_is_deterministic_by_seed(self) -> None:
@@ -273,11 +275,16 @@ class TestTheControlsSingleViewBound:
                 n += 1
         assert hits / n == pytest.approx(0.2976, abs=0.015)
 
-    def test_with_enough_tasks_the_battery_sees_it(self) -> None:
-        """The pass at n=200 is a power limit, not blindness: at n=2000 it fails."""
-        result = audit(CLEAN_CONTROL, n_tasks=2000, seed=100000).get("solo_solvability")
-        assert result.status is Status.FAIL
-        assert result.detail["minimum_detectable_accuracy"] < 0.2976
+    def test_more_tasks_sharpen_the_estimate_without_changing_the_status(self) -> None:
+        """At n=2000 the zero-information diagnostic rejects; the status does not move."""
+        small = audit(CLEAN_CONTROL, n_tasks=200, seed=100000).get("solo_solvability")
+        large = audit(CLEAN_CONTROL, n_tasks=2000, seed=100000).get("solo_solvability")
+        assert small.status is large.status is Status.MEASURED
+        assert large.detail["zero_information_diagnostic"]["rejected"]
+        assert large.detail["minimum_detectable_accuracy"] < 0.2976
+        lo, hi = large.detail["primary_estimate"]["ci95"]
+        assert lo < 0.2976 + 0.02 and hi > 0.2976 - 0.02
+        assert hi - lo < small.detail["primary_estimate"]["ci95"][1] - small.detail["primary_estimate"]["ci95"][0]
 
 
 @pytest.mark.parametrize("fixture_name", sorted(FLAWED_ENVS), ids=sorted(FLAWED_ENVS))
@@ -588,6 +595,78 @@ class TestSplitEvidenceIsARealPositiveControl:
         is earnable without discussion."""
         card = audit(get_environment("split_evidence"), n_tasks=100, seed=0)
         result = card.get("reward_hacking")
-        assert result.status is Status.FAIL
         rows = {r["name"]: r for r in result.detail["policies"]}
         assert rows["no_discussion_majority"]["accuracy"] > 0.4
+        # A large measured advantage, not a match for pooling: reward_hacking reports
+        # it as measured, and the environment fails on what causes it -- the leak.
+        assert result.status is Status.MEASURED
+        assert result.detail["zero_information_diagnostic"]["rejected"]
+        assert card.get("leak").status is Status.FAIL
+
+
+class TestClassification:
+    """Confirmed failures, measured advantages and insufficient evidence are told apart."""
+
+    def test_v0_and_v2_are_reliable_solo_shortcuts(self) -> None:
+        for name in ("hidden_profile", "hidden_profile_v2"):
+            result = audit(get_environment(name), n_tasks=N, seed=0).get("solo_solvability")
+            assert result.status is Status.FAIL, name
+            assert result.summary.startswith("Reliable solo shortcut")
+            # No indistinguishable instance with a different answer was found.
+            assert result.detail["twin_test"]["per_agent"]["0"]["certified_not_determining"] == 0
+
+    def test_the_control_is_a_measured_advantage(self) -> None:
+        result = audit(CLEAN_CONTROL, n_tasks=N, seed=0).get("solo_solvability")
+        assert result.status is Status.MEASURED
+        twins = result.detail["twin_test"]["per_agent"]
+        for agent in ("0", "1", "2"):
+            # Most views provably do not determine the answer: an indistinguishable
+            # instance with a different gold option exists.
+            assert twins[agent]["certified_not_determining"] > 0.8 * twins[agent]["views"]
+        estimate = result.detail["primary_estimate"]
+        for key in ("accuracy", "ci95", "advantage", "share_of_pooling_gain", "n"):
+            assert key in estimate
+        assert result.detail["zero_information_diagnostic"]["label"].startswith("diagnostic only")
+
+    def test_a_graded_leak_is_measured_not_failed(self) -> None:
+        flawed, _ = FLAWED_ENVS["gold_share_bias"]
+        result = audit(flawed, n_tasks=N, seed=0).get("solo_solvability")
+        assert result.status is Status.MEASURED
+        assert result.detail["zero_information_diagnostic"]["rejected"]
+
+    def test_a_conditional_shortcut_is_a_failure(self) -> None:
+        """Right whenever it commits, even if it cannot commit on every task."""
+        flawed, _ = FLAWED_ENVS["solo_solvable"]
+        result = audit(flawed, n_tasks=N, seed=0).get("solo_solvability")
+        assert result.status is Status.FAIL
+        rows = [r for r in result.detail["probes"] if r["never_wrong_when_committed"]]
+        assert any(r["commits"] < r["n"] for r in rows)
+
+    def test_too_few_tasks_is_inconclusive(self) -> None:
+        card = audit(CLEAN_CONTROL, n_tasks=10, seed=0)
+        assert card.get("solo_solvability").status is Status.INCONCLUSIVE
+        assert card.get("reward_hacking").status is Status.INCONCLUSIVE
+        assert card.passed
+
+    def test_the_impossibility_identity_holds_on_the_control(self) -> None:
+        """Sum over views of gold's lean equals gold's lead in the pooled total.
+
+        The argument in docs/validity-card.md rests on this identity: if every view's
+        lean were zero in expectation, gold's expected lead over the average option
+        would be zero, but it is positive by construction.
+        """
+        from grapevine.protocol import support_total
+
+        lean_sum = lead = 0.0
+        for seed in range(30000, 31000):
+            task = CLEAN_CONTROL.generate(seed)
+            opts = task.answer_space
+            for view in task.views:
+                p = support_total(view.private, opts)
+                lean_sum += p[task.gold_answer] - sum(p.values()) / len(opts)
+            shared = support_total(task.views[0].shared, opts)
+            lean_sum += shared[task.gold_answer] - sum(shared.values()) / len(opts)
+            total = support_total(task.all_units(), opts)
+            lead += total[task.gold_answer] - sum(total.values()) / len(opts)
+        assert lean_sum == pytest.approx(lead)
+        assert lead / 1000 == pytest.approx(0.75)

@@ -62,6 +62,7 @@ nav:
   - Quickstart: quickstart.md
   - Writing an environment: writing-an-environment.md
   - The audit battery: audit-battery.md
+  - The Validity Card: validity-card.md
   - RL and GRPO: rl.md
   - API reference: api.md
   - Related work: related-work.md

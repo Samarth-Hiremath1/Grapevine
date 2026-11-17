@@ -72,7 +72,7 @@ class TestShapingIsCaughtByTheAudit:
 
     def test_the_outcome_reward_passes_the_audit(self) -> None:
         card = audit(RewardedEnvironment(ENV, RewardConfig()), n_tasks=100, seed=0)
-        assert card.get("reward_hacking").status is Status.PASS
+        assert card.get("reward_hacking").status is not Status.FAIL
 
     def test_any_surfacing_weight_is_flagged(self) -> None:
         """One agent reciting its notes, with nobody answering, earns a surfacing

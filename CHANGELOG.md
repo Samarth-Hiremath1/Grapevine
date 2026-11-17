@@ -62,12 +62,27 @@ Prepared on the `v0.2` branch. Not tagged and not published.
 - `studies/battery_calibration/` now measures missed defects as well as false
   alarms. Response to every finding: `docs/review-v0.2-response.md`.
 
-### Known limitation
+### Validity Card statuses
 
-- For a task decided by summed evidence, some single view always carries
-  information about the answer, so no such environment can pass
-  `solo_solvability` reliably; a pass bounds the advantage at the audited sample
-  size. `docs/audit-battery.md`, "Why a pass is a bound".
+- Two new statuses: `measured` (a partial-information advantage quantified, no
+  failure confirmed) and `inconclusive` (too little evidence). Neither stops a
+  card passing. The verdict order is pass, measured, warn, inconclusive, fail.
+- `solo_solvability` fails only on a reliable solo shortcut -- a probe that
+  commits on at least 20 tasks and is never wrong -- and otherwise reports the
+  single-agent accuracy from a held-out learned probe, chance, advantage, a 95%
+  interval, the share of the pooling gain, and the audit's power. `reward_hacking`
+  fails only when a non-pooling team matches pooling or the reward pays beyond
+  correctness. The strict zero-information test is kept as a labelled diagnostic.
+- A twin test reports, per agent, how many views an indistinguishable instance
+  with a different answer certifies as not determining the answer.
+- Specification: `docs/validity-card.md`, including the assumptions under which
+  zero single-view information is impossible.
+
+### Corrected
+
+- The 40 surfacing labels behind the v0 metric's precision and recall are model
+  labels, not hand labels; established from the session that made them
+  (`docs/audit_surfacing_labels.md`).
 
 ### Changed
 

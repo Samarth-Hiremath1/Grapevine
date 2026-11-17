@@ -16,7 +16,7 @@ Status: **fixed**, **documented** (stated in the docs, not fixed), or **open**
 | M2 partial leak passes | Yes, exactly (23, 43, 69 of 200) | **fixed** |
 | M3 minimality count | Yes (capped sample reported as total) | **fixed** |
 | M4 `gpt-6-luna` H3 read loosely | Yes (8 v 1 discordant, 4 truncated, McNemar 0.039, seed 1 gives −1.0) | **fixed** (wording) |
-| M5 who produced the labels | Cannot be settled from the repository | **open** |
+| M5 who produced the labels | Settled from the session transcript: a model | **fixed** (relabelled everywhere) |
 | m1 "run in CI" | Yes | **fixed** |
 | m2 PROGRESS and prereg status | Yes | **fixed** |
 | m3 verify-claims narrower than worded | Yes | **fixed** in part |
@@ -69,15 +69,20 @@ parts:
 - Every card reports `minimum_detectable_accuracy`: at 200 tasks, a per-agent
   probe usually misses a true single-view accuracy below 37.2%.
 
-The limit that cannot be fixed: for a task decided by summed evidence, some
-single view always carries information about the answer (the argument is in
-`docs/audit-battery.md`, "Why a pass is a bound"). The rebuilt control's exact
-best single-view accuracy is 29.8% against 25% chance, and the battery sees
-that on some seed ranges and not others: over 40 ranges, `solo_solvability`
-fails it 17 times. The threshold was not changed to make it pass. Whether
-`solo_solvability` should carry an explicit tolerance, so that this
-irreducible lean is distinguished from a shortcut by the check rather than by
-the reader, is open.
+The limit that cannot be designed away: for a task decided by summed evidence,
+with the answer uniformly distributed, some single view always carries
+information about it (`docs/validity-card.md`, with the assumptions). The rebuilt
+control's exact best single-view accuracy is 29.8% against 25% chance.
+
+*Second update, same day.* Rather than add a tolerance, `solo_solvability` and
+`reward_hacking` now separate a confirmed shortcut (`fail`: a probe that
+commits on at least 20 tasks and is never wrong) from a measured advantage
+(`measured`, with an interval, the share of the pooling gain and the audit's
+power) and from too little evidence (`inconclusive`). The strict
+zero-information test is kept as a labelled diagnostic. A twin test checks, at
+the level of the evidence structure, whether views determine the answer. Over 40
+seed ranges the control is `measured` on all 40, though the diagnostic rejects
+on 17.
 
 ## M2. Partial leaks
 
@@ -103,11 +108,15 @@ test is in `review_followup.md` as exploratory; it was not the registered test.
 
 ## M5. The surfacing labels
 
-Open. `docs/audit.md` and `docs/assumptions.md` say the 40 labels were made by
-hand by one person. Nothing in the repository records who, and if they were made
-by a model, `CLAUDE.md` rule 8 requires every one of those documents to say so.
-Samarth has been asked. Until it is settled, the label-derived numbers are not
-registered in `docs/claims.yaml`.
+Resolved, 2026-11-16, from the local session transcript in which the labels were
+made rather than from anyone's memory: **they are model labels.** The assistant
+model in that session drew the sample, labelled the 40 pairs itself, and scored
+"my labels" against the metric; no person labelled or reviewed them. The
+metric's verdict was hidden per pair, but messages were shown truncated to 420
+characters. Every document that called them hand or human labels is corrected,
+with the original wording quoted; the JSON is unchanged, and its `human` field is
+recorded as a misnomer in `docs/audit_surfacing_labels.md`. The precision and
+recall derived from them are agreement with one model's judgement.
 
 ## Minor findings and nits
 

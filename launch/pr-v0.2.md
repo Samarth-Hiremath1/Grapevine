@@ -70,13 +70,13 @@ up as A2 in `docs/audit.md`.
   partial-leak findings are now caught, with the old layouts kept as negative
   controls; what the battery still cannot see is under "Known gaps" in
   `docs/audit-battery.md`.
-- **No additive environment can pass `solo_solvability` reliably.** Fixing the
-  review's findings showed why: when the answer is the argmax of summed
-  evidence, some single view always leans towards it. The rebuilt control's
-  exact best single-view accuracy is 29.8% against 25%, and the battery sees
-  that on some seed ranges and not others. Documented as "Why a pass is a
-  bound"; the threshold is unchanged, and whether to adopt an explicit
-  tolerance is left open.
+- **Validity Card statuses changed.** `solo_solvability` and `reward_hacking`
+  fail only on a confirmed shortcut and otherwise report `measured`: the
+  advantage with an interval and the audit's power. Under stated assumptions
+  (`docs/validity-card.md`), an environment decided by summed evidence always has
+  some single-view advantage, so a zero-information requirement would pass or
+  fail the same environment depending on sample size. It is kept as a labelled
+  diagnostic.
 - **CI has never run on GitHub.** Every job was run locally, and a clean clone of
   the branch passes with no API key, but the workflows run here for the first
   time.
@@ -97,7 +97,8 @@ done about each. In short: the eval's readings were rewritten to drop
 minimality count bug is fixed; the battery now catches the names-only shortcut
 and partial leaks, scores tie-breaks by expectation, and reports the smallest
 advantage each audit could have seen; the clean control and the example were
-rebuilt; and who produced the v0 surfacing labels is still open.
+rebuilt; and the v0 surfacing labels turned out to be model labels, now
+described as such everywhere.
 
 ## Checks
 

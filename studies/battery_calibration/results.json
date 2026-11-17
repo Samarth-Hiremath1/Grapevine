@@ -2,21 +2,51 @@
   "clean": {
     "control": {
       "audits": 40,
-      "failed": 23,
+      "failed": 1,
       "failed_outside_power_limited": 1,
       "by_check": {
+        "shortcuts": 1
+      },
+      "verdicts": {
+        "fail": 1,
+        "measured": 38,
+        "warn": 1
+      },
+      "power_limited_statuses": {
+        "solo_solvability": {
+          "measured": 40
+        },
+        "reward_hacking": {
+          "measured": 40
+        }
+      },
+      "zero_information_rejected": {
         "reward_hacking": 17,
-        "shortcuts": 1,
         "solo_solvability": 17
       }
     },
     "venue_choice": {
       "audits": 40,
-      "failed": 23,
+      "failed": 1,
       "failed_outside_power_limited": 1,
       "by_check": {
+        "shortcuts": 1
+      },
+      "verdicts": {
+        "fail": 1,
+        "measured": 38,
+        "warn": 1
+      },
+      "power_limited_statuses": {
+        "solo_solvability": {
+          "measured": 40
+        },
+        "reward_hacking": {
+          "measured": 40
+        }
+      },
+      "zero_information_rejected": {
         "reward_hacking": 18,
-        "shortcuts": 1,
         "solo_solvability": 17
       }
     }
@@ -42,7 +72,7 @@
     },
     "gold_share_bias": {
       "check": "solo_solvability",
-      "status": "fail",
+      "status": "measured",
       "detected": 10,
       "runs": 10
     },

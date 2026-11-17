@@ -738,9 +738,10 @@ FLAWED_ENVS: dict[str, tuple[ControlEnv, Defect]] = {
         ControlEnv(name="flawed_gold_share_bias", gold_share_bias=1.0),
         Defect(
             "gold_share_bias",
-            "agent 0 always holds the largest share of the gold option's support",
+            "agent 0 always holds the largest share of the gold option's support: a "
+            "graded single-view advantage, not a reliable shortcut, so `measured`",
             "solo_solvability",
-            "fail",
+            "measured",
         ),
     ),
     "partial_leak_0_05": (

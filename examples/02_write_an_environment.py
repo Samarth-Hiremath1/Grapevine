@@ -7,16 +7,15 @@ the best venue only wins once their private notes are pooled. It implements the
 :class:`grapevine.Environment` protocol, and the comments say which check each
 design choice is there for.
 
-Read the audit's verdict on it carefully, because it is the most useful thing
-this example shows. Every check passes except, on some seed ranges,
-``solo_solvability`` (and, at large n, ``reward_hacking``). That is not a bug
-in this environment and cannot be designed away: when the answer is the argmax
-of summed evidence, some single view always carries information about it. This
-layout keeps that lean to what a one-fact margin forces -- the best possible
-single-view accuracy is about 30% against 25% chance -- and whether the battery
-sees a lean that small depends on how many tasks it audits.
-``docs/audit-battery.md``, "Why a pass is a bound", has the argument and the
-numbers.
+Read the audit's verdict on it carefully. Every check passes, and the two that
+measure -- ``solo_solvability`` and ``reward_hacking`` -- report ``measured``:
+no shortcut is confirmed, and what one agent can do alone is reported with an
+interval. That advantage cannot be designed away: when the answer is the argmax
+of summed evidence and is uniformly distributed, some single view always
+carries information about it (assumptions and argument in
+``docs/validity-card.md``). This layout keeps it to what a one-fact margin
+forces -- the best possible single-view accuracy is about 30% against 25%
+chance.
 
 An earlier version of this example "passed every check" with a layout a
 names-only probe solved for every agent; that probe is now in the battery.
@@ -229,7 +228,7 @@ class VenueChoice(Environment):
 
 
 def main() -> None:
-    """Audit the environment and print every check, including the one it may fail."""
+    """Audit the environment and print every check and the measured advantage."""
     env = VenueChoice()
     split = env.seed_split()
     card = audit(env, n_tasks=200, seed=split.eval.start)
@@ -237,10 +236,12 @@ def main() -> None:
     for result in card.results:
         print(f"  {result.status.value:7} {result.check_id}")
     solo = card.get("solo_solvability")
-    best = max(solo.detail["probes"], key=lambda r: r["accuracy"])
+    est = solo.detail["primary_estimate"]
     print(
-        f"\nBest single-view probe: {best['accuracy']:.1%} (`{best['name']}`); this audit "
-        f"would usually miss anything below {solo.detail['minimum_detectable_accuracy']:.1%}."
+        f"\nOne agent alone (held-out estimate): {est['accuracy']:.1%} "
+        f"[{est['ci95'][0]:.1%}, {est['ci95'][1]:.1%}] against 25% chance, 100% pooled. "
+        f"This audit would usually miss a true accuracy below "
+        f"{solo.detail['minimum_detectable_accuracy']:.1%}."
     )
 
 

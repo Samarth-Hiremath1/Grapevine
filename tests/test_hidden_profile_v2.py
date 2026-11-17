@@ -310,7 +310,8 @@ class TestAuditPasses:
     def test_fails_only_solo_solvability_on_the_committed_card_seeds(self) -> None:
         card = audit(get_environment("hidden_profile_v2"), n_tasks=200, seed=0)
         not_passing = {
-            r.check_id: r.status for r in card.results if r.status is not Status.PASS
+            r.check_id: r.status for r in card.results
+            if r.status not in (Status.PASS, Status.MEASURED)
         }
         assert not_passing == {"solo_solvability": Status.FAIL}, not_passing
         assert len(card.results) == len(CHECK_IDS)

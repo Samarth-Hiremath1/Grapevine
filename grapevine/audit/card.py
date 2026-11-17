@@ -4,22 +4,36 @@ A card is a verdict plus one result per check, with the numbers behind each one.
 It is written as JSON (``validity_card.json``, for machines and for run
 manifests to reference by hash) and as Markdown (for people and for commits).
 
-The statuses are deliberately four, not two:
+The statuses are six, because "is this environment valid?" has more than two
+answers:
 
 ``pass``
     The check ran and found nothing.
+``measured``
+    The check ran and quantified a partial-information advantage -- what one
+    agent, or a team that does not pool, can do -- and confirmed no failure. The
+    numbers are the result. Used by ``solo_solvability`` and ``reward_hacking``,
+    whose best possible outcome under the assumptions in
+    ``docs/validity-card.md`` is a measured advantage, not none. Does not stop a
+    card passing, and does not change with sample size the way a significance
+    test would.
 ``warn``
     The check ran and found a real limitation. The environment still measures
     something, but narrower than it may appear. Reported with its numbers.
+``inconclusive``
+    The check ran, but on too little evidence to classify. Does not stop a card
+    passing, and is never presented as a pass.
 ``fail``
-    The check ran and found that the environment does not measure what it
+    A confirmed validity failure: the environment does not measure what it
     claims. A coordination result from it would not mean what it says.
 ``skipped``
     The check could not run, because the environment does not provide what it
     needs. **Not** the same as passing, and never presented as such.
 
-The overall verdict is the worst status present, with ``skipped`` not counting
-toward it but always listed.
+The overall verdict is the worst status present, in the order pass, measured,
+warn, inconclusive, fail, with ``skipped`` not counting toward it but always
+listed. A card *passes* when no check failed. The full specification is
+``docs/validity-card.md``.
 """
 
 from __future__ import annotations
@@ -38,19 +52,23 @@ class Status(StrEnum):
     """Outcome of one check. See the module docstring."""
 
     PASS = "pass"
+    MEASURED = "measured"
     WARN = "warn"
+    INCONCLUSIVE = "inconclusive"
     FAIL = "fail"
     SKIPPED = "skipped"
 
     @property
     def symbol(self) -> str:
         """A one-character marker for the Markdown card."""
-        return {"pass": "✅", "warn": "⚠️", "fail": "❌", "skipped": "⊘"}[self.value]
+        return {"pass": "✅", "measured": "📏", "warn": "⚠️", "inconclusive": "❔",
+                "fail": "❌", "skipped": "⊘"}[self.value]
 
     @property
     def rank(self) -> int:
         """Severity order, used to pick a card's overall verdict."""
-        return {"skipped": 0, "pass": 1, "warn": 2, "fail": 3}[self.value]
+        return {"skipped": 0, "pass": 1, "measured": 2, "warn": 3, "inconclusive": 4,
+                "fail": 5}[self.value]
 
 
 @dataclass(frozen=True)
@@ -119,7 +137,7 @@ class ValidityCard:
 
     @property
     def passed(self) -> bool:
-        """True when no check failed. Warnings do not stop a card passing."""
+        """True when no check failed. Measured, warn and inconclusive do not stop it."""
         return not any(r.status is Status.FAIL for r in self.results)
 
     @property
@@ -192,6 +210,15 @@ class ValidityCard:
         """The card as a Markdown document."""
         verdict_line = {
             Status.PASS: "**PASS** — every check ran and found nothing.",
+            Status.MEASURED: (
+                "**PASS, ADVANTAGE MEASURED** — no confirmed validity failure. What one "
+                "agent, or a team that does not pool, can do is measured below; read "
+                "those numbers, not this line, to judge how distributed the task is."
+            ),
+            Status.INCONCLUSIVE: (
+                "**INCONCLUSIVE** — no confirmed failure, but at least one check had "
+                "too little evidence to classify."
+            ),
             Status.WARN: (
                 "**PASS WITH LIMITATIONS** — nothing invalidating, but the "
                 "warnings below narrow what a result from this environment means."

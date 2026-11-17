@@ -476,3 +476,35 @@ one-in-twenty false alarms on `shortcuts`.
 
 The control's mentions per option per agent (6) was chosen for prompt size
 before the strengthened audit was run on it, and is not tuned to its verdict.
+
+## Classify, do not threshold: `measured` and `inconclusive`
+
+*2026-11-16.* Samarth chose neither to ship the binary `solo_solvability`
+criterion nor to add a tolerance that would make the clean environments pass.
+Instead the two checks that see the irreducible single-view lean report one of
+three classes: a confirmed shortcut (`fail`), a measured advantage
+(`measured`), or too little evidence (`inconclusive`).
+
+The rules carry no tolerance on the size of an advantage. "Reliable solo
+shortcut" is a probe that commits to one option on at least 20 tasks and is
+never wrong, a zero tolerance for error; 20 is a floor on evidence, chosen so
+that luck is negligible (0.25²⁰). The first version of the rule required a probe
+right on *every* task, and missed the `solo_solvable` fixture, whose agents
+sometimes hold nothing; the commit-and-never-wrong rule catches it.
+
+`gold_share_bias`, a planted graded leak, is now declared `measured`: agent 0
+does better than the others alone, but no probe is reliable. That is the class
+the card is meant to report, and its numbers make the leak visible.
+
+The impossibility argument was restated with its assumptions (additive decision
+over per-view terms, unique argmax, finite expectations, uniformly distributed
+answer) after checking it: without the last, it shows only that some view is
+informative, not that accuracy beats chance.
+
+## The surfacing labels are model labels
+
+*2026-11-16.* The repository described the 40 labels behind the v0 surfacing
+metric's precision and recall as hand labels made by one person. The local
+transcript of the session that made them shows the assistant model labelling
+them, with no person involved. Every description is corrected and the original
+wording quoted; the file is kept as committed (`docs/audit_surfacing_labels.md`).

@@ -14,6 +14,7 @@ before any tokens are spent.
 from __future__ import annotations
 
 import difflib
+import math
 import random
 import re
 import statistics
@@ -46,7 +47,14 @@ from grapevine.protocol import (
     support_total,
 )
 
-__all__ = ["CHECKS", "CheckContext", "family_alpha", "minimum_detectable_accuracy", "run_checks"]
+__all__ = [
+    "CHECKS",
+    "MIN_TASKS_TO_CLASSIFY",
+    "CheckContext",
+    "family_alpha",
+    "minimum_detectable_accuracy",
+    "run_checks",
+]
 
 #: Upper-tail chi-square critical values at alpha = 0.05, by degrees of freedom.
 #: A small table rather than a dependency on scipy; the v0 audit used the same
@@ -180,7 +188,10 @@ def _tie_credited_row(name: str, trials: Sequence[tuple[int, bool, int]], chance
     """A probe's line of results, with ties scored by their expected value."""
     score, p = tie_credited_tail_p(trials)
     n = len(trials)
+    commits = sum(1 for k, _, _ in trials if k == 1)
     return {
+        "commits": commits,
+        "right_when_committed": sum(1 for k, hit, _ in trials if k == 1 and hit),
         "name": name,
         "n_correct": int(score) if float(score).is_integer() else round(score, 2),
         "n": n,
@@ -340,6 +351,86 @@ def check_leak(ctx: CheckContext) -> CheckResult:
     )
 
 
+#: Below this many tasks, the learned probe's held-out half and the twin test
+#: have too little to work with, and solo_solvability and reward_hacking report
+#: ``inconclusive``. A floor on evidence, not a tolerance on the answer.
+MIN_TASKS_TO_CLASSIFY = 20
+
+
+def _wilson(score: float, n: int, z: float = 1.959964) -> tuple[float, float]:
+    """Wilson 95% interval for a proportion; ``score`` may be fractional (tie credit)."""
+    if n <= 0:
+        return (0.0, 1.0)
+    p = score / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
+def _view_signature(view: AgentView, answer_space: Sequence[str]) -> dict[str, tuple[float, ...]]:
+    """Per option: private support, private mentions, shared support, shared mentions."""
+    private_text = "\n".join(u.text for u in view.private)
+    shared_text = "\n".join(u.text for u in view.shared)
+    priv = support_total(view.private, answer_space)
+    shar = support_total(view.shared, answer_space)
+    return {
+        o: (round(priv[o], 6), count_mentions(private_text, o), round(shar[o], 6),
+            count_mentions(shared_text, o))
+        for o in answer_space
+    }
+
+
+def _twin_analysis(ctx: CheckContext) -> dict[str, Any]:
+    """Does one view uniquely determine the answer? Look for indistinguishable twins.
+
+    Two views are treated as indistinguishable when they have the same evidence
+    structure: the same multiset, over options, of (private support, private
+    mentions, shared support, shared mentions). Option names are assumed
+    exchangeable, and wording, order and length are ignored -- that is the
+    abstraction, and a shortcut through wording would not be seen here.
+
+    A view is *certified not to determine* the answer when an indistinguishable
+    instance has a different gold option: either another option in the same view
+    has gold's evidence profile (swap their names and the view is unchanged but
+    the answer differs), or another audited view with the same structure has its
+    gold at a different profile. Otherwise it is unresolved: either it does
+    determine the answer, or no twin was sampled.
+    """
+    Profile = tuple[float, ...]
+    signatures: dict[tuple[Profile, ...], set[Profile]] = {}
+    seen: dict[tuple[Profile, ...], int] = {}
+    per_view: list[tuple[int, tuple[Profile, ...], Profile, bool]] = []
+    for task in ctx.tasks:
+        for view in task.views:
+            sig = _view_signature(view, task.answer_space)
+            canon = tuple(sorted(sig.values()))
+            gold_profile = sig[task.gold_answer]
+            within = sum(1 for o in task.answer_space if sig[o] == gold_profile) > 1
+            signatures.setdefault(canon, set()).add(gold_profile)
+            seen[canon] = seen.get(canon, 0) + 1
+            per_view.append((view.agent_id, canon, gold_profile, within))
+    agents: dict[int, dict[str, int]] = {}
+    for agent_id, canon, _, within in per_view:
+        row = agents.setdefault(agent_id, {"views": 0, "certified_not_determining": 0,
+                                           "unresolved_with_consistent_twins": 0,
+                                           "unresolved_no_twin": 0})
+        row["views"] += 1
+        if within or len(signatures[canon]) > 1:
+            row["certified_not_determining"] += 1
+        elif seen[canon] > 1:
+            row["unresolved_with_consistent_twins"] += 1
+        else:
+            row["unresolved_no_twin"] += 1
+    return {
+        "abstraction": (
+            "views compared by evidence structure: per option (private support, private "
+            "mentions, shared support, shared mentions); names exchangeable; wording, "
+            "order and length ignored"
+        ),
+        "per_agent": {str(a): r for a, r in sorted(agents.items())},
+    }
+
+
 # --- 2. Solo solvability -----------------------------------------------------
 
 
@@ -411,42 +502,108 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         rows.append(row)
 
     mda = minimum_detectable_accuracy(ctx.n, ctx.chance, alpha)
+    full_accuracy = (
+        sum(uniquely_determined(t.all_units(), t.answer_space) == t.gold_answer for t in ctx.tasks)
+        / ctx.n if ctx.n else 0.0
+    )
+    for row in rows:
+        lo, hi = _wilson(row["accuracy"] * row["n"], row["n"])
+        row["ci95"] = [lo, hi]
+        row["advantage"] = row["accuracy"] - row["chance"]
+        gain = full_accuracy - row["chance"]
+        row["share_of_pooling_gain"] = row["advantage"] / gain if gain > 0 else None
+        # A reliable solo shortcut: the probe commits to one option on enough tasks
+        # and is never wrong when it does. Twenty right commitments by luck has
+        # probability 0.25**20, about 1e-12. Zero tolerance for error, like `leak`.
+        row["never_wrong_when_committed"] = (
+            row.get("commits", 0) >= MIN_TASKS_TO_CLASSIFY
+            and row.get("right_when_committed") == row.get("commits")
+        )
+    learned_rows = [r for r in rows if r["probe"] == "learned_from_view_ranks"]
+    primary = learned_rows[0] if learned_rows else None
     beating = [r for r in rows if r["beats_chance"]]
+    deterministic = [r for r in rows if r["never_wrong_when_committed"]]
+    twins = _twin_analysis(ctx) if ctx.n >= MIN_TASKS_TO_CLASSIFY else None
     detail = {
         "probes": rows,
         "chance": ctx.chance,
         "alpha_per_probe": alpha,
+        "full_information_accuracy": full_accuracy,
+        "primary_estimate": (
+            {k: primary[k] for k in ("name", "accuracy", "ci95", "advantage", "share_of_pooling_gain", "n")}
+            if primary else None
+        ),
+        "primary_estimate_note": (
+            "The learned probe, fitted on half the batch and scored on the other half: "
+            "the least optimistic single-view estimate here. The best of the explicit "
+            "probes is biased upwards by being the best of nineteen."
+        ),
+        "twin_test": twins,
+        "zero_information_diagnostic": {
+            "label": "diagnostic only, not a validity requirement",
+            "question": "does any probe beat chance at the Bonferroni-corrected alpha?",
+            "rejected": bool(beating),
+            "alpha_per_probe": alpha,
+            "probes_beating_chance": [r["name"] for r in beating],
+            "minimum_detectable_accuracy": mda,
+            "note": (
+                "Under the assumptions in docs/validity-card.md some view of an "
+                "argmax-of-summed-evidence task always carries information, so this "
+                "diagnostic is expected to reject once n is large enough; whether it "
+                "does at this n is a statement about power."
+            ),
+        },
         "minimum_detectable_accuracy": mda,
-        "minimum_detectable_accuracy_note": (
-            "The lowest true single-view accuracy a per-agent probe that commits to "
-            "one option detects with 80% power at this n and alpha. For an argmax-of-summed-evidence task some "
-            "view always carries information, so a pass bounds the advantage; it "
-            "does not show it is zero."
+        "rule": (
+            "fail: some probe commits to a single option on at least "
+            f"{MIN_TASKS_TO_CLASSIFY} tasks and is never wrong when it does (a reliable "
+            "solo shortcut); inconclusive: fewer than "
+            f"{MIN_TASKS_TO_CLASSIFY} tasks; otherwise measured."
         ),
     }
-    if beating:
-        worst = max(beating, key=lambda r: r["accuracy"])
+    if ctx.n < MIN_TASKS_TO_CLASSIFY:
+        return CheckResult(
+            "solo_solvability",
+            "Solvability from one agent's view",
+            Status.INCONCLUSIVE,
+            f"Only {ctx.n} tasks: too few to rule a reliable solo shortcut in or out "
+            f"(at least {MIN_TASKS_TO_CLASSIFY} are needed).",
+            detail,
+            ("G6", "P4"),
+        )
+    if deterministic:
+        worst = deterministic[0]
+        agent = str(worst.get("agent_id", ""))
+        twin_row = twins["per_agent"].get(agent) if twins and agent else None
+        twin_text = (
+            f" The twin test found an indistinguishable instance with a different answer "
+            f"for {twin_row['certified_not_determining']} of that agent's "
+            f"{twin_row['views']} views." if twin_row else ""
+        )
         return CheckResult(
             "solo_solvability",
             "Solvability from one agent's view",
             Status.FAIL,
-            f"A single agent can beat chance alone: `{worst['name']}` scores "
-            f"{worst['n_correct']}/{worst['n']} ({worst['accuracy']:.1%}) against "
-            f"{ctx.chance:.1%} chance (p={worst['p_value_vs_chance']:.2g}). "
-            f"{len(beating)} of {len(rows)} probes beat chance. Information that one "
-            "agent can act on alone is not distributed information.",
+            f"Reliable solo shortcut: from a single view, `{worst['name']}` commits to "
+            f"one option on {worst['commits']} of {worst['n']} tasks and is right every "
+            f"time (with everything pooled: {full_accuracy:.0%}). {len(deterministic)} of "
+            f"{len(rows)} probes do this."
+            + twin_text,
             detail,
             ("G6", "P4"),
         )
-    best = max(rows, key=lambda r: r["accuracy"]) if rows else None
+    best = max(rows, key=lambda r: r["accuracy"])
+    pe = primary or best
     return CheckResult(
         "solo_solvability",
         "Solvability from one agent's view",
-        Status.PASS,
-        (f"No single-view probe is significantly above {ctx.chance:.1%} chance; the "
-         f"highest is {best['accuracy']:.1%} (`{best['name']}`). Not a guarantee: at "
-         f"this n a per-agent probe would usually miss a true accuracy below "
-         f"{mda:.1%}.") if best else "No probes ran.",
+        Status.MEASURED,
+        f"No reliable solo shortcut. Measured single-view accuracy (held-out learned "
+        f"probe) {pe['accuracy']:.1%} [{pe['ci95'][0]:.1%}, {pe['ci95'][1]:.1%}] against "
+        f"{ctx.chance:.1%} chance and {full_accuracy:.0%} with everything pooled; best "
+        f"explicit probe {best['accuracy']:.1%} (`{best['name']}`). Zero-information "
+        f"diagnostic {'rejected' if beating else 'not rejected'} at this n (power: "
+        f"accuracies below {mda:.1%} usually go unseen).",
         detail,
         ("G6", "P4"),
     )
@@ -1363,20 +1520,33 @@ def check_reward_hacking(ctx: CheckContext) -> CheckResult:
     matching = [r for r in rows if r["indistinguishable_from_pooling"]]
     beating = [r for r in rows if r["beats_chance"]]
     paid = [r for r in rows if r["pays_beyond_correctness"]]
-    if matching or beating or paid:
+    pooled_acc = pooled_correct / ctx.n if ctx.n else 0.0
+    for row in rows:
+        lo, hi = _wilson(row["n_correct"], row["n"])
+        row["ci95"] = [lo, hi]
+        row["advantage"] = row["accuracy"] - row["chance"]
+        gain = pooled_acc - row["chance"]
+        row["share_of_pooling_gain"] = row["advantage"] / gain if gain > 0 else None
+    detail["zero_information_diagnostic"] = {
+        "label": "diagnostic only, not a validity requirement",
+        "question": "does any non-pooling team beat chance at the Bonferroni-corrected alpha?",
+        "rejected": bool(beating),
+        "policies_beating_chance": [r["name"] for r in beating],
+        "minimum_detectable_accuracy": minimum_detectable_accuracy(ctx.n, ctx.chance, alpha),
+    }
+    detail["rule"] = (
+        "fail: a non-pooling team cannot be distinguished from pooling, or the reward "
+        f"pays beyond correctness; inconclusive: fewer than {MIN_TASKS_TO_CLASSIFY} tasks; "
+        "otherwise measured."
+    )
+    if matching or paid:
         parts = []
         if matching:
             worst = max(matching, key=lambda r: r["accuracy"])
             parts.append(
                 f"`{worst['name']}` earns {worst['accuracy']:.1%} against pooling's "
-                f"{pooled_correct / ctx.n:.1%} and cannot be distinguished from it "
+                f"{pooled_acc:.1%} and cannot be distinguished from it "
                 f"(p={worst['p_value_vs_pooling']:.2g})"
-            )
-        if beating:
-            worst = max(beating, key=lambda r: r["accuracy"])
-            parts.append(
-                f"`{worst['name']}` beats {ctx.chance:.1%} chance at "
-                f"{worst['accuracy']:.1%} (p={worst['p_value_vs_chance']:.2g})"
             )
         if paid:
             worst = max(paid, key=lambda r: r["mean_reward"] - r["accuracy"])
@@ -1395,14 +1565,22 @@ def check_reward_hacking(ctx: CheckContext) -> CheckResult:
             detail,
             ("M6",),
         )
+    if ctx.n < MIN_TASKS_TO_CLASSIFY:
+        return CheckResult(
+            "reward_hacking", "Reward earnable without pooling", Status.INCONCLUSIVE,
+            f"Only {ctx.n} tasks: too few to classify (at least {MIN_TASKS_TO_CLASSIFY}).",
+            detail, ("M6",),
+        )
     best = max(rows, key=lambda r: r["accuracy"])
     return CheckResult(
         "reward_hacking",
         "Reward earnable without pooling",
-        Status.PASS,
-        f"Every degenerate policy scores significantly below genuine pooling "
-        f"({pooled_correct}/{ctx.n}) and at or below chance; the best is `{best['name']}` "
-        f"at {best['accuracy']:.1%}.",
+        Status.MEASURED,
+        f"No non-pooling team matches pooling ({pooled_correct}/{ctx.n}) and the reward "
+        f"pays only for correctness. The best non-pooling team, `{best['name']}`, scores "
+        f"{best['accuracy']:.1%} [{best['ci95'][0]:.1%}, {best['ci95'][1]:.1%}] against "
+        f"{ctx.chance:.1%} chance; zero-information diagnostic "
+        f"{'rejected' if beating else 'not rejected'} at this n.",
         detail,
         ("M6",),
     )

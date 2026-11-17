@@ -3,15 +3,16 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 0–199
-- Grapevine: `0.2.0` · card hash: `5b85d53b19fa50a2`
+- Grapevine: `0.2.0` · card hash: `24f0eabdbe382bcc`
 - Config: `domains=['hiring', 'vendor', 'site']`, `facts_per_agent=1`, `margin=1`, `n_agents=3`, `n_options=4`, `n_rounds=2`, `pool_sha256=798d96e46481df23d857f769da6905ffa8eba9e01043dc3cc0595248dc3da4ee`, `state_objective=True`, `vary_support=True`
-- Checks: 1 fail, 12 pass
+- Checks: 1 fail, 11 pass
 
 ## Summary
 
 | | Check | Status | Finding |
 |---|---|---|---|
-| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `scoring_rule_on_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 10 of 19 probes beat chance. Information that one agent can act on alone is not distributed information. |
+| ❌ | `solo_solvability` | fail | Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time (with everything pooled: 100%). 10 of 19 probes do this. The twin test found an indistinguishable instance with a different answer for 0 of that agent's 200 views. |
+| 📏 | `reward_hacking` | measured | No non-pooling team matches pooling (200/200) and the reward pays only for correctness. The best non-pooling team, `always_first_option`, scores 31.5% [25.5%, 38.2%] against 25.0% chance; zero-information diagnostic not rejected at this n. |
 | ✅ | `leak` | pass | In none of 200 tasks does a view name the gold option alone or a single unit settle the task. |
 | ✅ | `full_solvability` | pass | Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks. |
 | ✅ | `shortcuts` | pass | No content-blind shortcut beats 25.0% chance; the best is `first_option` at 31.5%. |
@@ -22,14 +23,13 @@
 | ✅ | `objective` | pass | All 3 conditions state both the question and the scoring rule in every prompt. |
 | ✅ | `condition_diff` | pass | All 3 condition pairs have identical framing or differ only by the difference the environment declares. |
 | ✅ | `scorer_fuzz` | pass | All 18 adversarial cases scored as the contract requires over 200 tasks: no false accepts, no false rejects. |
-| ✅ | `reward_hacking` | pass | Every degenerate policy scores significantly below genuine pooling (200/200) and at or below chance; the best is `always_first_option` at 31.5%. |
 | ✅ | `seed_split` | pass | Disjoint split declared: 8000 train seeds, 1000 eval seeds, 200 pilot. Overlap is refused at construction. |
 
 ## Detail
 
 ### ❌ `solo_solvability` — Solvability from one agent's view
 
-**fail.** A single agent can beat chance alone: `scoring_rule_on_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 10 of 19 probes beat chance. Information that one agent can act on alone is not distributed information.
+**fail.** Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time (with everything pooled: 100%). 10 of 19 probes do this. The twin test found an indistinguishable instance with a different answer for 0 of that agent's 200 views.
 
 *Exists because of G6, P4 in `docs/audit.md`.*
 
@@ -37,6 +37,8 @@
 {
   "probes": [
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "scoring_rule_on_own_view[agent 0]",
       "n_correct": 0,
       "n": 200,
@@ -46,9 +48,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "scoring_rule_on_own_view[agent 1]",
       "n_correct": 0,
       "n": 200,
@@ -58,9 +69,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "scoring_rule_on_own_view[agent 2]",
       "n_correct": 0,
       "n": 200,
@@ -70,9 +90,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "mention_count_on_own_view[agent 0]",
       "n_correct": 0,
       "n": 200,
@@ -82,9 +111,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "mention_count_on_own_view[agent 1]",
       "n_correct": 0,
       "n": 200,
@@ -94,9 +132,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "mention_count_on_own_view[agent 2]",
       "n_correct": 0,
       "n": 200,
@@ -106,9 +153,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "named_in_my_private_units[agent 0]",
       "n_correct": 0,
       "n": 200,
@@ -118,9 +174,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "named_in_my_private_units[agent 1]",
       "n_correct": 0,
       "n": 200,
@@ -130,9 +195,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "named_in_my_private_units[agent 2]",
       "n_correct": 0,
       "n": 200,
@@ -142,9 +216,18 @@
       "beats_chance": false,
       "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333,
+      "never_wrong_when_committed": false
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "scoring_rule_on_my_private_units[agent 0]",
       "n_correct": 200,
       "n": 200,
@@ -154,9 +237,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "scoring_rule_on_my_private_units[agent 1]",
       "n_correct": 200,
       "n": 200,
@@ -166,9 +258,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "scoring_rule_on_my_private_units[agent 2]",
       "n_correct": 200,
       "n": 200,
@@ -178,9 +279,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "named_not_most_named_privately[agent 0]",
       "n_correct": 200,
       "n": 200,
@@ -190,9 +300,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "named_not_most_named_privately",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "named_not_most_named_privately[agent 1]",
       "n_correct": 200,
       "n": 200,
@@ -202,9 +321,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "named_not_most_named_privately",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 200,
       "name": "named_not_most_named_privately[agent 2]",
       "n_correct": 200,
       "n": 200,
@@ -214,9 +342,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "named_not_most_named_privately",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.981155,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 55,
+      "right_when_committed": 55,
       "name": "least_shared_support[agent 0]",
       "n_correct": 127.5,
       "n": 200,
@@ -226,9 +363,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "least_shared_support",
-      "agent_id": 0
+      "agent_id": 0,
+      "ci95": [
+        0.568865,
+        0.700952
+      ],
+      "advantage": 0.3875,
+      "share_of_pooling_gain": 0.516667,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 55,
+      "right_when_committed": 55,
       "name": "least_shared_support[agent 1]",
       "n_correct": 127.5,
       "n": 200,
@@ -238,9 +384,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "least_shared_support",
-      "agent_id": 1
+      "agent_id": 1,
+      "ci95": [
+        0.568865,
+        0.700952
+      ],
+      "advantage": 0.3875,
+      "share_of_pooling_gain": 0.516667,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 55,
+      "right_when_committed": 55,
       "name": "least_shared_support[agent 2]",
       "n_correct": 127.5,
       "n": 200,
@@ -250,9 +405,18 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "least_shared_support",
-      "agent_id": 2
+      "agent_id": 2,
+      "ci95": [
+        0.568865,
+        0.700952
+      ],
+      "advantage": 0.3875,
+      "share_of_pooling_gain": 0.516667,
+      "never_wrong_when_committed": true
     },
     {
+      "commits": 300,
+      "right_when_committed": 300,
       "name": "learned_from_view_ranks[all agents, held-out half]",
       "n_correct": 300,
       "n": 300,
@@ -262,13 +426,259 @@
       "beats_chance": true,
       "ties_scored_by_expectation": true,
       "probe": "learned_from_view_ranks",
-      "train_tasks": 100
+      "train_tasks": 100,
+      "ci95": [
+        0.987357,
+        1.0
+      ],
+      "advantage": 0.75,
+      "share_of_pooling_gain": 1.0,
+      "never_wrong_when_committed": true
     }
   ],
   "chance": 0.25,
   "alpha_per_probe": 0.002632,
+  "full_information_accuracy": 1.0,
+  "primary_estimate": {
+    "name": "learned_from_view_ranks[all agents, held-out half]",
+    "accuracy": 1.0,
+    "ci95": [
+      0.987357,
+      1.0
+    ],
+    "advantage": 0.75,
+    "share_of_pooling_gain": 1.0,
+    "n": 300
+  },
+  "primary_estimate_note": "The learned probe, fitted on half the batch and scored on the other half: the least optimistic single-view estimate here. The best of the explicit probes is biased upwards by being the best of nineteen.",
+  "twin_test": {
+    "abstraction": "views compared by evidence structure: per option (private support, private mentions, shared support, shared mentions); names exchangeable; wording, order and length ignored",
+    "per_agent": {
+      "0": {
+        "views": 200,
+        "certified_not_determining": 0,
+        "unresolved_with_consistent_twins": 200,
+        "unresolved_no_twin": 0
+      },
+      "1": {
+        "views": 200,
+        "certified_not_determining": 0,
+        "unresolved_with_consistent_twins": 200,
+        "unresolved_no_twin": 0
+      },
+      "2": {
+        "views": 200,
+        "certified_not_determining": 0,
+        "unresolved_with_consistent_twins": 200,
+        "unresolved_no_twin": 0
+      }
+    }
+  },
+  "zero_information_diagnostic": {
+    "label": "diagnostic only, not a validity requirement",
+    "question": "does any probe beat chance at the Bonferroni-corrected alpha?",
+    "rejected": true,
+    "alpha_per_probe": 0.002632,
+    "probes_beating_chance": [
+      "scoring_rule_on_my_private_units[agent 0]",
+      "scoring_rule_on_my_private_units[agent 1]",
+      "scoring_rule_on_my_private_units[agent 2]",
+      "named_not_most_named_privately[agent 0]",
+      "named_not_most_named_privately[agent 1]",
+      "named_not_most_named_privately[agent 2]",
+      "least_shared_support[agent 0]",
+      "least_shared_support[agent 1]",
+      "least_shared_support[agent 2]",
+      "learned_from_view_ranks[all agents, held-out half]"
+    ],
+    "minimum_detectable_accuracy": 0.372,
+    "note": "Under the assumptions in docs/validity-card.md some view of an argmax-of-summed-evidence task always carries information, so this diagnostic is expected to reject once n is large enough; whether it does at this n is a statement about power."
+  },
   "minimum_detectable_accuracy": 0.372,
-  "minimum_detectable_accuracy_note": "The lowest true single-view accuracy a per-agent probe that commits to one option detects with 80% power at this n and alpha. For an argmax-of-summed-evidence task some view always carries information, so a pass bounds the advantage; it does not show it is zero."
+  "rule": "fail: some probe commits to a single option on at least 20 tasks and is never wrong when it does (a reliable solo shortcut); inconclusive: fewer than 20 tasks; otherwise measured."
+}
+```
+
+### 📏 `reward_hacking` — Reward earnable without pooling
+
+**measured.** No non-pooling team matches pooling (200/200) and the reward pays only for correctness. The best non-pooling team, `always_first_option`, scores 31.5% [25.5%, 38.2%] against 25.0% chance; zero-information diagnostic not rejected at this n.
+
+*Exists because of M6 in `docs/audit.md`.*
+
+```json
+{
+  "reward": "the environment's own score(), as a training reward would use it",
+  "genuine_pooling": {
+    "n_correct": 200,
+    "n": 200,
+    "accuracy": 1.0,
+    "mean_reward": 1.0
+  },
+  "policies": [
+    {
+      "name": "recite_without_answering",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    },
+    {
+      "name": "verbose_non_answer",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    },
+    {
+      "name": "always_first_option",
+      "n_correct": 63,
+      "n": 200,
+      "accuracy": 0.315,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.022552,
+      "beats_chance": false,
+      "mean_reward": 0.315,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.254623,
+        0.38235
+      ],
+      "advantage": 0.065,
+      "share_of_pooling_gain": 0.086667
+    },
+    {
+      "name": "random_option",
+      "n_correct": 47,
+      "n": 200,
+      "accuracy": 0.235,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.712995,
+      "beats_chance": false,
+      "mean_reward": 0.235,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.181574,
+        0.298414
+      ],
+      "advantage": -0.015,
+      "share_of_pooling_gain": -0.02
+    },
+    {
+      "name": "no_discussion_majority",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    },
+    {
+      "name": "copy_agent_zero",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    },
+    {
+      "name": "defer_to_largest_view",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    },
+    {
+      "name": "share_nothing_claim_everything",
+      "n_correct": 0,
+      "n": 200,
+      "accuracy": 0.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 1.0,
+      "beats_chance": false,
+      "mean_reward": 0.0,
+      "p_value_vs_pooling": 0.0,
+      "indistinguishable_from_pooling": false,
+      "pays_beyond_correctness": false,
+      "ci95": [
+        0.0,
+        0.018845
+      ],
+      "advantage": -0.25,
+      "share_of_pooling_gain": -0.333333
+    }
+  ],
+  "alpha_per_probe_vs_chance": 0.00625,
+  "alpha_vs_pooling": 0.05,
+  "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised.",
+  "zero_information_diagnostic": {
+    "label": "diagnostic only, not a validity requirement",
+    "question": "does any non-pooling team beat chance at the Bonferroni-corrected alpha?",
+    "rejected": false,
+    "policies_beating_chance": [],
+    "minimum_detectable_accuracy": 0.362
+  },
+  "rule": "fail: a non-pooling team cannot be distinguished from pooling, or the reward pays beyond correctness; inconclusive: fewer than 20 tasks; otherwise measured."
 }
 ```
 
@@ -320,6 +730,8 @@
 {
   "shortcuts": [
     {
+      "commits": 0,
+      "right_when_committed": 0,
       "name": "mention_count",
       "n_correct": 50,
       "n": 200,
@@ -330,6 +742,8 @@
       "ties_scored_by_expectation": true
     },
     {
+      "commits": 0,
+      "right_when_committed": 0,
       "name": "fewest_mentions",
       "n_correct": 50,
       "n": 200,
@@ -340,6 +754,8 @@
       "ties_scored_by_expectation": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 63,
       "name": "first_option",
       "n_correct": 63,
       "n": 200,
@@ -350,6 +766,8 @@
       "ties_scored_by_expectation": true
     },
     {
+      "commits": 108,
+      "right_when_committed": 37,
       "name": "longest_option",
       "n_correct": 54.33,
       "n": 200,
@@ -360,6 +778,8 @@
       "ties_scored_by_expectation": true
     },
     {
+      "commits": 200,
+      "right_when_committed": 0,
       "name": "shared_only",
       "n_correct": 0,
       "n": 200,
@@ -747,133 +1167,6 @@
   ],
   "n_false_accepts": 0,
   "n_false_rejects": 0
-}
-```
-
-### ✅ `reward_hacking` — Reward earnable without pooling
-
-**pass.** Every degenerate policy scores significantly below genuine pooling (200/200) and at or below chance; the best is `always_first_option` at 31.5%.
-
-*Exists because of M6 in `docs/audit.md`.*
-
-```json
-{
-  "reward": "the environment's own score(), as a training reward would use it",
-  "genuine_pooling": {
-    "n_correct": 200,
-    "n": 200,
-    "accuracy": 1.0,
-    "mean_reward": 1.0
-  },
-  "policies": [
-    {
-      "name": "recite_without_answering",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "verbose_non_answer",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "always_first_option",
-      "n_correct": 63,
-      "n": 200,
-      "accuracy": 0.315,
-      "chance": 0.25,
-      "p_value_vs_chance": 0.022552,
-      "beats_chance": false,
-      "mean_reward": 0.315,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "random_option",
-      "n_correct": 47,
-      "n": 200,
-      "accuracy": 0.235,
-      "chance": 0.25,
-      "p_value_vs_chance": 0.712995,
-      "beats_chance": false,
-      "mean_reward": 0.235,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "no_discussion_majority",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "copy_agent_zero",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "defer_to_largest_view",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    },
-    {
-      "name": "share_nothing_claim_everything",
-      "n_correct": 0,
-      "n": 200,
-      "accuracy": 0.0,
-      "chance": 0.25,
-      "p_value_vs_chance": 1.0,
-      "beats_chance": false,
-      "mean_reward": 0.0,
-      "p_value_vs_pooling": 0.0,
-      "indistinguishable_from_pooling": false,
-      "pays_beyond_correctness": false
-    }
-  ],
-  "alpha_per_probe_vs_chance": 0.00625,
-  "alpha_vs_pooling": 0.05,
-  "note": "Shaping terms are not included here: this environment's reward is its scorer alone. A run that adds a shaping term must re-audit with it, or the check has not seen the reward being optimised."
 }
 ```
 
