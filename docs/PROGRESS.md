@@ -442,3 +442,34 @@ then the analysis, once.
 written up.
 
 **Spend:** $3.0655 cumulative. $1.2812 this step.
+
+---
+
+## Step 6 — Close the audit gap; read the results
+
+*2026-11-16. Branch `v0.2`. No API calls.*
+
+**Done**
+
+- Samarth chose to close the gap in the battery and not build a v3.
+- `solo_solvability` has a fourth probe, `scoring_rule_on_my_private_units`. A
+  new planted-flaw fixture, `private_support_all_gold`, is caught by that probe
+  and by no other, pinned in `tests/test_audit.py`.
+- The clean control had the same layout as v2, so the old control became the
+  planted flaw. The control now holds private support for non-gold options and
+  passes every check. Its template pool grew so `diversity` still passes.
+- `hidden_profile_v2` now fails `solo_solvability`; generator unchanged (rule 6).
+  Its card, the v0 study card and the tests are updated. The RL gate refuses v2
+  without `--allow-flagged`; the smoke run and CI pass it, and the manifest
+  records the override. CI checks the gate refuses the GPU config.
+- A2 in `docs/audit.md`; README, `docs/audit-battery.md`, registry comments and
+  both RL configs now say v2 is flagged.
+- `studies/v2_eval/README.md`: the results read against §10. The tables are
+  generated from `results.md` by `python -m studies.v2_eval.report`, which CI
+  checks.
+
+**Checks:** see the commit.
+
+**Next:** Step 7 — packaging, docs site, examples, community files, CI matrix.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.
