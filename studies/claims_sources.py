@@ -27,3 +27,18 @@ def v0_prompt_freeze() -> dict[str, Any]:
         "digests": len(conditions),
         "episodes": sum(int(c["n_episodes"]) for c in conditions.values()),
     }
+
+
+def v2_luna_no_communication_max() -> dict[str, Any]:
+    """The highest ``no_communication`` cell for the two luna models, both objectives.
+
+    Returns:
+        dict[str, Any]: ``correct`` and ``n`` of that cell.
+    """
+    results = json.loads(
+        (ROOT / "studies/v2_eval/runs/20261116T091238Z_primary/results.json").read_text(encoding="utf-8")
+    )
+    cells = [results["cells"][m][f"no_communication/{o}"]
+             for m in ("gpt-5.6-luna", "gpt-6-luna") for o in ("stated", "unstated")]
+    top = max(cells, key=lambda c: c["correct"])
+    return {"correct": top["correct"], "n": top["n"]}

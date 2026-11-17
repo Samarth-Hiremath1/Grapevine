@@ -222,6 +222,10 @@ def _cmd_verify_claims(args: argparse.Namespace) -> int:
     from grapevine.claims import ClaimsError, verify_claims
 
     path = Path(args.claims)
+    if not path.exists():
+        print(f"no claims file at {path}. verify-claims checks a repository's own docs: "
+              "run it from a clone, or pass --claims.", file=sys.stderr)
+        return 2
     try:
         results = verify_claims(path, Path(args.root) if args.root else None)
     except ClaimsError as exc:

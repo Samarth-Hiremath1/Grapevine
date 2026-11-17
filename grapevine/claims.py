@@ -25,6 +25,11 @@ are fields, and a scalar is ``{value}``. One extra conversion, ``!p``,
 multiplies by 100, so a difference of proportions ``0.03`` written as
 percentage points is ``{mean_difference!p:+.1f}`` -> ``+3.0``.
 
+A claim may also carry ``expect``, a mapping of keys to values the source
+must hold, for what the sentence asserts but the template does not render: "all
+200 tasks share **one** support pattern" renders 200 and expects
+``distinct_support_patterns: 1``.
+
 Matching ignores line wrapping, repeated whitespace, and the difference between
 ``-`` and the typographic minus ``−``. Nothing else.
 
@@ -207,9 +212,19 @@ def verify_claims(claims_path: Path, root: Path | None = None) -> list[ClaimResu
         try:
             if file not in docs:
                 docs[file] = _normalise((root / file).read_text(encoding="utf-8"))
-            rendered = _render(str(claim["template"]), _resolve(claim["source"], root, cache))
+            value = _resolve(claim["source"], root, cache)
+            rendered = _render(str(claim["template"]), value)
         except Exception as exc:  # noqa: BLE001 -- reported per claim, not raised
             results.append(ClaimResult(cid, file, None, False, f"{type(exc).__name__}: {exc}"))
+            continue
+        wrong = {
+            key: (want, _walk(value, [key]) if isinstance(value, Mapping) else value)
+            for key, want in dict(claim.get("expect") or {}).items()
+            if (_walk(value, [key]) if isinstance(value, Mapping) else value) != want
+        }
+        if wrong:
+            detail = ", ".join(f"{k}: expected {w!r}, source has {h!r}" for k, (w, h) in wrong.items())
+            results.append(ClaimResult(cid, file, rendered, False, detail))
             continue
         ok = _normalise(rendered) in docs[file]
         results.append(ClaimResult(

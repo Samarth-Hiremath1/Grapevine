@@ -56,6 +56,21 @@ def test_a_scalar_is_value(tmp_path: Path) -> None:
     assert verify_claims(path)[0].ok
 
 
+def test_expect_checks_what_the_template_does_not_render(tmp_path: Path) -> None:
+    claim = _claim("{n} tasks", ["cell"], expect={"correct": 98})
+    assert verify_claims(_repo(tmp_path, "100 tasks", [claim], DATA))[0].ok
+    other = tmp_path / "other"
+    other.mkdir()
+    claim = _claim("{n} tasks", ["cell"], expect={"correct": 99})
+    [r] = verify_claims(_repo(other, "100 tasks", [claim], DATA))
+    assert not r.ok and "expected 99" in (r.problem or "")
+
+
+def test_the_cli_explains_a_missing_claims_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["verify-claims", "--claims", str(tmp_path / "nope.yaml")]) == 2
+    assert "run it from a clone" in capsys.readouterr().err
+
+
 def test_a_missing_key_is_a_failed_claim_not_a_crash(tmp_path: Path) -> None:
     path = _repo(tmp_path, "x", [_claim("{correct}", ["nope"])], DATA)
     [r] = verify_claims(path)
