@@ -150,7 +150,7 @@ with its numbers, is in `docs/results.md`.
   problems.
 - One model, one task template, three agents, two rounds, four options.
 - The surfacing metric has precision 1.00 and recall about 0.86 against 40
-  model-free hand labels; it undercounts paraphrased sharing.
+  model labels (`docs/audit_surfacing_labels.md`), not human ones; it undercounts paraphrased sharing.
 - The rule arm is N=100 against N=200.
 - Condition D's 4 parse failures are empty responses, probably from hidden
   reasoning tokens exhausting the output cap. Not confirmed: usage is logged per

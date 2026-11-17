@@ -110,10 +110,13 @@ with framing.
 
 *Assumption M3.* 40 (fact, message) pairs drawn with a fixed seed from holder
 messages in C and D, stratified 20 metric-positive / 20 metric-negative, labelled
-by hand with the metric's verdict hidden (labels in
-`docs/audit_surfacing_labels.json`):
+by a model with the metric's verdict hidden (labels in
+`docs/audit_surfacing_labels.json`; *corrected 2026-11-16* -- this originally
+said "labelled by hand", and the labeller was the assistant model in the session
+that ran the audit; messages were shown truncated to 420 characters;
+`docs/audit_surfacing_labels.md`):
 
-| | Human: surfaced | Human: not |
+| | Model label: surfaced | Model label: not |
 |---|---:|---:|
 | Metric: surfaced | 20 | 0 |
 | Metric: not | 8 | 12 |
@@ -128,7 +131,7 @@ Consequences: C's 100% cannot be an overcount. D's 82.7% is an undercount. C's
 prompt says "State concrete facts verbatim"; D's does not, and the metric rewards
 verbatim wording, so part of the reported 100% vs 82.7% gap is the instruction
 interacting with the matcher. D's 85/115 full/partial split (61.2% vs 47.0%
-accuracy) is contaminated by the same misclassification. Single labeller, n=40.
+accuracy) is contaminated by the same misclassification. Single model labeller, no human check, n=40.
 
 ### L6. Intervals at the extremes are too narrow
 
