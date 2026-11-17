@@ -473,3 +473,50 @@ written up.
 **Next:** Step 7 — packaging, docs site, examples, community files, CI matrix.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+---
+
+## Step 7 — Packaging, docs, examples, community files, CI
+
+*2026-11-16. Branch `v0.2`. No API calls.*
+
+**Done**
+
+- Packaging: distribution `grapevine-mas` 0.2.0 (import `grapevine`), SPDX
+  license metadata, classifiers, project URLs, `py.typed`, an sdist limited to
+  the package. `uv build` and `twine check --strict` pass; the wheel installs
+  alone into a fresh Python 3.13 environment and runs. A test keeps
+  `__version__` and `pyproject.toml` in step. The committed cards record the new
+  version, regenerated.
+- `examples/`: audit two environments; a complete environment in one file that
+  passes every check on its eval seeds; scoring and the audit gate. Each runs
+  from a temporary directory in the test suite and against the bare wheel in CI.
+- Writing the second example surfaced the battery's false-fail rate: 2 audits
+  in 40 on clean environments, all `shortcuts`. Measured by
+  `studies/battery_calibration/false_fail.py`, documented, CI-checked. The
+  battery is not changed (decision recorded for Samarth).
+- MkDocs site: home, quickstart, writing an environment (the example included
+  verbatim), the battery, RL, API reference from docstrings, the case studies,
+  changelog, decisions. `mkdocs build --strict` passes, and was shown to fail on
+  a planted broken link and a planted dead anchor.
+- `CHANGELOG.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (adopts Contributor
+  Covenant 2.1 by reference), `SECURITY.md`, `CITATION.cff` (validated against
+  schema 1.2.0), issue and pull-request templates.
+- CI: actions pinned by SHA; a test matrix on Python 3.11, 3.12 and 3.13; a docs
+  job; a package job. `release.yml` for tags only, using trusted publishing;
+  not triggered. `actionlint` reports no errors (shellcheck not installed).
+  The matrix was run locally on 3.12 and 3.13: 363 passed, 1 skipped (the
+  `[rl]` tests) on each.
+- README: install, examples, the v0.2 eval in brief, the A2 finding, the roadmap,
+  updated test and layout sections.
+
+**Checks:** see the commit.
+
+**Not done:** nothing has run on GitHub, because nothing is pushed. README links
+are relative and will not resolve on PyPI (recorded in `docs/decisions.md`).
+
+**Next:** Step 8 — `docs/claims.yaml` and `grapevine verify-claims`, a
+clean-clone check, a fresh skeptical review, verified related work, `launch/`
+drafts.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.

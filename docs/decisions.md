@@ -390,3 +390,60 @@ gigabytes. The old CI side-stepped the lock with `uv pip install torch
 The CPU index carries 2.14.1 rather than 2.14.0, so Linux CI runs 2.14.1+cpu
 where macOS runs 2.14.0 — a patch-level difference, noted rather than chased.
 None of this touches the published package's dependencies.
+
+## Docs on MkDocs and Material, pinned, despite Material's end of life
+
+*2026-11-16, Step 7.* The plan named MkDocs with `--strict`. Material for
+MkDocs' PyPI page, read on 2026-11-16, says it reaches end of life on
+2027-05-05, with critical fixes until then, and names Zensical as its
+maintained successor. The site uses MkDocs 1.6.1, Material 9.8.1,
+mkdocstrings 1.0.8 and mkdocstrings-python 2.0.11, pinned exactly in the `docs`
+extra. A migration is a roadmap item, not v0.2 work: the site is a plain
+configuration with no custom theme code, so it should move with little effort.
+
+`docs/results.md` is excluded from the site, because its figure lives in
+`studies/` outside `docs/` and a strict build refuses the link. It is read on
+GitHub, where the relative path resolves (it had been broken since Step 2 moved
+the figure; fixed now). Anchor validation is raised from `info` to `warn`, so a
+dead in-page link also fails the build.
+
+## Actions pinned by commit SHA
+
+*2026-11-16, Step 7.* Every action in `.github/workflows/` is pinned to the
+commit its release tag pointed to when resolved through the GitHub API on
+2026-11-16, with the tag in a comment: `actions/checkout` v7.0.1,
+`astral-sh/setup-uv` v10.3.3 (the SHA matches its README),
+`actions/upload-artifact` v7.0.2, `actions/download-artifact` v8.0.2,
+`pypa/gh-action-pypi-publish` v1.14.3. A tag can be moved; a SHA cannot.
+
+## The release workflow publishes nothing until Samarth sets it up
+
+*2026-11-16, Step 7.* `release.yml` runs only on a `v*` tag. It checks the tag
+against the package version, runs the tests, builds, runs `twine check
+--strict`, and hands the files to a separate publish job that has
+`id-token: write` and nothing else. Publishing uses PyPI trusted publishing, so
+no token exists to leak. It needs two things that cannot be done from the
+repository and are left to Samarth: a GitHub environment `pypi`, and a trusted
+publisher on PyPI for `grapevine-mas`. Without them the publish job fails before
+uploading anything.
+
+Not handled: the README is the PyPI long description, and its relative links
+(`docs/...`, `studies/...`) will not resolve on PyPI. Rewriting them to absolute
+URLs needs a target branch that has the files, which `main` does not yet.
+Recorded here so it is decided before the first upload rather than discovered
+after it.
+
+## A clean environment fails about one audit in twenty
+
+*2026-11-16, Step 7.* Writing `examples/02_write_an_environment.py` surfaced
+that it passed on its eval seeds and failed `shortcuts` on seeds 9000–9199.
+Measured on it and on the test control over 40 disjoint seed ranges each: 2
+failing audits in 40 for both, all on `shortcuts`
+(`studies/battery_calibration/README.md`). That is the 5% per-check false-alarm
+rate the Bonferroni correction allows, reached in one check because equalised
+name counts leave the content-blind solvers breaking exact ties at random.
+
+Documented in `docs/audit-battery.md` and in the example. Not changed in the
+battery: scoring a tie by its expected value rather than a random draw would
+remove most of this noise, but it changes what every committed card says, and
+that is a decision for Samarth rather than a side effect of packaging.

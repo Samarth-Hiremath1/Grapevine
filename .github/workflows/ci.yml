@@ -10,23 +10,26 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Actions are pinned by commit SHA, with the release each SHA was read as
+# (resolved 2026-11-16).
+permissions:
+  contents: read
+
 jobs:
   core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Install locked environment (core + dev, Python from .python-version)
         run: uv sync --locked --extra dev
 
       - name: Lint (ruff)
-        run: .venv/bin/ruff check grapevine tests studies
+        run: .venv/bin/ruff check grapevine tests studies examples
 
       - name: Type check (mypy)
         run: .venv/bin/mypy
@@ -46,6 +49,8 @@ jobs:
         run: .venv/bin/python -m studies.v2_eval.h1_investigation --check
       - name: v2 eval results block matches the analysis output
         run: .venv/bin/python -m studies.v2_eval.report --check
+      - name: Battery false-fail measurement is reproducible
+        run: .venv/bin/python -m studies.battery_calibration.false_fail --check
 
       - name: hidden_profile_v2's Validity Card regenerates byte-identically
         run: |
@@ -78,18 +83,83 @@ jobs:
       - name: Tests on the core install (model-loading tests skip)
         run: .venv/bin/pytest -q
 
+  tests:
+    # The supported Python versions. The regeneration checks above run once, on
+    # the version in .python-version, because byte-identical output is the point.
+    name: tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install locked environment (core + dev)
+        run: uv sync --locked --extra dev
+
+      - name: Tests, including every example
+        run: uv run --no-sync pytest -q
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install locked environment with the [docs] extra
+        run: uv sync --locked --extra docs
+
+      - name: Build the site; any warning fails
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: .venv/bin/mkdocs build --strict
+
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Build the sdist and wheel
+        run: uv build
+
+      - name: Check the metadata renders
+        run: uvx twine@7.0.0 check --strict dist/*
+
+      - name: Install the wheel alone and use it
+        run: |
+          uv venv /tmp/wheel-env
+          uv pip install --python /tmp/wheel-env/bin/python dist/*.whl
+          cd /tmp
+          /tmp/wheel-env/bin/python -c "import grapevine; assert grapevine.__version__ == '0.2.0'"
+          /tmp/wheel-env/bin/grapevine envs
+          for example in "$GITHUB_WORKSPACE"/examples/[0-9][0-9]_*.py; do
+            /tmp/wheel-env/bin/python "$example" > /dev/null
+          done
+
   rl-smoke:
     # GRPO integration, smoke-tested. These runs prove the loop is wired and that
     # frozen partners stay frozen; they are not training and report no results.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Install locked environment with the [rl] extra (CPU torch on Linux)
         run: uv sync --locked --extra dev --extra rl

@@ -1,11 +1,12 @@
 # Grapevine
 
 Grapevine checks whether a multi-agent eval or RL environment measures
-coordination or something else, and gives you environments and GRPO wiring that
-pass that check.
+coordination or something else. It gives you a protocol for building
+environments that pass that check, and GRPO wiring that refuses to train on one
+that does not.
 
 ```bash
-grapevine audit hidden_profile_v2   # the bundled environment that passes
+grapevine audit hidden_profile_v2   # the bundled environment; fails one check (A2)
 grapevine audit hidden_profile      # the one this repository's first result used
 ```
 
@@ -25,6 +26,22 @@ How the battery works and how it is calibrated is in
 
 The tool exists because that first result was wrong, and the rest of this README
 is that story.
+
+## Install
+
+Prepared for PyPI as `grapevine-mas` (import name `grapevine`), **not published
+yet**. From a clone, on Python 3.11, 3.12 or 3.13:
+
+```bash
+git clone https://github.com/Samarth-Hiremath1/Grapevine.git
+cd Grapevine
+uv sync --extra dev                       # or: pip install -e ".[dev]"
+python examples/02_write_an_environment.py
+```
+
+[`examples/`](examples/README.md) has three offline examples, each run by the
+test suite. The documentation site builds from `docs/` with
+`uv run --extra docs mkdocs serve`.
 
 ---
 
@@ -94,6 +111,25 @@ those 100. Intervals, paired differences and the full account are in
 - **A second mistake, also caught:** with the task stated, C and D first appeared
   to beat A (100 and 99 against 96). A's prompt was laid out differently from the
   other conditions. Given the same layout, A scored 100/100.
+
+## v0.2: the pre-registered eval on `hidden_profile_v2`
+
+Three models, 100 held-out tasks, six cells each, pre-registered before any
+call; $1.28 for the run. Read model by model against the pre-registration in
+[`studies/v2_eval/README.md`](studies/v2_eval/README.md):
+
+- `gpt-5.6-luna` replicates the v0 finding: with the objective stated, the
+  communicating team was within 3 points of one agent holding every fact
+  (95% interval [−2, +8]).
+- `gpt-6-luna` falls between the pre-registered readings, so no reading is
+  claimed.
+- `gpt-4o-mini` scored 62/100 with every fact and the objective stated, below
+  the 90% the pre-registration required, so its contrasts are capability
+  results, not coordination results.
+
+The eval also found a single-agent shortcut in `hidden_profile_v2` that the
+audit battery had no probe for. The probe is now in the battery and v2 fails it
+(A2 in [`docs/audit.md`](docs/audit.md)).
 
 ## How it was checked
 
@@ -181,29 +217,35 @@ uv run grapevine view studies/underspecification/runs/20260913T013826Z_rule_arm/
 **GRPO integration, smoke-tested; no training results in this release.**
 
 ```bash
-uv sync --extra rl                                       # torch, transformers, trl, peft
-grapevine train configs/rl_smoke_cpu.yaml --dry-run      # audit gate + plan, no model
-grapevine train configs/rl_smoke_cpu.yaml                # two CPU steps, tiny random model
-grapevine eval --policy runs/<run>/policy                # held-out seeds, beside the baselines
+uv sync --extra rl                                                       # torch, transformers, trl, peft
+grapevine train configs/rl_smoke_cpu.yaml --dry-run                      # refused: v2 is flagged (A2)
+grapevine train configs/rl_smoke_cpu.yaml --dry-run --allow-flagged      # audit gate + plan, no model
+grapevine train configs/rl_smoke_cpu.yaml --allow-flagged                # two CPU steps, tiny random model
+grapevine eval --policy runs/<run>/policy                                # held-out seeds, beside the baselines
 ```
 
 Training refuses to start on an environment its audit flags, including when the
 flag comes from the reward itself: the optional surfacing shaping term is
-collectable without answering, so turning it on needs `--allow-flagged`, which
-the run manifest records. Frozen partners are separately loaded copies, and a
+collectable without answering. `hidden_profile_v2` is flagged too, because one
+agent can answer from its own private facts. Overriding either needs
+`--allow-flagged`, which the run manifest records. Frozen partners are separately loaded copies, and a
 test proves they are unchanged after an optimiser step. What has and has not
 been run is in [`docs/rl.md`](docs/rl.md).
 
 ## Tests
 
 ```bash
-uv run pytest -q
-uv run ruff check grapevine tests studies
+uv run pytest -q                                   # includes every example
+uv run ruff check grapevine tests studies examples
 uv run mypy
+uv run --extra docs mkdocs build --strict
 ```
 
-CI runs these on a core-only install, and separately runs the GRPO smoke and
-isolation tests with the `[rl]` extra.
+CI runs the tests on Python 3.11, 3.12 and 3.13 on a core-only install; checks
+that every committed result, card and frozen prompt regenerates byte-identically;
+builds the docs with `--strict`; builds the wheel and runs the examples against
+it alone; and separately runs the GRPO smoke and isolation tests with the `[rl]`
+extra. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Repository layout
 
@@ -217,8 +259,9 @@ grapevine/experiments/  experiment runner, statistics, cross-run comparison, fig
 grapevine/eval/         transcript viewer
 grapevine/rl/           GRPO via TRL behind the audit gate ([rl] extra; smoke-tested, never trained)
 studies/                one directory per case study: its configs, runs and write-up
+examples/               offline, runnable, tested
 configs/                GRPO configs: a CPU smoke config CI runs, a GPU config marked not run
-docs/                   results, methodology, assumptions, audit, decisions
+docs/                   the documentation site; also results, audit, decisions, prereg
 ```
 
 The library and the evidence are kept apart. `grapevine/` is the installable
@@ -228,12 +271,30 @@ not installed. The study behind this README is
 reproduces with one command and freezes the exact prompts its runs used.
 
 Task families plug in through `grapevine/envs/`. `hidden_profile` is the one
-used here. `split_evidence` is present but **unregistered**: it leaks the gold
-answer into one agent's view in 100 of 100 generated tasks, so nothing that
-resolves a family by name will hand one out (`docs/decisions.md`). It is either
-fixed or deleted in v0.2.
+the v0 study used; `hidden_profile_v2` is the default. `split_evidence` is
+present but **unregistered**: it leaks the gold answer into one agent's view in
+100 of 100 generated tasks, so nothing that resolves a family by name will hand
+one out. It is kept as a worked negative example (`docs/decisions.md`).
+
+## Roadmap (not in this release)
+
+No dates. Each is something this release deliberately does not do:
+
+- real training runs, and GPU jobs;
+- a successor to `hidden_profile_v2` that closes A2, under a new family name
+  and with its own pre-registration;
+- a new RL algorithm;
+- a `verifiers` v1 multi-agent adapter (per-role `AgentConfig`, non-trainable
+  helper roles), once v1 is on PyPI;
+- adapters for external benchmarks; Inspect or OpenEnv integration;
+- privacy or disclosure-constraint environments;
+- communication-budget, routing or counterfactual-replay machinery;
+- any claim about another benchmark's results.
 
 ## Citation
+
+To cite Grapevine itself, see [`CITATION.cff`](CITATION.cff). Works this
+repository relies on:
 
 - Li, Y., Naito, A., & Shirado, H. Systematic Failures in Collective Reasoning
   under Distributed Information in Multi-Agent LLMs. ICML 2026 (PMLR 306).
