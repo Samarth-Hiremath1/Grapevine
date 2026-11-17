@@ -109,7 +109,26 @@ class TestFrozenPrompts:
 
 
 class TestSpendingGuards:
-    """No command reaches a provider without an explicit, sufficient approval."""
+    """No command reaches a provider without an explicit, sufficient approval.
+
+    The approval guards are tested with the key check patched to succeed, so
+    they are exercised whether or not this machine has a key. A clean clone has
+    none, and before this was patched these tests only passed where a local
+    ``.env`` held one.
+    """
+
+    @pytest.fixture
+    def key_present(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(run, "load_env", lambda: None)
+        monkeypatch.setattr(run, "has_key", lambda provider: True)
+
+    def test_a_missing_key_refuses_before_anything_else(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(run, "load_env", lambda: None)
+        monkeypatch.setattr(run, "has_key", lambda provider: False)
+        assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna", "--approve-usd", "1"]) == 2
+        assert "no OPENAI_API_KEY" in capsys.readouterr().err
 
     def test_the_estimate_refuses_an_unpriced_model(self) -> None:
         with pytest.raises(KeyError):
@@ -133,14 +152,17 @@ class TestSpendingGuards:
         assert pilot["committed_spend_usd"] - eval_spend + worst < DESIGN.budget_usd
         assert pilot["committed_spend_usd"] < DESIGN.budget_usd
 
+    @pytest.mark.usefixtures("key_present")
     def test_a_live_run_needs_an_approval(self, capsys: pytest.CaptureFixture[str]) -> None:
         assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna"]) == 2
         assert "--approve-usd" in capsys.readouterr().err
 
+    @pytest.mark.usefixtures("key_present")
     def test_an_approval_below_the_estimate_is_refused(self, capsys: pytest.CaptureFixture[str]) -> None:
         assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna", "--approve-usd", "0.001"]) == 2
         assert "below the estimate" in capsys.readouterr().err
 
+    @pytest.mark.usefixtures("key_present")
     def test_an_approval_past_the_budget_is_refused(self, capsys: pytest.CaptureFixture[str]) -> None:
         assert run.main(["--phase", "pilot", "--models", "gpt-5.6-luna", "--approve-usd", "50"]) == 2
         assert "remaining budget" in capsys.readouterr().err
