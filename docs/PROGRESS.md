@@ -554,11 +554,44 @@ drafts.
 
 **Checks:** see the commit.
 
+**Open, for Samarth:** settled in the next entry, except the labels and the
+release checklist.
+
+---
+
+## Step 8, continued — Extend the battery for M1 and M2
+
+*2026-11-16. Branch `v0.2`. No API calls, no GPU.*
+
+**Done**
+
+- Samarth chose to extend the battery rather than document the gaps.
+- `leak` is zero-tolerance. `solo_solvability` gains a names-only probe, a
+  shared-support probe and a cross-validated learned probe over within-view
+  ranks, and reports the minimum detectable accuracy on every card. Probes
+  score tie-breaks by expected value with an exact null.
+- Regression tests: the names-only layout and a 43-of-200 leak fail, on four
+  disjoint seed ranges, and only the new probes catch the names-only layout.
+  Dose-response leaks at 5%, 10%, 20%, and a single leaking task, all fail.
+- The clean control and the example are rebuilt (flat names in every block,
+  gold by exactly one fact, random splits). The control's two earlier layouts are
+  kept as negative controls, as are two new adversarial fixtures.
+- Found while doing it, and written up rather than worked around: for a task
+  decided by summed evidence, some single view always carries information, so
+  no environment can pass `solo_solvability` reliably. The rebuilt control's
+  exact single-view bound is computed and tested; the battery sees it on some
+  seed ranges and always at n = 2,000. The threshold was not changed.
+- `studies/battery_calibration/` measures false positives and missed defects:
+  no negative control missed on any of 10 seed ranges; clean environments fail
+  outside the two power-limited checks once in 40.
+- Validity Cards regenerated. No committed run, result table or pre-registered
+  number changed. 90 claims verify.
+
 **Open, for Samarth:**
 
-- Whether to extend the battery for the review's M1 and M2 (new single-view
-  probes, a stricter leak check). Doing it fails the clean control and the
-  example, so both need redesigning, and every committed card changes.
+- Whether `solo_solvability` should carry an explicit tolerance, so that the
+  irreducible single-view lean is told apart from a shortcut by the check
+  (`docs/decisions.md`, last entry).
 - Who produced the 40 v0 surfacing labels (review M5, `CLAUDE.md` rule 8).
 - Everything in `launch/release-checklist.md`.
 

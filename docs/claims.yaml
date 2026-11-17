@@ -170,10 +170,34 @@ claims:
      source: {call: "studies.v2_eval.h1_investigation:investigate"}}
   - {id: battery.a2.votes, file: docs/audit-battery.md, template: "voted gold from its own view {gold} times in {votes}",
      source: {call: "studies.v2_eval.h1_investigation:investigate", path: [votes, gpt-4o-mini, unstated]}}
-  - {id: battery.false-fail.control, file: docs/audit-battery.md, template: "fails {failed} times in {audits}",
-     source: {call: "studies.battery_calibration.false_fail:measure", path: [control]}}
-  - {id: battery.false-fail.venue, file: docs/audit-battery.md, template: "fails {failed} times in {audits}",
-     source: {call: "studies.battery_calibration.false_fail:measure", path: [venue_choice]}}
+  - {id: battery.mda, file: docs/audit-battery.md, template: "usually misses a true single-view accuracy below {value:.1%}",
+     source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
+  - {id: battery.bound, file: docs/audit-battery.md, template: "single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: battery.solo-fails, file: docs/audit-battery.md, template: "`solo_solvability` fails the control {by_check[solo_solvability]} times",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: battery.hacking-fails, file: docs/audit-battery.md, template: "leans -- {by_check[reward_hacking]} times",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: battery.outside.control, file: docs/audit-battery.md,
+     template: "fails outside the power-limited checks in {failed_outside_power_limited} audit of {audits}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}, expect: {failed_outside_power_limited: 1}}
+  - {id: battery.outside.venue, file: docs/audit-battery.md,
+     template: "fails outside the power-limited checks in {failed_outside_power_limited} audit of {audits}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, venue_choice]}}
+  - {id: battery.first-option, file: docs/audit-battery.md, template: "listed first in {n_correct} of {n}",
+     source: {call: "studies.claims_sources:control_first_option_1200"}}
+  - {id: battery.detection, file: docs/audit-battery.md, template: "is caught on {detected} of {runs} ranges",
+     source: {call: "studies.battery_calibration.false_fail:detection_floor"}}
+  - {id: readme.mda, file: docs/review-v0.2-response.md, template: "usually misses a true single-view accuracy below {value:.1%}",
+     source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
+  - {id: response.bound, file: docs/review-v0.2-response.md, template: "best single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: response.solo-fails, file: docs/review-v0.2-response.md, template: "`solo_solvability` fails it {by_check[solo_solvability]} times",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: decisions.bound, file: docs/decisions.md, template: "exact Bayes-optimal single-view accuracy of {bayes:.1%} against {chance:.0%}",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: decisions.solo-fails, file: docs/decisions.md, template: "sees that on {by_check[solo_solvability]} of {audits} seed ranges",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
 
   # --- Exploratory follow-up to the review (studies/v2_eval/review_followup.py)
   - {id: v2.followup.surfacing, file: studies/v2_eval/README.md,
@@ -198,12 +222,12 @@ claims:
   - {id: response.leak.0.1, file: docs/review-v0.2-response.md, template: "exactly ({leaky_tasks},",
      source: {call: "studies.v2_eval.review_followup:partial_leak", path: [0]}}
   - {id: response.leak.0.2, file: docs/review-v0.2-response.md, template: ", {leaky_tasks}, ",
-     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [1]}, expect: {leak: pass}}
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [1]}}
   - {id: response.leak.0.3, file: docs/review-v0.2-response.md, template: "{leaky_tasks} of 200)",
      source: {call: "studies.v2_eval.review_followup:partial_leak", path: [2]}}
   - {id: response.probe.control, file: docs/review-v0.2-response.md,
      template: "is also {value[0]}/{value[1]} on the clean control",
-     source: {call: "studies.v2_eval.review_followup:probes", path: ["control (eval 1000-1199)", named_not_most_named]}}
+     source: {call: "studies.v2_eval.review_followup:probes", path: ["control as reviewed (eval 1000-1199)", named_not_most_named]}}
   # --- Spend ------------------------------------------------------------------
   - {id: progress.spend, file: docs/PROGRESS.md, template: "**Spend:** ${value:.4f} cumulative. $0.00 this step.",
      source: {call: "studies.v2_eval.run:committed_spend"}}

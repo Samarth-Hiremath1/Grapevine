@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 1000–1199
-- Grapevine: `0.2.0` · card hash: `b32cf7add940a7a6`
+- Grapevine: `0.2.0` · card hash: `7521c30a71ad4958`
 - Config: `n_agents=3`, `n_distractors=4`, `n_options=4`, `n_private_facts_per_agent=2`, `n_shared_facts=6`
 - Checks: 3 fail, 4 warn, 6 pass
 
@@ -11,14 +11,14 @@
 
 | | Check | Status | Finding |
 |---|---|---|---|
-| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 6 of 12 probes beat chance. Information that one agent can act on alone is not distributed information. |
+| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 13 of 19 probes beat chance. Information that one agent can act on alone is not distributed information. |
 | ❌ | `shortcuts` | fail | `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 5 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information. |
 | ❌ | `objective` | fail | 5 of 10 conditions never state the objective: `communication`, `communication_neutral`, `full_info`, `full_info_matched`, `no_communication`. Agents in those arms are not told what question they are answering or how the answer is scored, so a wrong answer there is not evidence of a coordination failure -- it may only be evidence that nobody said what to do. |
 | ⚠️ | `diversity` | warn | The batch is one puzzle in several arrangements rather than several problems: every one of the 200 tasks has the identical support pattern (6.0, 5.0, 1.0, 0.0). Intervals computed over these seeds measure variation over permutations of one task, not over tasks. |
 | ⚠️ | `balance` | warn | The task is not symmetric: agents hold unequal numbers of private units (means [4.0, 3.0, 3.0]), a spread of 1.00, so one agent is systematically better informed. |
 | ⚠️ | `condition_diff` | warn | 40 of 45 condition pairs differ in framing in ways the environment does not declare (`communication`/`communication_neutral`, `communication`/`communication_neutral_rule`, `communication`/`full_info`, `communication`/`full_info_matched`). Any difference measured between such a pair mixes the intended manipulation with these. Declare the intended difference via Condition.expected_diff to turn this into a check rather than a report. |
 | ⚠️ | `seed_split` | warn | This environment declares no train/eval seed split, so nothing stops an RL run from training on the seeds it later reports. Implement Environment.seed_split() to make that impossible by construction rather than by discipline. |
-| ✅ | `leak` | pass | No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance). |
+| ✅ | `leak` | pass | In none of 200 tasks does a view name the gold option alone or a single unit settle the task. |
 | ✅ | `full_solvability` | pass | Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks. |
 | ✅ | `name_hygiene` | pass | No option name is a substring of another, and none occurs inside an ordinary word, across 200 tasks. |
 | ✅ | `minimality` | pass | All 1200 required units are load-bearing: removing any one changes the answer the scoring rule gives. |
@@ -29,7 +29,7 @@
 
 ### ❌ `solo_solvability` — Solvability from one agent's view
 
-**fail.** A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 6 of 12 probes beat chance. Information that one agent can act on alone is not distributed information.
+**fail.** A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 13 of 19 probes beat chance. Information that one agent can act on alone is not distributed information.
 
 *Exists because of G6, P4 in `docs/audit.md`.*
 
@@ -44,6 +44,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
       "agent_id": 0
     },
@@ -55,6 +56,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
       "agent_id": 1
     },
@@ -66,6 +68,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_own_view",
       "agent_id": 2
     },
@@ -77,6 +80,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
       "agent_id": 0
     },
@@ -88,6 +92,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
       "agent_id": 1
     },
@@ -99,6 +104,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
       "beats_chance": false,
+      "ties_scored_by_expectation": true,
       "probe": "mention_count_on_own_view",
       "agent_id": 2
     },
@@ -110,6 +116,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
       "agent_id": 0
     },
@@ -121,6 +128,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
       "agent_id": 1
     },
@@ -132,6 +140,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "named_in_my_private_units",
       "agent_id": 2
     },
@@ -143,6 +152,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
       "agent_id": 0
     },
@@ -154,6 +164,7 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
       "agent_id": 1
     },
@@ -165,12 +176,99 @@
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
       "beats_chance": true,
+      "ties_scored_by_expectation": true,
       "probe": "scoring_rule_on_my_private_units",
       "agent_id": 2
+    },
+    {
+      "name": "named_not_most_named_privately[agent 0]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "named_not_most_named_privately",
+      "agent_id": 0
+    },
+    {
+      "name": "named_not_most_named_privately[agent 1]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "named_not_most_named_privately",
+      "agent_id": 1
+    },
+    {
+      "name": "named_not_most_named_privately[agent 2]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "named_not_most_named_privately",
+      "agent_id": 2
+    },
+    {
+      "name": "least_shared_support[agent 0]",
+      "n_correct": 100,
+      "n": 200,
+      "accuracy": 0.5,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "least_shared_support",
+      "agent_id": 0
+    },
+    {
+      "name": "least_shared_support[agent 1]",
+      "n_correct": 100,
+      "n": 200,
+      "accuracy": 0.5,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "least_shared_support",
+      "agent_id": 1
+    },
+    {
+      "name": "least_shared_support[agent 2]",
+      "n_correct": 100,
+      "n": 200,
+      "accuracy": 0.5,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "least_shared_support",
+      "agent_id": 2
+    },
+    {
+      "name": "learned_from_view_ranks[all agents, held-out half]",
+      "n_correct": 300,
+      "n": 300,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "ties_scored_by_expectation": true,
+      "probe": "learned_from_view_ranks",
+      "train_tasks": 100
     }
   ],
   "chance": 0.25,
-  "alpha_per_probe": 0.004167
+  "alpha_per_probe": 0.002632,
+  "minimum_detectable_accuracy": 0.372,
+  "minimum_detectable_accuracy_note": "The lowest true single-view accuracy a per-agent probe that commits to one option detects with 80% power at this n and alpha. For an argmax-of-summed-evidence task some view always carries information, so a pass bounds the advantage; it does not show it is zero."
 }
 ```
 
@@ -190,7 +288,8 @@
       "accuracy": 1.0,
       "chance": 0.25,
       "p_value_vs_chance": 0.0,
-      "beats_chance": true
+      "beats_chance": true,
+      "ties_scored_by_expectation": true
     },
     {
       "name": "fewest_mentions",
@@ -199,7 +298,8 @@
       "accuracy": 0.0,
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
-      "beats_chance": false
+      "beats_chance": false,
+      "ties_scored_by_expectation": true
     },
     {
       "name": "first_option",
@@ -208,16 +308,18 @@
       "accuracy": 0.27,
       "chance": 0.25,
       "p_value_vs_chance": 0.280765,
-      "beats_chance": false
+      "beats_chance": false,
+      "ties_scored_by_expectation": true
     },
     {
       "name": "longest_option",
-      "n_correct": 58,
+      "n_correct": 54,
       "n": 200,
-      "accuracy": 0.29,
+      "accuracy": 0.27,
       "chance": 0.25,
-      "p_value_vs_chance": 0.111466,
-      "beats_chance": false
+      "p_value_vs_chance": 0.224487,
+      "beats_chance": false,
+      "ties_scored_by_expectation": true
     },
     {
       "name": "shared_only",
@@ -226,7 +328,8 @@
       "accuracy": 0.0,
       "chance": 0.25,
       "p_value_vs_chance": 1.0,
-      "beats_chance": false
+      "beats_chance": false,
+      "ties_scored_by_expectation": true
     }
   ],
   "chance": 0.25,
@@ -659,34 +762,20 @@
 
 ### ✅ `leak` — Answer leak into a single view
 
-**pass.** No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance).
+**pass.** In none of 200 tasks does a view name the gold option alone or a single unit settle the task.
 
 *Exists because of P4, G6 in `docs/audit.md`.*
 
 ```json
 {
-  "only_gold_named_in_a_view": {
-    "name": "only_gold_named_in_a_view",
-    "n_correct": 0,
-    "n": 200,
-    "accuracy": 0.0,
-    "chance": 0.25,
-    "p_value_vs_chance": 1.0,
-    "beats_chance": false
-  },
-  "one_unit_outweighs_all_rivals": {
-    "name": "one_unit_outweighs_all_rivals",
-    "n_correct": 0,
-    "n": 200,
-    "accuracy": 0.0,
-    "chance": 0.25,
-    "p_value_vs_chance": 1.0,
-    "beats_chance": false
-  },
+  "tasks_where_a_view_names_only_gold": 0,
+  "tasks_where_one_unit_outweighs_all_rivals": 0,
+  "n_tasks": 200,
+  "tolerance": 0,
   "gold_string_appears_in_some_private_unit": {
     "n": 200,
     "rate": 1.0,
-    "note": "Informational. A unit mentioning the gold option is normal -- it is evidence. It is only a leak when it settles the answer, which the two probes above test."
+    "note": "Informational. A unit mentioning the gold option is normal -- it is evidence. It is only a leak when it settles the answer, which the two counts above test."
   },
   "examples": []
 }

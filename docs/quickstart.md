@@ -41,8 +41,10 @@ print(card.to_markdown())
 
 Each check is `pass`, `warn`, `fail` or `skipped`, with a one-line summary and
 the evidence behind it. A card passes when no check failed; warnings do not stop
-it. Each check holds its false-alarm rate at 5%, so a clean environment still
-fails roughly one audit in twenty; [what that means in practice](audit-battery.md).
+it. Each check holds its false-alarm rate at 5%. A pass is a bound, not a
+guarantee: `solo_solvability` reports the smallest single-view advantage the
+audit could have detected, and for a task decided by summed evidence some
+advantage always exists; [why](audit-battery.md#why-a-pass-is-a-bound).
 
 ## Next
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 import random
 import re
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from grapevine.protocol import AgentView, DistributedTask, InfoUnit, support_total
 
@@ -36,12 +37,17 @@ __all__ = [
     "count_mentions",
     "fewest_mentions",
     "first_option",
+    "TieRecorder",
+    "least_shared_support",
+    "leaders_of",
     "longest_option",
     "mention_count",
+    "named_not_most_named_privately",
     "private_scoring_rule",
     "reference",
     "shared_only",
     "uniquely_determined",
+    "view_rank_features",
 ]
 
 #: A solver picks an option given a view and the answer space.
@@ -64,6 +70,41 @@ def count_mentions(text: str, option: str) -> int:
     """
     pattern = re.compile(rf"(?<![A-Za-z]){re.escape(option)}(?![A-Za-z])", re.IGNORECASE)
     return len(pattern.findall(text))
+
+
+class TieRecorder(random.Random):
+    """An RNG that records the candidates of a tie-break instead of drawing.
+
+    Every solver here uses its RNG only to break ties, through ``choice``. Handing
+    one of these in recovers the full set a solver was choosing among, so the
+    audit can score a tie by its expected value rather than by a draw. A drawn
+    tie-break made verdicts depend on the audit's own RNG: a solver with no
+    information at all failed clean environments about one audit in twenty.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(0)
+        self.last: list[str] | None = None
+
+    def choice(self, seq: Sequence[Any]) -> Any:  # type: ignore[override]
+        self.last = list(seq)
+        return self.last[0]
+
+
+def leaders_of(solver: Solver, view: AgentView, answer_space: Sequence[str]) -> list[str]:
+    """The options ``solver`` would choose among on ``view``, all equally likely.
+
+    Args:
+        solver (Solver): A solver that uses its RNG only to break ties.
+        view (AgentView): The view to solve.
+        answer_space (Sequence[str]): The options.
+
+    Returns:
+        list[str]: One option when the solver is decided; the tied set otherwise.
+    """
+    recorder = TieRecorder()
+    pick = solver(view, answer_space, recorder)
+    return recorder.last if recorder.last is not None else [pick]
 
 
 def _argmax(scores: dict[str, float], answer_space: Sequence[str], rng: random.Random) -> str:
@@ -124,6 +165,86 @@ def private_scoring_rule(view: AgentView, answer_space: Sequence[str], rng: rand
         str: The option with the most private supporting weight.
     """
     return _argmax(support_total(view.private, answer_space), answer_space, rng)
+
+
+def named_not_most_named_privately(
+    view: AgentView, answer_space: Sequence[str], rng: random.Random
+) -> str:
+    """Pick among the options this agent's private notes name, except the most-named.
+
+    Names only, no content. It solves any layout in which an agent's private
+    notes name the gold option and a decoy, with the decoy always named more:
+    the layout this repository's v2, its clean control and its example all had
+    until an external review found it (``docs/review-v0.2.md``, M1). Counting
+    names was "made uninformative" by making it non-monotonic, which is not the
+    same thing.
+
+    Args:
+        view (AgentView): One agent's view.
+        answer_space (Sequence[str]): The options.
+        rng (random.Random): Breaks ties.
+
+    Returns:
+        str: The chosen option.
+    """
+    text = "\n".join(u.text for u in view.private)
+    named = {o: count_mentions(text, o) for o in answer_space}
+    top = max(named.values())
+    pool = [o for o in answer_space if 0 < named[o] < top]
+    if not pool:
+        pool = [o for o in answer_space if named[o] > 0] or list(answer_space)
+    return rng.choice(pool)
+
+
+def least_shared_support(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:
+    """Pick the option the shared facts support least.
+
+    In a hidden profile built by withholding the gold option from common ground,
+    "whatever the shared facts ignore" is a single-view shortcut.
+
+    Args:
+        view (AgentView): One agent's view.
+        answer_space (Sequence[str]): The options.
+        rng (random.Random): Breaks ties.
+
+    Returns:
+        str: The chosen option.
+    """
+    totals = support_total(view.shared, answer_space)
+    return _argmax({o: -v for o, v in totals.items()}, answer_space, rng)
+
+
+def _dense_rank(values: dict[str, float]) -> dict[str, int]:
+    """0 for the largest value, 1 for the next distinct value, and so on."""
+    order = sorted(set(values.values()), reverse=True)
+    return {o: order.index(v) for o, v in values.items()}
+
+
+def view_rank_features(view: AgentView, answer_space: Sequence[str]) -> dict[str, tuple[int, ...]]:
+    """Per option, its within-view ranks on four channels one agent can see.
+
+    The channels are private support, private name count, shared support and
+    shared name count. Ranks, not raw counts, so a rule learned on one task
+    transfers to another of a different size; dense ranks with ties shared, so
+    "named but not most-named" and "least supported in common" are expressible.
+
+    Args:
+        view (AgentView): One agent's view.
+        answer_space (Sequence[str]): The options.
+
+    Returns:
+        dict[str, tuple[int, ...]]: A feature tuple per option.
+    """
+    private_text = "\n".join(u.text for u in view.private)
+    shared_text = "\n".join(u.text for u in view.shared)
+    channels = [
+        support_total(view.private, answer_space),
+        {o: float(count_mentions(private_text, o)) for o in answer_space},
+        support_total(view.shared, answer_space),
+        {o: float(count_mentions(shared_text, o)) for o in answer_space},
+    ]
+    ranks = [_dense_rank(c) for c in channels]
+    return {o: tuple(r[o] for r in ranks) for o in answer_space}
 
 
 def mention_count(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:

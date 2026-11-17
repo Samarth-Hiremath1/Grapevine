@@ -447,3 +447,32 @@ Documented in `docs/audit-battery.md` and in the example. Not changed in the
 battery: scoring a tie by its expected value rather than a random draw would
 remove most of this noise, but it changes what every committed card says, and
 that is a decision for Samarth rather than a side effect of packaging.
+
+## Extend the battery; do not add a tolerance to `solo_solvability`
+
+*2026-11-16, after the external review.* Samarth chose to extend the battery
+for the review's M1 (names-only shortcut) and M2 (partial leaks) rather than
+only document them, and to rebuild the clean control and the example so they
+pass "without weakening thresholds to force a pass".
+
+Building the rebuilt control surfaced an architectural limit: when the answer is
+the argmax of summed evidence, some single view always carries information about
+it, so no design can make every single-view solver sit at chance
+(`docs/audit-battery.md`, "Why a pass is a bound"). The tightest construction
+leaves an exact Bayes-optimal single-view accuracy of 29.8% against 25%, and the
+strengthened battery sees that on 17 of 40 seed ranges.
+
+Decision: keep `solo_solvability`'s threshold as it was -- any probe
+significantly above chance fails -- and say what that means, rather than add a
+tolerance that would make the control pass. A tolerance is the principled fix
+(compare the single-view advantage with what pooling adds), but its size is a
+judgement about what counts as "distributed enough", and adopting one changes
+what a pass means for every environment. Left open for Samarth.
+
+Scoring tie-breaks by expectation is not a threshold change: it leaves the null
+rate at its nominal level, gives an uninformative solver exactly chance with no
+variance, and loses no power on a real signal. It removed most of the old
+one-in-twenty false alarms on `shortcuts`.
+
+The control's mentions per option per agent (6) was chosen for prompt size
+before the strengthened audit was run on it, and is not tuned to its verdict.

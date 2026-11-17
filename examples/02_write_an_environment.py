@@ -4,28 +4,28 @@
 
 A complete environment in one file: three agents choose a workshop venue, and
 the best venue only wins once their private notes are pooled. It implements the
-:class:`grapevine.Environment` protocol and passes every check on its eval
-seeds. The comments say which check each design choice is there for.
+:class:`grapevine.Environment` protocol, and the comments say which check each
+design choice is there for.
 
-"Passes" means the battery's thirteen checks found nothing; it does not mean
-one agent cannot answer alone. An external review found that "pick an option my
-private notes name, other than the most-named" is right for every agent here,
-because each agent's notes name only gold and its pointer, and the pointer more
-often (``docs/audit-battery.md``, "Known gaps"). Treat this as an example of
-the protocol, not of a sound environment.
+Read the audit's verdict on it carefully, because it is the most useful thing
+this example shows. Every check passes except, on some seed ranges,
+``solo_solvability`` (and, at large n, ``reward_hacking``). That is not a bug
+in this environment and cannot be designed away: when the answer is the argmax
+of summed evidence, some single view always carries information about it. This
+layout keeps that lean to what a one-fact margin forces -- the best possible
+single-view accuracy is about 30% against 25% chance -- and whether the battery
+sees a lean that small depends on how many tasks it audits.
+``docs/audit-battery.md``, "Why a pass is a bound", has the argument and the
+numbers.
 
-"Passes" is also a statistical statement. Audited over 40 disjoint seed ranges, a
-clean environment like this one fails about one in twenty, always on
-`shortcuts`, at the battery's 5% false-alarm rate
-(``studies/battery_calibration/README.md``). Audit on the seeds you will
-report, and read a lone marginal failure with that rate in mind.
+An earlier version of this example "passed every check" with a layout a
+names-only probe solved for every agent; that probe is now in the battery.
 """
 
 from __future__ import annotations
 
 import random
 from collections.abc import Mapping
-from dataclasses import replace
 
 from grapevine import (
     AgentView,
@@ -35,7 +35,6 @@ from grapevine import (
     InfoUnit,
     Objective,
     SeedSplit,
-    Status,
     audit,
 )
 
@@ -113,6 +112,22 @@ NEUTRAL = (
 )
 
 
+# Each base sentence in three settings, so a task of up to ~50 supporting facts
+# never repeats one (`diversity`). No setting contains a venue name.
+SETTINGS = ("", " according to last year's organisers", " as confirmed on the site visit")
+SUPPORT_FACTS = tuple(base + where for base in SUPPORT for where in SETTINGS)
+NEUTRAL_FACTS = tuple(base + where for base in NEUTRAL for where in SETTINGS)
+
+#: How many times each organiser's notes name each venue. Chosen for prompt size
+#: (about 28 notes per organiser); a larger K leans less, never zero.
+K = 6
+
+
+def _splits(total: int, cap: int) -> list[tuple[int, int, int]]:
+    """Every way to split ``total`` over three organisers, each share in ``0..cap``."""
+    return [(a, b, total - a - b) for a in range(cap + 1) for b in range(cap + 1)
+            if 0 <= total - a - b <= cap]
+
 class VenueChoice(Environment):
     """Three organisers choose a venue; the best one is hidden until they pool notes."""
 
@@ -133,14 +148,21 @@ class VenueChoice(Environment):
         """Build one task deterministically from ``seed``."""
         rng = random.Random(seed)
         options = rng.sample(VENUES, 4)
-        gold, decoy, other, spare = options
+        gold = options[0]
         rng.shuffle(options)  # gold is not always in the same place (`balance`)
 
-        # r supporting facts for the gold venue per agent, varied by seed so the
-        # support pattern differs across tasks (`diversity`).
-        r = rng.choice([2, 3])
-        support = rng.sample(SUPPORT, len(SUPPORT))
-        neutral = rng.sample(NEUTRAL, len(NEUTRAL))
+        # Totals: gold has t + 1 supporting facts, every other venue t. Gold wins
+        # by one, so every gold fact is needed (`full_solvability`, `minimality`).
+        t = rng.randint(K, 2 * K)
+        totals = {v: t + (v == gold) for v in options}
+
+        # Each venue's total is split over the three organisers uniformly at
+        # random, every share in 0..K. No organiser's notes are built to point
+        # anywhere in particular (`solo_solvability`).
+        shares = {v: rng.choice(_splits(totals[v], K)) for v in options}
+
+        support = rng.sample(SUPPORT_FACTS, len(SUPPORT_FACTS))
+        neutral = rng.sample(NEUTRAL_FACTS, len(NEUTRAL_FACTS))
         counter = {"s": 0, "n": 0, "u": 0}
 
         def unit(venue: str, *, supports: bool) -> InfoUnit:
@@ -150,33 +172,26 @@ class VenueChoice(Environment):
             counter["u"] += 1
             return InfoUnit(f"u{counter['u']:03d}", text, venue if supports else None)
 
-        # Shared notes: the decoy leads on common ground. That is the hidden profile.
-        shared = [unit(decoy, supports=True) for _ in range(2 * r - 2)]
-        shared.append(unit(other, supports=True))
+        # Shared notes support and name every venue once: common ground favours
+        # nobody (`least_shared_support`, the shared-name probes).
+        shared = [unit(v, supports=True) for v in options]
+        rng.shuffle(shared)
 
-        # Private notes. Each agent holds r facts for the gold venue and r + 1 for
-        # one other venue, so neither its whole view nor its private notes alone
-        # point at the answer (`solo_solvability`, including the private-only
-        # probe). Pooled, gold has 3r against the decoy's 3r - 1, so every gold
-        # fact is needed (`full_solvability`, `minimality`).
+        # Private notes name every venue exactly K times -- its supporting facts
+        # plus neutral mentions -- so no name count, in any block, says anything
+        # (`shortcuts`, `named_not_most_named_privately`).
         views: list[AgentView] = []
         required: list[str] = []
-        for agent_id, pointer in enumerate((decoy, other, spare)):
-            private = [unit(gold, supports=True) for _ in range(r)]
-            required += [u.unit_id for u in private]
-            private += [unit(pointer, supports=True) for _ in range(r + 1)]
+        for agent_id in range(3):
+            private: list[InfoUnit] = []
+            for v in options:
+                facts = [unit(v, supports=True) for _ in range(shares[v][agent_id])]
+                if v == gold:
+                    required += [u.unit_id for u in facts]
+                private += facts
+                private += [unit(v, supports=False) for _ in range(K - shares[v][agent_id])]
             rng.shuffle(private)
-            views.append(AgentView(agent_id=agent_id, private=tuple(private)))
-
-        # Pad the shared notes so every venue is named equally often, so counting
-        # names says nothing about the answer (`shortcuts`).
-        named = {v: sum(u.text.count(v) for u in [*shared, *(x for w in views for x in w.private)])
-                 for v in options}
-        top = max(named.values())
-        for venue in options:
-            shared += [unit(venue, supports=False) for _ in range(top - named[venue])]
-        rng.shuffle(shared)
-        views = [replace(view, shared=tuple(shared)) for view in views]
+            views.append(AgentView(agent_id=agent_id, shared=tuple(shared), private=tuple(private)))
 
         return DistributedTask(
             task_id=f"{self.name}-{seed}",
@@ -185,7 +200,7 @@ class VenueChoice(Environment):
             gold_answer=gold,
             views=tuple(views),
             required_units=tuple(required),
-            metadata={"seed": seed, "decoy_option": decoy, "r": r},
+            metadata={"seed": seed, "t": t},
         )
 
     def conditions(self, task: DistributedTask) -> Mapping[str, Condition]:
@@ -214,14 +229,19 @@ class VenueChoice(Environment):
 
 
 def main() -> None:
-    """Audit the environment and print its verdict and every check."""
+    """Audit the environment and print every check, including the one it may fail."""
     env = VenueChoice()
-    card = audit(env, n_tasks=200, seed=env.seed_split().eval.start)
+    split = env.seed_split()
+    card = audit(env, n_tasks=200, seed=split.eval.start)
     print(f"{env.name}: {card.verdict.value}")
     for result in card.results:
         print(f"  {result.status.value:7} {result.check_id}")
-    if card.verdict is not Status.PASS:
-        raise SystemExit(1)
+    solo = card.get("solo_solvability")
+    best = max(solo.detail["probes"], key=lambda r: r["accuracy"])
+    print(
+        f"\nBest single-view probe: {best['accuracy']:.1%} (`{best['name']}`); this audit "
+        f"would usually miss anything below {solo.detail['minimum_detectable_accuracy']:.1%}."
+    )
 
 
 if __name__ == "__main__":

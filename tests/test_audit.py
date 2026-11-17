@@ -109,9 +109,14 @@ class TestCard:
         assert a.content_hash() != c.content_hash()
 
     def test_verdict_is_the_worst_status_that_ran(self, control_card: ValidityCard) -> None:
-        assert control_card.verdict is Status.PASS
-        assert control_card.passed
-        assert control_card.flagged_checks == ()
+        severity = [Status.PASS, Status.SKIPPED, Status.WARN, Status.FAIL]
+        ran = [r.status for r in control_card.results]
+        worst = max((st for st in ran if st is not Status.SKIPPED), key=severity.index)
+        assert control_card.verdict is worst
+        assert control_card.passed == (Status.FAIL not in ran)
+        assert set(control_card.flagged_checks) == {
+            r.check_id for r in control_card.results if r.status is Status.FAIL
+        }
 
     def test_skipped_never_counts_as_passing(self) -> None:
         """An environment that declares nothing must not look checked."""
@@ -197,19 +202,82 @@ class TestMultiplicity:
 # --- 2. Calibration ----------------------------------------------------------
 
 
+#: The two checks whose "beats chance" test is limited by sample size, not by
+#: what they look for: some single view always leans towards the answer of an
+#: argmax-of-summed-evidence task (docs/audit-battery.md, "Why a pass is a bound").
+POWER_LIMITED = {"solo_solvability", "reward_hacking"}
+
+#: Probes and policies that read which facts are support -- the content the task
+#: is about. The unavoidable lean shows up only through these.
+READS_SUPPORT = {
+    "scoring_rule_on_own_view", "scoring_rule_on_my_private_units", "learned_from_view_ranks",
+}
+LEAN_POLICIES = {"no_discussion_majority", "copy_agent_zero", "defer_to_largest_view"}
+DISJOINT_SEEDS = [0, 5000, 10000, 20000]
+
+
 class TestCleanControl:
-    def test_control_passes_every_check(self, control_card: ValidityCard) -> None:
-        """If this ever fails, fix the control before trusting any other result."""
-        not_passing = {
-            r.check_id: (r.status.value, r.summary) for r in control_card.results
-            if r.status is not Status.PASS
-        }
-        assert not_passing == {}, f"control no longer clean: {not_passing}"
+    """The control is as clean as an additive hidden profile can be, and no cleaner.
+
+    It used to be required to pass every check. That cannot be guaranteed once
+    the battery has probes good enough to see the single-view lean every such
+    task has; what can be required is everything below.
+    """
+
+    @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
+    def test_every_check_that_is_not_power_limited_passes(self, seed: int) -> None:
+        card = audit(CLEAN_CONTROL, n_tasks=N, seed=seed)
+        not_passing = {r.check_id: r.summary for r in card.results
+                       if r.status is not Status.PASS and r.check_id not in POWER_LIMITED}
+        assert not_passing == {}, not_passing
+
+    @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
+    def test_only_the_irreducible_lean_is_ever_detected(self, seed: int) -> None:
+        """No names-only or shared-block probe, and no layout policy, ever fires."""
+        card = audit(CLEAN_CONTROL, n_tasks=N, seed=seed)
+        solo = {r["probe"] for r in card.get("solo_solvability").detail["probes"] if r["beats_chance"]}
+        assert solo <= READS_SUPPORT, solo
+        hacking = {p["name"] for p in card.get("reward_hacking").detail["policies"]
+                   if p["beats_chance"] or p["indistinguishable_from_pooling"] or p["pays_beyond_correctness"]}
+        assert hacking <= LEAN_POLICIES, hacking
 
     def test_control_is_deterministic_by_seed(self) -> None:
         env = CLEAN_CONTROL
         assert env.generate(7) == env.generate(7)
         assert env.generate(7) != env.generate(8)
+
+
+class TestTheControlsSingleViewBound:
+    """What one agent can do alone in the control, computed exactly and checked."""
+
+    def test_the_exact_bound(self) -> None:
+        from fixtures.flawed_envs import _K
+
+        from studies.battery_calibration.bound import exact_single_view_bayes
+
+        bound = exact_single_view_bayes(_K, list(range(_K, 2 * _K + 1)))
+        assert bound == pytest.approx(0.2976, abs=5e-4)
+
+    def test_the_generator_matches_the_bound(self) -> None:
+        """Own-view scoring rule over 9,000 views lands on the Bayes bound."""
+        from grapevine.protocol import support_total
+
+        hits, n = 0.0, 0
+        for seed in range(20000, 23000):
+            task = CLEAN_CONTROL.generate(seed)
+            for view in task.views:
+                totals = support_total(view.private, task.answer_space)
+                top = max(totals.values())
+                leaders = [o for o in task.answer_space if totals[o] == top]
+                hits += (task.gold_answer in leaders) / len(leaders)
+                n += 1
+        assert hits / n == pytest.approx(0.2976, abs=0.015)
+
+    def test_with_enough_tasks_the_battery_sees_it(self) -> None:
+        """The pass at n=200 is a power limit, not blindness: at n=2000 it fails."""
+        result = audit(CLEAN_CONTROL, n_tasks=2000, seed=100000).get("solo_solvability")
+        assert result.status is Status.FAIL
+        assert result.detail["minimum_detectable_accuracy"] < 0.2976
 
 
 @pytest.mark.parametrize("fixture_name", sorted(FLAWED_ENVS), ids=sorted(FLAWED_ENVS))
@@ -420,6 +488,53 @@ class TestMinimalityCounts:
         assert len(result.detail["examples"]) == 10
 
 
+#: The probes solo_solvability had before the v2 eval found A2.
+PRE_A2_PROBES = {"scoring_rule_on_own_view", "mention_count_on_own_view", "named_in_my_private_units"}
+#: ...and before the external review (docs/review-v0.2.md, M1).
+PRE_REVIEW_PROBES = PRE_A2_PROBES | {"scoring_rule_on_my_private_units"}
+
+
+class TestTheReviewsFindings:
+    """Regression tests for docs/review-v0.2.md M1 (names-only) and M2 (partial leak)."""
+
+    @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
+    def test_the_names_only_layout_is_caught_and_only_by_the_new_probes(self, seed: int) -> None:
+        flawed, _ = FLAWED_ENVS["legacy_pointer_support"]
+        result = audit(flawed, n_tasks=N, seed=seed).get("solo_solvability")
+        assert result.status is Status.FAIL
+        rows = {r["name"]: r for r in result.detail["probes"]}
+        for agent_id in range(3):
+            assert rows[f"named_not_most_named_privately[agent {agent_id}]"]["n_correct"] == N
+        pre = [r for r in result.detail["probes"] if r["probe"] in PRE_REVIEW_PROBES]
+        assert not any(r["beats_chance"] for r in pre), "a pre-review probe now catches it"
+
+    def test_the_43_of_200_leak_fails_and_is_counted(self) -> None:
+        import random as _random
+
+        flawed, _ = FLAWED_ENVS["partial_leak_0_2"]
+        planted = sum(_random.Random(s * 31 + 7).random() < 0.2 for s in range(N))
+        assert planted == 43
+        leak = audit(flawed, n_tasks=N, seed=0).get("leak")
+        assert leak.status is Status.FAIL
+        assert leak.detail["tasks_where_one_unit_outweighs_all_rivals"] == planted
+
+    @pytest.mark.parametrize("fraction", ["0_05", "0_1", "0_2"])
+    @pytest.mark.parametrize("seed", DISJOINT_SEEDS)
+    def test_every_dose_fails_on_every_seed_range(self, fraction: str, seed: int) -> None:
+        flawed, _ = FLAWED_ENVS[f"partial_leak_{fraction}"]
+        assert audit(flawed, n_tasks=N, seed=seed).get("leak").status is Status.FAIL
+
+    def test_a_single_leaking_task_fails(self) -> None:
+        """Zero tolerance: one decisive unit in one task is a defect."""
+        from fixtures.flawed_envs import ControlEnv
+
+        seeds = [s for s in range(5000) if __import__("random").Random(s * 31 + 7).random() < 0.001]
+        assert seeds, "no seed plants the leak at this fraction"
+        leak = audit(ControlEnv(leak_fraction=0.001), n_tasks=200, seed=seeds[0]).get("leak")
+        assert leak.status is Status.FAIL
+        assert leak.detail["tasks_where_one_unit_outweighs_all_rivals"] >= 1
+
+
 class TestTheGapTheV2EvalFound:
     """A2: a private-only scoring rule, missed by the battery until a model used it.
 
@@ -428,11 +543,12 @@ class TestTheGapTheV2EvalFound:
 
     def test_only_the_new_probe_catches_the_planted_layout(self) -> None:
         """Every probe the battery had before A2 reports clean on this layout."""
-        flawed, _ = FLAWED_ENVS["private_support_all_gold"]
+        flawed, _ = FLAWED_ENVS["legacy_gold_only_private_support"]
         result = audit(flawed, n_tasks=100, seed=0).get("solo_solvability")
         assert result.status is Status.FAIL
         beating = {r["probe"] for r in result.detail["probes"] if r["beats_chance"]}
-        assert beating == {"scoring_rule_on_my_private_units"}
+        assert "scoring_rule_on_my_private_units" in beating
+        assert not beating & PRE_A2_PROBES, beating
 
     def test_hidden_profile_v2_fails_on_it(self) -> None:
         """v2 passed the battery as it stood; it does not pass this probe.
@@ -446,9 +562,8 @@ class TestTheGapTheV2EvalFound:
         rows = {r["name"]: r for r in result.detail["probes"]}
         for agent_id in range(3):
             assert rows[f"scoring_rule_on_my_private_units[agent {agent_id}]"]["n_correct"] == 100
-        others = [r for r in result.detail["probes"]
-                  if r["probe"] != "scoring_rule_on_my_private_units"]
-        assert not any(r["beats_chance"] for r in others)
+        old = [r for r in result.detail["probes"] if r["probe"] in PRE_A2_PROBES]
+        assert not any(r["beats_chance"] for r in old)
 
 
 class TestSplitEvidenceIsARealPositiveControl:
@@ -460,7 +575,7 @@ class TestSplitEvidenceIsARealPositiveControl:
         card = audit(get_environment("split_evidence"), n_tasks=100, seed=0)
         leak = card.get("leak")
         assert leak.status is Status.FAIL
-        assert leak.detail["only_gold_named_in_a_view"]["n_correct"] == 100
+        assert leak.detail["tasks_where_a_view_names_only_gold"] == 100
 
     def test_it_is_solvable_by_one_agent_alone(self) -> None:
         """Which is why condition B built on it would not have measured pooling."""

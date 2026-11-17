@@ -1,37 +1,56 @@
-"""Measure the battery's false-fail rate on environments with no planted flaw.
+"""How often the battery fails a clean environment, and how often it misses a planted flaw.
 
     python -m studies.battery_calibration.false_fail            # regenerate
-    python -m studies.battery_calibration.false_fail --check    # verify
+    python -m studies.battery_calibration.false_fail --check    # verify; CI runs this
 
-Audits two clean environments -- the test suite's control and the example in
-``examples/02_write_an_environment.py`` -- on 40 disjoint ranges of 200 seeds
-each, and counts how many audits fail and on which check. Deterministic: the
-audit's own randomness is seeded, so the output is the same on every run.
+Deterministic: every audit is seeded, so the output is identical on every run.
+
+* **False positives.** The test suite's clean control and the example in
+  ``examples/02_write_an_environment.py`` are audited on 40 disjoint ranges of
+  200 seeds each. Failures are split into the two power-limited checks
+  (``solo_solvability``, ``reward_hacking``), which see the single-view lean that
+  every argmax-of-summed-evidence task has (``docs/audit-battery.md``, "Why a
+  pass is a bound"), and everything else, which should never fail.
+* **Missed defects.** Every planted-flaw fixture, ``hidden_profile_v2`` and the
+  v0 ``hidden_profile`` are audited on 10 disjoint ranges, and each run counts as
+  a detection when the check responsible reports the expected status.
+
+The two clean environments draw their random numbers in the same order, so
+their results on the same seed range are correlated; the review pointed this
+out (``docs/review-v0.2.md``, m5). They are reported separately, not pooled.
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from grapevine import Environment, audit
+from grapevine import Environment, audit, get_environment
+from grapevine.audit.checks import minimum_detectable_accuracy
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_PATH = Path(__file__).resolve().parent / "README.md"
+JSON_PATH = Path(__file__).resolve().parent / "results.json"
 N_RANGES = 40
+N_DETECTION_RANGES = 10
 N_TASKS = 200
+POWER_LIMITED = ("solo_solvability", "reward_hacking")
+
+
+def _fixtures() -> Any:
+    sys.path.insert(0, str(ROOT / "tests"))
+    import fixtures.flawed_envs as fixtures  # type: ignore[import-not-found]
+
+    return fixtures
 
 
 def _environments() -> list[Environment]:
     """The two clean environments, loaded from the test fixtures and the example."""
-    sys.path.insert(0, str(ROOT / "tests"))
-    # The fixtures live under tests/, outside the type-checked tree.
-    from fixtures.flawed_envs import CLEAN_CONTROL  # type: ignore[import-not-found]
-
     spec = importlib.util.spec_from_file_location(
         "venue_example", ROOT / "examples" / "02_write_an_environment.py"
     )
@@ -40,7 +59,7 @@ def _environments() -> list[Environment]:
     sys.modules["venue_example"] = module
     spec.loader.exec_module(module)
     venue: Environment = module.VenueChoice()
-    control: Environment = CLEAN_CONTROL
+    control: Environment = _fixtures().CLEAN_CONTROL
     return [control, venue]
 
 
@@ -48,52 +67,107 @@ def measure() -> dict[str, Any]:
     """Audit each clean environment on every seed range.
 
     Returns:
-        dict[str, Any]: Per environment, the number of failing audits and the
-        checks that failed.
+        dict[str, Any]: Per environment, failing audits overall, failing audits
+        outside the power-limited checks, and failures by check.
     """
     out: dict[str, Any] = {}
     for env in _environments():
         failed = 0
+        failed_elsewhere = 0
         by_check: Counter[str] = Counter()
         for k in range(N_RANGES):
             card = audit(env, n_tasks=N_TASKS, seed=k * N_TASKS)
             failed += not card.passed
+            failed_elsewhere += any(c not in POWER_LIMITED for c in card.flagged_checks)
             by_check.update(card.flagged_checks)
-        out[env.name] = {"audits": N_RANGES, "failed": failed, "by_check": dict(sorted(by_check.items()))}
+        out[env.name] = {
+            "audits": N_RANGES, "failed": failed, "failed_outside_power_limited": failed_elsewhere,
+            "by_check": dict(sorted(by_check.items())),
+        }
     return out
 
 
-def markdown(result: dict[str, Any]) -> str:
+def detection() -> dict[str, Any]:
+    """Audit every negative control on disjoint seed ranges.
+
+    Returns:
+        dict[str, Any]: Per fixture, the responsible check, and detections out of runs.
+    """
+    fixtures = _fixtures()
+    cases: list[tuple[str, Environment, str, str]] = [
+        (name, env, d.expected_check, d.expected_status)
+        for name, (env, d) in sorted(fixtures.FLAWED_ENVS.items())
+    ]
+    cases.append(("hidden_profile_v2", get_environment("hidden_profile_v2"), "solo_solvability", "fail"))
+    cases.append(("hidden_profile (v0)", get_environment("hidden_profile"), "shortcuts", "fail"))
+    out: dict[str, Any] = {}
+    for name, env, check, status in cases:
+        hits = sum(
+            audit(env, n_tasks=N_TASKS, seed=50_000 + k * N_TASKS).get(check).status.value == status
+            for k in range(N_DETECTION_RANGES)
+        )
+        out[name] = {"check": check, "status": status, "detected": hits, "runs": N_DETECTION_RANGES}
+    return out
+
+
+def detection_floor() -> dict[str, int]:
+    """The worst detection rate over every negative control, from the committed results.
+
+    Returns:
+        dict[str, int]: ``detected`` and ``runs`` of the least-detected fixture.
+    """
+    caught = json.loads(JSON_PATH.read_text(encoding="utf-8"))["detection"]
+    worst = min(caught.values(), key=lambda r: r["detected"] / r["runs"])
+    return {"detected": worst["detected"], "runs": worst["runs"]}
+
+
+def markdown(clean: dict[str, Any], caught: dict[str, Any]) -> str:
     """The measurement as a report.
 
     Args:
-        result (dict[str, Any]): Output of :func:`measure`.
+        clean (dict[str, Any]): Output of :func:`measure`.
+        caught (dict[str, Any]): Output of :func:`detection`.
 
     Returns:
         str: Markdown text.
     """
+    family = 6 * 3 + 1  # solo_solvability's probes x agents, plus the learned probe
+    mda = minimum_detectable_accuracy(N_TASKS, 0.25, 0.05 / family)
     lines = [
-        "# Battery false-fail rate",
+        "# Battery calibration: false positives and missed defects",
         "",
         "Generated by `python -m studies.battery_calibration.false_fail`. Do not edit by hand.",
         "",
-        f"Each clean environment audited on {N_RANGES} disjoint ranges of {N_TASKS} seeds "
+        "## Clean environments",
+        "",
+        f"Each audited on {N_RANGES} disjoint ranges of {N_TASKS} seeds "
         f"(seeds 0 to {N_RANGES * N_TASKS - 1}).",
         "",
-        "| Environment | Audits | Failed | Failing checks |",
-        "|---|---:|---:|---|",
+        "| Environment | Audits | Failed | Failed outside `solo_solvability` and `reward_hacking` | Failing checks |",
+        "|---|---:|---:|---:|---|",
     ]
-    for name, row in result.items():
+    for name, row in clean.items():
         checks = ", ".join(f"`{c}` ×{n}" for c, n in row["by_check"].items()) or "none"
-        lines.append(f"| `{name}` | {row['audits']} | {row['failed']} | {checks} |")
+        lines.append(f"| `{name}` | {row['audits']} | {row['failed']} | "
+                     f"{row['failed_outside_power_limited']} | {checks} |")
     lines += [
         "",
-        "Neither environment has a planted flaw, so every failure here is a false alarm.",
-        "Each check controls its own false-alarm rate at 5% (Bonferroni within the check;",
-        "`docs/audit-battery.md`). Nothing corrects across checks or across repeated audits.",
+        "A failure of `solo_solvability` or `reward_hacking` here is not a false alarm in",
+        "the usual sense: these environments really do lean towards the answer from one",
+        "view, as every argmax-of-summed-evidence task must, and the battery sees the lean",
+        f"on some seed ranges and not others. At {N_TASKS} tasks a per-agent probe usually",
+        f"misses a true single-view accuracy below {mda:.1%}.",
         "",
+        "## Negative controls",
+        "",
+        f"Each audited on {N_DETECTION_RANGES} disjoint ranges of {N_TASKS} seeds, from seed 50000.",
+        "",
+        "| Fixture | Responsible check | Expected | Detected |",
+        "|---|---|---|---:|",
     ]
-    return "\n".join(lines)
+    for name, row in caught.items():
+        lines.append(f"| `{name}` | `{row['check']}` | {row['status']} | {row['detected']}/{row['runs']} |")
+    return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -108,12 +182,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m studies.battery_calibration.false_fail")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
-    text = markdown(measure())
+    clean, caught = measure(), detection()
+    text = markdown(clean, caught)
+    data = json.dumps({"clean": clean, "detection": caught,
+                       "minimum_detectable_accuracy": minimum_detectable_accuracy(N_TASKS, 0.25, 0.05 / 19)},
+                      indent=2) + "\n"
     if args.check:
-        same = OUT_PATH.exists() and OUT_PATH.read_text(encoding="utf-8") == text
-        print("battery_calibration/README.md " + ("unchanged" if same else "has drifted"))
+        same = all(path.exists() and path.read_text(encoding="utf-8") == fresh
+                   for path, fresh in ((OUT_PATH, text), (JSON_PATH, data)))
+        print("battery_calibration/README.md and results.json " + ("unchanged" if same else "have drifted"))
         return 0 if same else 1
     OUT_PATH.write_text(text, encoding="utf-8")
+    JSON_PATH.write_text(data, encoding="utf-8")
     print(text)
     return 0
 

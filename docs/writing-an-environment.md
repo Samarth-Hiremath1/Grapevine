@@ -20,24 +20,30 @@ reads the facts from one that only counts names.
 
 ## A complete example
 
-`examples/02_write_an_environment.py` is a whole environment in one file that
-passes every check on its eval seeds.
+`examples/02_write_an_environment.py` is a whole environment in one file. The
+comments say which check each design choice is there for. The three that matter
+most:
 
-!!! warning "Passing is not the same as sound"
-    An external review found that this example can be solved from one agent's
-    view by a probe the battery does not have: pick an option the agent's
-    private notes name, other than the most-named. It shows how to implement
-    the protocol; it is not a design to copy as-is. See "Known gaps" in
-    [the audit battery](audit-battery.md#known-gaps).
- The comments say which check each design
-choice is there for. The two that matter most:
+- **Every block names every option equally often.** Each agent's private notes
+  name each option exactly six times, as supporting facts plus neutral
+  mentions, and the shared notes support each option once. So no name count,
+  anywhere, says anything. Padding the shared block to equalise totals, as an
+  earlier version did, is itself a leak: the gold option gets the least padding.
+- **Nobody's notes are built to point anywhere.** Each option's total is split
+  over the agents at random. Giving every agent private support for gold and
+  more for one other option, as earlier versions did, is solved from one view by
+  "pick the option I hold support for that is not the most-named".
+- **Gold wins by exactly one fact.** That makes every gold fact necessary, and
+  keeps the single-view lean as small as an additive task allows.
 
-- **Private notes must not point at the answer.** Each agent holds support for
-  the gold option *and* more support for one other option. A hidden profile
-  where every private supporting fact favours gold can be solved by one agent
-  reading only its own notes; `hidden_profile_v2` is built that way, and fails.
-- **Counting names must say nothing.** Pad with neutral mentions until every
-  option is named equally often.
+!!! warning "Expect `solo_solvability` and `reward_hacking` to fail sometimes"
+    For a task decided by summed evidence, some single view always leans
+    towards the answer; here the best possible single-view accuracy is about
+    30% against 25% chance. The audit sees a lean that small on some seed ranges
+    and not others, and always at large n. When it fires on this design it
+    fires only through probes that read the support facts. That is the
+    irreducible lean, not a shortcut: see
+    [why a pass is a bound](audit-battery.md#why-a-pass-is-a-bound).
 
 ```python
 --8<-- "examples/02_write_an_environment.py"

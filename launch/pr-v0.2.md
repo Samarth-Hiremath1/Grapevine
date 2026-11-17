@@ -65,15 +65,18 @@ up as A2 in `docs/audit.md`.
 
 ## Things a reviewer should know
 
-- **A passing card means the thirteen checks found nothing**, not that an
-  environment is sound. The review found single-view shortcuts the battery has
-  no probe for in every environment here, including the example that passes;
-  and a decisive leak in one task in five passes. Listed under "Known gaps" in
-  `docs/audit-battery.md`; the battery is not changed in this PR.
-- **A clean environment fails about one audit in twenty**, on `shortcuts`,
-  because equalised name counts leave the content-blind solvers breaking ties at
-  random. Measured and documented; the battery is not changed, as that would
-  change every committed card.
+- **A passing card means the thirteen checks found nothing at that sample size**,
+  never that an environment is sound. The review's names-only shortcut and
+  partial-leak findings are now caught, with the old layouts kept as negative
+  controls; what the battery still cannot see is under "Known gaps" in
+  `docs/audit-battery.md`.
+- **No additive environment can pass `solo_solvability` reliably.** Fixing the
+  review's findings showed why: when the answer is the argmax of summed
+  evidence, some single view always leans towards it. The rebuilt control's
+  exact best single-view accuracy is 29.8% against 25%, and the battery sees
+  that on some seed ranges and not others. Documented as "Why a pass is a
+  bound"; the threshold is unchanged, and whether to adopt an explicit
+  tolerance is left open.
 - **CI has never run on GitHub.** Every job was run locally, and a clean clone of
   the branch passes with no API key, but the workflows run here for the first
   time.
@@ -91,8 +94,10 @@ Every finding was re-derived before anything changed, and
 [`docs/review-v0.2-response.md`](docs/review-v0.2-response.md) says what was
 done about each. In short: the eval's readings were rewritten to drop
 "replicates" and to state the failed `gpt-6-luna` prediction plainly; the
-minimality count bug is fixed; the battery's gaps are documented, not fixed;
-and who produced the v0 surfacing labels is still open.
+minimality count bug is fixed; the battery now catches the names-only shortcut
+and partial leaks, scores tie-breaks by expectation, and reports the smallest
+advantage each audit could have seen; the clean control and the example were
+rebuilt; and who produced the v0 surfacing labels is still open.
 
 ## Checks
 

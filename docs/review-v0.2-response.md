@@ -12,8 +12,8 @@ Status: **fixed**, **documented** (stated in the docs, not fixed), or **open**
 | Finding | Reproduced | Status |
 |---|---|---|
 | B1 "replicates" not supported | Yes. Agent 0 decides (`design.py`, `aggregator = 0`); private-only rule gives gold for every agent. Surfacing proxy: 16 of 95, not 17 | **fixed** (wording) |
-| M1 single-view shortcuts outside the battery | Yes, and wider: "named, not most-named" is 600/600 on the clean control and the example too, not only v2 | **documented**; battery change **open** |
-| M2 partial leak passes | Yes, exactly (23, 43, 69 of 200) | **documented**; battery change **open** |
+| M1 single-view shortcuts outside the battery | Yes, and wider: "named, not most-named" is 600/600 on the clean control and the example too, not only v2 | **fixed**, with a limit that cannot be fixed (below) |
+| M2 partial leak passes | Yes, exactly (23, 43, 69 of 200) | **fixed** |
 | M3 minimality count | Yes (capped sample reported as total) | **fixed** |
 | M4 `gpt-6-luna` H3 read loosely | Yes (8 v 1 discordant, 4 truncated, McNemar 0.039, seed 1 gives −1.0) | **fixed** (wording) |
 | M5 who produced the labels | Cannot be settled from the repository | **open** |
@@ -21,7 +21,7 @@ Status: **fixed**, **documented** (stated in the docs, not fixed), or **open**
 | m2 PROGRESS and prereg status | Yes | **fixed** |
 | m3 verify-claims narrower than worded | Yes | **fixed** in part |
 | m4 frozen digest covers unsent prompts | Not re-checked | **documented** |
-| m5 false-fail study not independent | Judgement accepted | **documented** |
+| m5 false-fail study not independent | Judgement accepted | **documented**; tie noise **fixed** |
 | m6 unregistered numbers that disagree | Yes | **fixed** |
 | m7 battery mechanics | Judgement accepted | **documented** |
 | m8 `gpt-4o-mini` result not audited | Judgement accepted | **documented** |
@@ -52,15 +52,40 @@ docs page that presents it now say it is an example of the protocol, not of a
 sound design. `docs/audit-battery.md` has a "Known gaps" section, and the
 README says what a passing card does and does not mean.
 
-Not changed: the battery. Adding these probes would fail the clean control and
-the example, so it means redesigning both, and it changes every committed card.
-That is a decision for Samarth (open).
+*Update, same day, after Samarth chose to extend the battery.* Fixed, in four
+parts:
+
+- `solo_solvability` gained `named_not_most_named_privately`,
+  `least_shared_support`, and a learned probe that fits any rule over the
+  within-view ranks of private and shared support and name counts on half the
+  batch and tests it on the other half.
+- Tie-breaks are scored by their expected value, with an exact null, so a
+  solver with no information can no longer fail an environment by luck.
+- The clean control and the example were rebuilt: every block names every
+  option equally often, gold wins by exactly one fact, and each total is split
+  over the agents at random. Both old control layouts are kept as negative
+  controls (`legacy_pointer_support`, `legacy_gold_only_private_support`) and
+  fail on every seed range tested.
+- Every card reports `minimum_detectable_accuracy`: at 200 tasks, a per-agent
+  probe usually misses a true single-view accuracy below 37.2%.
+
+The limit that cannot be fixed: for a task decided by summed evidence, some
+single view always carries information about the answer (the argument is in
+`docs/audit-battery.md`, "Why a pass is a bound"). The rebuilt control's exact
+best single-view accuracy is 29.8% against 25% chance, and the battery sees
+that on some seed ranges and not others: over 40 ranges, `solo_solvability`
+fails it 17 times. The threshold was not changed to make it pass. Whether
+`solo_solvability` should carry an explicit tolerance, so that this
+irreducible lean is distinguished from a shortcut by the check rather than by
+the reader, is open.
 
 ## M2. Partial leaks
 
-Reproduced exactly. Documented under "Known gaps". Making `leak` fail on any
-decisive unit, with dose-response fixtures, is a battery change and is open with
-M1.
+Reproduced exactly. *Update:* fixed. `leak` now fails on a single leaking task
+instead of testing the share of leaking tasks against chance accuracy. Planted
+leaks in 5%, 10% and 20% of tasks fail on every seed range tested
+(`studies/battery_calibration/README.md`), and a test plants one in a single
+task.
 
 ## M3. Minimality count
 
@@ -98,8 +123,9 @@ registered in `docs/claims.yaml`.
   actually opened an episode matches the frozen design; the review checked all
   3,600 by hand and found them identical.
 - **m5**: accepted: the two clean environments make the same random calls, so
-  their 80 audits are about 40 independent ones, and "false alarm" is relative
-  to the battery. Not re-run.
+  their audits are correlated, and they are now reported separately, not
+  pooled. The tie-break noise behind most of the old false alarms is gone; the
+  calibration study now also measures missed defects.
 - **m6**: the battery doc now says one clean environment in five, matching the
   simulation; the docstring separates the 23% upper bound for independent probes
   from the simulated rate; the unsupported sentence about tests recording

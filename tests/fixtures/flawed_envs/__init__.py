@@ -135,6 +135,34 @@ _NEUTRAL = (
 )
 
 
+#: How many times each agent's private notes name each option, in the clean
+#: layout. Chosen for prompt size (about 28 facts per agent's view) before the
+#: audit was run on it, not tuned to make it pass; a larger K would lean less.
+_K = 6
+
+#: Supporting facts and neutral mentions for the clean layout: each base
+#: sentence in three settings, so a task of up to ~50 support facts never repeats
+#: one. No setting contains an option name (`name_hygiene`).
+_SETTINGS = ("", " during the platform migration", " in the last review cycle")
+_FLAT_SUPPORT = tuple(f"{base}{where}" for base in _SUPPORT for where in _SETTINGS)
+_FLAT_NEUTRAL = tuple(f"{base}{where}" for base in _NEUTRAL for where in _SETTINGS)
+
+_SPLITS: dict[tuple[int, int], list[tuple[int, int, int]]] = {}
+
+
+def _splits(total: int, cap: int) -> list[tuple[int, int, int]]:
+    """Every way to split ``total`` over three agents with each share in ``0..cap``."""
+    key = (total, cap)
+    if key not in _SPLITS:
+        _SPLITS[key] = [
+            (a, b, total - a - b)
+            for a in range(cap + 1)
+            for b in range(cap + 1)
+            if 0 <= total - a - b <= cap
+        ]
+    return _SPLITS[key]
+
+
 @dataclass(frozen=True)
 class Defect:
     """One planted defect: what it is and which check must catch it."""
@@ -173,10 +201,18 @@ class ControlEnv(Environment):
             support pattern.
         colliding_names: Use option names that hide inside ordinary words, so
             counting a name also counts word fragments.
-        private_support_all_gold: Give agents private support for the gold
-            option only, the layout ``hidden_profile_v2`` uses. Scoring one's
-            own private facts then names the answer, even though name counts
-            are equalised (``studies/v2_eval/h1_investigation.md``).
+        legacy_layout: Generate with a layout this control used to have,
+            kept as a negative control. ``"gold_only_private_support"`` is the
+            pre-A2 layout, the one ``hidden_profile_v2`` uses: all private
+            support is for gold. ``"pointer_support"`` is the post-A2 layout:
+            each agent also holds more support for one other option, which a
+            names-only probe still solves (``docs/review-v0.2.md``, M1).
+        leak_fraction: Plant the decisive unit in this fraction of tasks only
+            (chosen by seed), so ``leak`` must catch a partial leak.
+        gold_least_shared: Leave the gold option out of the shared block, so
+            "whatever common ground ignores" answers from one view.
+        gold_share_bias: With this probability, give agent 0 the largest
+            share of the gold option's support, a graded single-view leak.
     """
 
     leak_decisive_unit: bool = False
@@ -190,7 +226,10 @@ class ControlEnv(Environment):
     verbosity_bonus: bool = False
     single_template: bool = False
     colliding_names: bool = False
-    private_support_all_gold: bool = False
+    legacy_layout: str = ""
+    leak_fraction: float = 0.0
+    gold_least_shared: bool = False
+    gold_share_bias: float = 0.0
 
     name: str = "control"
     version: str = "1"
@@ -208,6 +247,123 @@ class ControlEnv(Environment):
 
     def generate(self, seed: int) -> DistributedTask:
         """Generate one task deterministically from ``seed``."""
+        if self.legacy_layout:
+            return self._generate_legacy(seed, self.legacy_layout)
+        return self._generate_flat(seed)
+
+    def _plants_leak(self, seed: int) -> bool:
+        """Whether this seed's task carries the decisive unit."""
+        if self.leak_decisive_unit:
+            return True
+        return random.Random(seed * 31 + 7).random() < self.leak_fraction
+
+    def _generate_flat(self, seed: int) -> DistributedTask:
+        """The clean layout: flat names, a fixed winning margin, random splits.
+
+        Every agent's private notes name every option exactly ``K`` times, as
+        support facts plus neutral mentions, and the shared block supports and
+        names every option equally. So no name count, in any block, says
+        anything. The totals are fixed at ``t + 1`` for gold and ``t`` for each
+        other option, and each option's total is split over the three agents
+        uniformly at random among the splits with every share in ``0..K``.
+
+        It cannot make one view uninformative: when the answer is the argmax of
+        summed evidence, some view always leans towards gold
+        (``docs/audit-battery.md``, "Why a pass is a bound"). This construction
+        keeps the lean to what a margin of one fact forces. The exact
+        Bayes-optimal accuracy from one view is computed in
+        ``tests/test_audit.py::TestTheControlsSingleViewBound`` and stated in
+        ``docs/audit-battery.md``.
+        """
+        rng = random.Random(seed if not self.single_template else 0)
+        K = _K
+        pool = _COLLIDING_NAMES if self.colliding_names else _NAMES
+        options = list(rng.sample(pool, 4))
+        gold, decoy, other, spare = options
+        if self.gold_always_first:
+            options = [gold, decoy, other, spare]
+        else:
+            rng.shuffle(options)
+
+        t = rng.randint(K, 2 * K)
+        shared_support = {o: 1 for o in options}
+        totals = {o: t for o in options}
+        totals[gold] = t + 1
+        if self.gold_least_shared:
+            shared_support[gold] = 0
+            totals[gold] += 1  # carried privately instead, so gold still wins by one
+        shares: dict[str, tuple[int, ...]] = {}
+        for o in options:
+            splits = _splits(totals[o], K)
+            if o == gold and self.gold_share_bias and rng.random() < self.gold_share_bias:
+                splits = [c for c in splits if c[0] > max(c[1:])] or splits
+            shares[o] = rng.choice(splits)
+
+        support = rng.sample(_FLAT_SUPPORT, len(_FLAT_SUPPORT))
+        neutral = rng.sample(_FLAT_NEUTRAL, len(_FLAT_NEUTRAL))
+        counter = {"s": 0, "n": 0}
+
+        def fact(who: str, *, supports: bool, uid: str) -> InfoUnit:
+            pool_, key = (support, "s") if supports else (neutral, "n")
+            text = f"{who} {pool_[counter[key] % len(pool_)]}."
+            counter[key] += 1
+            return InfoUnit(uid, text, who if supports else None)
+
+        shared_units: list[InfoUnit] = []
+        for o in options:
+            for j in range(shared_support[o]):
+                shared_units.append(fact(o, supports=True, uid=f"s{o}{j}"))
+            if not shared_support[o]:
+                shared_units.append(fact(o, supports=False, uid=f"s{o}n"))
+        rng.shuffle(shared_units)
+
+        views: list[AgentView] = []
+        required: list[str] = []
+        over_declared: list[str] = []
+        for agent_id in range(3):
+            private: list[InfoUnit] = []
+            for o in options:
+                n_support = shares[o][agent_id]
+                for j in range(n_support):
+                    unit = fact(o, supports=True, uid=f"a{agent_id}{o}s{j}")
+                    private.append(unit)
+                    if o == gold:
+                        required.append(unit.unit_id)
+                for j in range(K - n_support):
+                    unit = fact(o, supports=False, uid=f"a{agent_id}{o}n{j}")
+                    private.append(unit)
+                    over_declared.append(unit.unit_id)
+            if self.gold_only_in_private:
+                private = [u for u in private if u.supports == gold]
+            if self.gold_leads_mentions:
+                private += [fact(gold, supports=False, uid=f"a{agent_id}x{j}") for j in range(2)]
+            if agent_id == 0 and self._plants_leak(seed):
+                private.append(InfoUnit(
+                    "leak0", f"The panel has already settled on {gold} as the hire.", gold,
+                    weight=float(sum(totals.values()) + 4),
+                ))
+            rng.shuffle(private)
+            views.append(AgentView(agent_id=agent_id, shared=tuple(shared_units),
+                                   private=tuple(private)))
+
+        declared = tuple(required)
+        if self.over_declare_required:
+            declared = declared + tuple(over_declared)
+        return DistributedTask(
+            task_id=f"{self.name}-{seed}",
+            objective=Objective(question=self.QUESTION, scoring_rule=self.RULE),
+            answer_space=tuple(options),
+            gold_answer=gold,
+            views=tuple(views),
+            required_units=declared,
+            scorer=_lenient_scorer if self.lenient_scorer else _control_scorer(self),
+            metadata={"seed": seed, "decoy_option": decoy, "t": t, "layout": "flat"},
+        )
+
+    def _generate_legacy(self, seed: int, variant: str) -> DistributedTask:
+        """A layout this control used to have, kept as a negative control."""
+        if variant not in ("gold_only_private_support", "pointer_support"):
+            raise ValueError(f"unknown legacy layout {variant!r}")
         rng = random.Random(seed if not self.single_template else 0)
         n_agents = 3
 
@@ -229,7 +385,7 @@ class ControlEnv(Environment):
         # shared support is reduced by its private share to keep the totals.
         # With `private_support_all_gold` the pointer gets no private support:
         # the layout that hid the gap the v2 eval found.
-        planted = self.private_support_all_gold
+        planted = variant == "gold_only_private_support"
         if planted:
             rounds = 1 if self.single_template else rng.choice([1, 2])
         else:
@@ -295,7 +451,7 @@ class ControlEnv(Environment):
                 private.append(
                     InfoUnit(f"a{agent_id}x1", neutral_fact(gold), None)
                 )
-            if self.leak_decisive_unit and agent_id == 0:
+            if agent_id == 0 and self._plants_leak(seed):
                 private.append(
                     InfoUnit(
                         "leak0",
@@ -549,13 +705,68 @@ FLAWED_ENVS: dict[str, tuple[ControlEnv, Defect]] = {
             "warn",
         ),
     ),
-    "private_support_all_gold": (
-        ControlEnv(name="flawed_private_support", private_support_all_gold=True),
+    "legacy_gold_only_private_support": (
+        ControlEnv(name="flawed_legacy_pre_a2", legacy_layout="gold_only_private_support"),
         Defect(
-            "private_support_all_gold",
-            "every private supporting fact favours the gold option, so an agent that "
-            "scores only its own private facts answers alone, though name counts are equal",
+            "legacy_gold_only_private_support",
+            "the pre-A2 control layout (v2's): every private supporting fact favours "
+            "gold, so scoring one's own private facts answers alone",
             "solo_solvability",
+            "fail",
+        ),
+    ),
+    "legacy_pointer_support": (
+        ControlEnv(name="flawed_legacy_post_a2", legacy_layout="pointer_support"),
+        Defect(
+            "legacy_pointer_support",
+            "the post-A2 control layout: each agent's notes name gold and one other "
+            "option, the other always more, so a names-only probe answers alone",
+            "solo_solvability",
+            "fail",
+        ),
+    ),
+    "gold_least_shared": (
+        ControlEnv(name="flawed_gold_least_shared", gold_least_shared=True),
+        Defect(
+            "gold_least_shared",
+            "the gold option is the one the shared facts leave out",
+            "solo_solvability",
+            "fail",
+        ),
+    ),
+    "gold_share_bias": (
+        ControlEnv(name="flawed_gold_share_bias", gold_share_bias=1.0),
+        Defect(
+            "gold_share_bias",
+            "agent 0 always holds the largest share of the gold option's support",
+            "solo_solvability",
+            "fail",
+        ),
+    ),
+    "partial_leak_0_05": (
+        ControlEnv(name="flawed_partial_leak_0_05", leak_fraction=0.05),
+        Defect(
+            "partial_leak_0_05",
+            "a decisive unit in about 5% of tasks only",
+            "leak",
+            "fail",
+        ),
+    ),
+    "partial_leak_0_1": (
+        ControlEnv(name="flawed_partial_leak_0_1", leak_fraction=0.1),
+        Defect(
+            "partial_leak_0_1",
+            "a decisive unit in about 10% of tasks only",
+            "leak",
+            "fail",
+        ),
+    ),
+    "partial_leak_0_2": (
+        ControlEnv(name="flawed_partial_leak_0_2", leak_fraction=0.2),
+        Defect(
+            "partial_leak_0_2",
+            "a decisive unit in about 20% of tasks only",
+            "leak",
             "fail",
         ),
     ),

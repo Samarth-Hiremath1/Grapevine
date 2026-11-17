@@ -133,17 +133,22 @@ def probes() -> dict[str, Any]:
         dict[str, Any]: Per environment, ``[correct, n]`` for each probe.
     """
     sys.path.insert(0, str(ROOT / "tests"))
-    from fixtures.flawed_envs import CLEAN_CONTROL  # type: ignore[import-not-found]
+    from fixtures.flawed_envs import (  # type: ignore[import-not-found]
+        CLEAN_CONTROL,
+        FLAWED_ENVS,
+    )
 
     spec = importlib.util.spec_from_file_location("venue_example", ROOT / "examples/02_write_an_environment.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules["venue_example"] = module
     spec.loader.exec_module(module)
+    legacy, _ = FLAWED_ENVS["legacy_pointer_support"]
     return {
         "hidden_profile_v2 (eval 10000-10199)": _probe_counts(get_environment("hidden_profile_v2"), range(10000, 10200)),
-        "control (eval 1000-1199)": _probe_counts(CLEAN_CONTROL, range(1000, 1200)),
-        "venue_choice (eval 10000-10199)": _probe_counts(module.VenueChoice(), range(10000, 10200)),
+        "control as reviewed (eval 1000-1199)": _probe_counts(legacy, range(1000, 1200)),
+        "control now (eval 1000-1199)": _probe_counts(CLEAN_CONTROL, range(1000, 1200)),
+        "venue_choice now (eval 10000-10199)": _probe_counts(module.VenueChoice(), range(10000, 10200)),
     }
 
 
@@ -219,12 +224,17 @@ def markdown() -> str:
     lines += ["", "`fact_surfaced` had recall about 0.86 on v0, so this over-counts misses.", "",
               "## Single-view probes outside the battery", "",
               "Chance is 25%. `full_info_most_named_in_private_block` reads the full-information",
-              "prompt's \"Facts only you know\" block.", "",
+              "prompt's \"Facts only you know\" block. \"As reviewed\" is the control's layout at",
+              "the time of the review, kept as the negative control `legacy_pointer_support`;",
+              "\"now\" is the layout that replaced it. The example as reviewed is at commit",
+              "`f9491cf` (`examples/02_write_an_environment.py`).", "",
               "| Environment | Probe | Correct |", "|---|---|---:|"]
     for env, counts in pr.items():
         for probe, (k, n) in counts.items():
             lines.append(f"| {env} | `{probe}` | {k}/{n} |")
-    lines += ["", "## A decisive leak in a fraction of tasks", "",
+    lines += ["", "## A decisive leak in a fraction of tasks, under the current battery", "",
+              "At the time of the review, the 0.1 and 0.2 rows passed `leak` (`docs/review-v0.2.md`, M2).",
+              "The check is now zero-tolerance.", "",
               "| Fraction | Tasks with a decisive unit | Verdict | `leak` | `solo_solvability` |",
               "|---:|---:|---|---|---|"]
     for r in leak:

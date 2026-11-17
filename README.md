@@ -134,10 +134,13 @@ audit battery had no probe for. The probe is now in the battery and v2 fails it
 (`docs/review-v0.2.md`), and the response to each finding is in
 [`docs/review-v0.2-response.md`](docs/review-v0.2-response.md).
 
-**What a passing card means.** That these thirteen checks found nothing. It is
-not proof that an environment measures coordination: the review found
-single-view shortcuts the battery has no probe for in every environment here,
-including the example that passes.
+**What a passing card means.** That these thirteen checks found nothing at the
+sample size audited, and the card says how small an effect that could have
+missed. It is never a guarantee against shortcuts. For a task decided by summed
+evidence, one agent's view always carries *some* information about the answer;
+a pass bounds how much (`docs/audit-battery.md`, "Why a pass is a bound"). The
+review's two concrete findings -- a names-only shortcut and partial answer
+leaks -- are now caught; what the battery still cannot see is listed there too.
 
 ## How it was checked
 

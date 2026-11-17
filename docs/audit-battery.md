@@ -25,8 +25,8 @@ has ever got wrong.
 
 | Check | What it catches | Came from |
 |---|---|---|
-| `leak` | The gold answer, or a statistic sufficient for it, sits in one agent's view | P4, G6 |
-| `solo_solvability` | Some solver on a single view beats chance, so pooling is optional | G6, P4, **A1**, **A2** |
+| `leak` | In any task, a view names only the gold option or holds a unit that outweighs every rival. Zero tolerance | P4, G6, **M2** |
+| `solo_solvability` | Some solver on a single view beats chance, so pooling is optional. Six probes per agent, a learned probe, and the smallest advantage the audit could have seen | G6, P4, **A1**, **A2**, **M1** |
 | `full_solvability` | The stated scoring rule does not reach the answer even with everything pooled | G5 |
 | `shortcuts` | A content-blind solver — most-named, least-named, first option, longest option, shared facts only — beats chance | L3, I1 |
 | `name_hygiene` | An option name is a substring of another, or hides inside an ordinary word, so name matching counts word fragments | G11, L5 |
@@ -62,7 +62,10 @@ everything, and an environment auditor that passes everything is worse than
 none: it launders a flawed environment as a checked one.
 
 The limit of this, stated first: it shows the battery catches the flaws its
-author thought to plant (see "Known gaps" below).
+author thought to plant (see "Known gaps" below). Measured over disjoint seed
+ranges, it misses none of them: every negative control, `hidden_profile_v2` and
+v0 `hidden_profile` is caught on 10 of 10 ranges
+(`studies/battery_calibration/README.md`).
 
 So `tests/fixtures/flawed_envs/` holds one environment per planted defect, each
 being the clean control with exactly one flag flipped — a decisive unit that
@@ -70,10 +73,14 @@ leaks the answer, a gold option named more often than any other, private units
 that all point at the answer, conditions that never state the objective, a
 baseline that changes framing as well as information, over-declared required
 units, the v0 parser's lenient matching, gold always listed first, a reward
-bonus for verbosity, a generator that emits one task forever, and private
-support that all favours the gold option even though name counts are equal (the
-layout the v2 eval exposed, A2). CI requires the check named for each defect to
-fire, and the control to pass all thirteen.
+bonus for verbosity, and a generator that emits one task forever. Added after
+the v2 eval and the external review: the control's two earlier layouts, each a
+real shortcut (A2, M1); gold left out of the shared facts; agent 0 always
+holding gold's largest share; and a decisive leak in 5%, 10% and 20% of tasks.
+CI requires the check named for each defect to fire, on several disjoint seed
+ranges for the review's findings. It requires the control to pass every check
+except the two that are power-limited (see "Why a pass is a bound" below), and
+to trip those only through probes that read the support the task is about.
 
 A planted defect usually trips more than one check — a leak really does also
 make a task solo-solvable. The requirement is that the responsible check
@@ -141,34 +148,81 @@ control had the same layout as v2.
 - **Thirteen checks are not all the checks.** Passing means thirteen known
   failure modes were looked for and not found.
 
+## Why a pass is a bound
+
+`solo_solvability` asks that no solver on one agent's view beat chance. For an
+environment whose answer is the argmax of summed evidence -- every environment
+in this repository, and elimination rules too, counting an elimination as
+negative evidence -- that cannot be guaranteed by any design:
+
+> Suppose every single view were independent of which option is gold. Then in
+> each view, gold's expected evidence equals the average option's. Summing
+> over views, gold's expected total equals the average option's expected total.
+> But gold is the unique argmax of the total, so its total is always strictly
+> above the average, and so is its expectation. Contradiction. So some view
+> carries information about the answer, and the Bayes-optimal solver on that
+> view beats chance.
+
+So a pass means the single-view advantage is below what this audit can detect,
+not that it is zero. Two numbers make that concrete, and every card reports the
+first:
+
+- **Minimum detectable accuracy.** At 200 tasks, with the Bonferroni threshold
+  over `solo_solvability`'s 19 probes, a per-agent probe usually misses a true
+  single-view accuracy below 37.2% (`minimum_detectable_accuracy` on the card).
+  Every pass this battery has given was at roughly that resolution.
+- **What a careful design leaves.** The clean control and the example name every
+  option equally often in every block, fix the totals so gold wins by exactly
+  one, and split each total over the agents at random. Their exact Bayes-optimal
+  single-view accuracy is 29.8% against 25% chance
+  (`tests/test_audit.py::TestTheControlsSingleViewBound`, with 6 mentions per
+  option per agent). Larger views lean less, never zero.
+
+That lean is real, so the battery sees it on some seed ranges and not others:
+over 40 ranges each, `solo_solvability` fails the control 17 times and
+`reward_hacking` -- where "everyone votes their own view" aggregates three small
+leans -- 17 times (`studies/battery_calibration/README.md`). At 2,000 tasks it
+fails every time (`TestTheControlsSingleViewBound`). The tests require that,
+when these two checks fire on the control, only probes that read the support
+the task is about fire, never names-only or shared-block probes.
+
+The honest reading of `solo_solvability`, then: a failure on a names-only,
+shared-block or layout probe, or at an accuracy far above what the margin
+forces, is a shortcut; a marginal failure on the scoring rule applied to one
+view is the irreducible lean, and its size should be compared with what pooling
+adds (100% here). The check does not make that comparison for you; it would
+need a tolerance, and choosing one is a decision this release does not take.
+
+Only non-additive rules escape the argument. "The option with an odd number of
+supporting facts wins" can be secret-shared so that every single view is
+exactly uninformative, but it is not a hidden profile, and the protocol's
+reference solver is additive.
+
 ## Known gaps
 
 Found by the external review (`docs/review-v0.2.md`) and re-derived in
-`studies/v2_eval/review_followup.md`. None is fixed in this release.
+`studies/v2_eval/review_followup.md`.
 
-- **Single-view shortcuts outside the probe list.** "Pick an option my private
-  notes name, other than the most-named" is right for every agent in
-  `hidden_profile_v2`, in the clean control and in the example environment:
-  each agent's private notes name gold and one other option, and the other is
-  always named more. "Pick the option with the least shared support" also beats
-  chance in all three, because gold never appears in the shared facts. The
-  battery has neither probe. The example "passes every check" only relative to
-  the battery.
-- **A layout cue in the full-information prompt.** Presentation-matching puts
-  every gold fact under "Facts only you know", and the most-named option there
-  is gold. `condition_diff` compares framing between arms; nothing audits what a
-  prompt's sections give away.
-- **Partial leaks pass.** `leak` tests the share of leaking tasks against chance
-  accuracy, so a decisive unit in 43 of 200 tasks passes `leak` and
-  `solo_solvability`. Its two probes also run at an uncorrected 0.05, unlike the
-  rest of the battery.
-- **Calibration is circular.** The planted flaws and the clean control were
-  written by the person who wrote the checks, and the control was rewritten
-  after A2 to pass the new probe. A fixture set from someone else would be a
-  real test.
+- **Fixed: the names-only shortcut (M1).** `solo_solvability` now includes
+  `named_not_most_named_privately`, `least_shared_support`, and a learned probe
+  that fits any rule over within-view ranks of private and shared support and
+  name counts on half the batch and tests it on the other half. The two layouts
+  that had the shortcut are kept as negative controls (`legacy_pointer_support`,
+  `legacy_gold_only_private_support`), and fail on every seed range tested.
+- **Fixed: partial leaks (M2).** `leak` fails on a single leaking task. Planted
+  leaks in 5%, 10% and 20% of tasks fail on every seed range tested.
+- **Open: probes are still a list.** The learned probe covers any rule over its
+  four rank channels, but a shortcut in a channel it does not see -- sentence
+  templates, unit order, text length -- is missed until someone adds it.
+- **Open: the layout cue in conditions.** Nothing audits what a condition
+  prompt's sections give away. The rebuilt control and example do not have the
+  cue (gold's support is not all private), but `hidden_profile_v2` does.
+- **Open: calibration is still self-written.** The planted flaws, the adversarial
+  fixtures and the clean control were all written by the person who wrote the
+  checks. A fixture set from someone else would be a real test.
 - **Smaller mechanics.** `objective` and `condition_diff` inspect only the first
-  task. `balance` counts units per agent but not which way they point. Summaries
-  say "at or below chance" where they mean "not significantly above".
+  task. `balance` counts units per agent but not which way they point.
+  `reward_hacking`'s team policies still break ties at random.
 
 ## Writing an auditable environment
 
@@ -212,14 +266,17 @@ for real pooling, which is the conclusion to reach least lightly.
 comparisons. `tests/test_audit.py` demonstrates the uncorrected error rate by
 simulation rather than asserting it from theory.
 
+**Ties are scored by their expected value.** A solver facing a k-way tie that
+includes the gold option scores 1/k instead of drawing one at random, and the
+p-value comes from the exact null distribution of that score. A fully tied view
+then contributes exactly chance with no variance, so a solver with no
+information cannot fail an environment by drawing lucky tie-breaks. Before this
+change, that noise failed clean environments about one audit in twenty, on
+`shortcuts`. (`reward_hacking`'s team policies still break ties at random.)
+
 **What that leaves.** The correction is within a check, not across checks or
-across repeated audits. Measured on two clean environments over 40 disjoint
-seed ranges each, an audit with no planted flaw fails 2 times in 40, both times
-on `shortcuts` (`studies/battery_calibration/README.md`, regenerated by
-`python -m studies.battery_calibration.false_fail`). The cause is specific: an
-environment that equalises name counts leaves the content-blind solvers facing
-exact ties, so they are guessing, and a guess beats a Bonferroni threshold about
-as often as the threshold allows. So "passes" is a statement at a 5% false-alarm
-rate per check: audit on the seeds you will report, and treat a lone marginal
-`shortcuts` failure on a tie-breaking solver as possibly noise, worth
-re-auditing on a second seed range, not as proof of a shortcut.
+repeated audits, and a check can still be wrong at its nominal rate. Measured
+over 40 disjoint seed ranges (`studies/battery_calibration/README.md`), each
+clean environment fails outside the power-limited checks in 1 audit of 40:
+`first_option`, because the gold option happened to be listed first in 66 of
+200 tasks of a uniformly shuffled order. That is an ordinary type I error.

@@ -27,11 +27,15 @@ from grapevine.audit.solvers import (
     SHORTCUT_SOLVERS,
     count_mentions,
     genuine_pooling,
+    leaders_of,
+    least_shared_support,
     mention_count,
+    named_not_most_named_privately,
     private_scoring_rule,
     reference,
     uniquely_determined,
     units_without,
+    view_rank_features,
 )
 from grapevine.protocol import (
     AgentView,
@@ -42,7 +46,7 @@ from grapevine.protocol import (
     support_total,
 )
 
-__all__ = ["CHECKS", "CheckContext", "family_alpha", "run_checks"]
+__all__ = ["CHECKS", "CheckContext", "family_alpha", "minimum_detectable_accuracy", "run_checks"]
 
 #: Upper-tail chi-square critical values at alpha = 0.05, by degrees of freedom.
 #: A small table rather than a dependency on scipy; the v0 audit used the same
@@ -130,6 +134,64 @@ def _beats_chance(n_correct: int, n: int, chance: float, alpha: float) -> tuple[
     return p, p < alpha
 
 
+def tie_credited_tail_p(trials: Sequence[tuple[int, bool, int]]) -> tuple[float, float]:
+    """Exact p-value for an accuracy in which a k-way tie counts 1/k.
+
+    Each trial is ``(k, hit, m)``: the solver chose among ``k`` tied options, the
+    gold option was among them (``hit``), out of ``m`` options in all. The trial
+    scores ``1/k`` on a hit. Under the null -- the tied set says nothing about
+    which option is gold -- a hit has probability ``k/m``, so a trial's expected
+    score is ``1/m`` whatever ``k`` is, and a fully tied view (``k == m``)
+    contributes exactly ``1/m`` with no variance at all. That is the point: an
+    uninformative solver can no longer fail an environment by drawing lucky
+    tie-breaks.
+
+    Args:
+        trials (Sequence[tuple[int, bool, int]]): One entry per solved view.
+
+    Returns:
+        tuple[float, float]: The observed total score, and P(score >= observed)
+        under the null, computed exactly by convolution.
+    """
+    import math
+
+    import numpy as np
+
+    if not trials:
+        return 0.0, 1.0
+    unit = 1
+    for k, _, _ in trials:
+        unit = unit * k // math.gcd(unit, k)
+    observed = sum(unit // k for k, hit, _ in trials if hit)
+    dist = np.zeros(unit * len(trials) + 1)
+    dist[0] = 1.0
+    top = 0
+    for k, _, m in trials:
+        step, q = unit // k, k / m
+        new = dist * (1 - q)
+        new[step: top + step + 1] += dist[: top + 1] * q
+        dist, top = new, top + step
+    p = float(dist[observed:].sum())
+    return observed / unit, min(1.0, max(0.0, p))
+
+
+def _tie_credited_row(name: str, trials: Sequence[tuple[int, bool, int]], chance: float,
+                      alpha: float) -> dict[str, Any]:
+    """A probe's line of results, with ties scored by their expected value."""
+    score, p = tie_credited_tail_p(trials)
+    n = len(trials)
+    return {
+        "name": name,
+        "n_correct": int(score) if float(score).is_integer() else round(score, 2),
+        "n": n,
+        "accuracy": score / n if n else 0.0,
+        "chance": chance,
+        "p_value_vs_chance": p,
+        "beats_chance": p < alpha,
+        "ties_scored_by_expectation": True,
+    }
+
+
 def _accuracy_row(name: str, n_correct: int, n: int, chance: float, alpha: float) -> dict[str, Any]:
     """One solver's or policy's line of results."""
     p, beats = _beats_chance(n_correct, n, chance, alpha)
@@ -142,6 +204,38 @@ def _accuracy_row(name: str, n_correct: int, n: int, chance: float, alpha: float
         "p_value_vs_chance": p,
         "beats_chance": beats,
     }
+
+
+def minimum_detectable_accuracy(n: int, chance: float, alpha: float, power: float = 0.8) -> float:
+    """The lowest true accuracy a one-sided binomial test at ``alpha`` detects with ``power``.
+
+    Reported on every card's ``solo_solvability``, because "no solver beat
+    chance" is a statement about this sample size. For an environment whose
+    answer is the argmax of summed evidence, some single view always carries
+    information about the answer (``docs/audit-battery.md``, "Why a pass is a
+    bound"), so a pass means the advantage is below this level, not zero.
+
+    Args:
+        n (int): Trials per probe.
+        chance (float): Accuracy under the null.
+        alpha (float): The per-probe significance level.
+        power (float): Required probability of detection.
+
+    Returns:
+        float: The smallest accuracy, to 0.001, detected with at least ``power``.
+    """
+    if n <= 0:
+        return 1.0
+    critical = next((k for k in range(n + 1) if binomial_tail_p(k, n, chance) < alpha), n + 1)
+    if critical > n:
+        return 1.0
+    p = chance
+    while p < 1.0:
+        # P(X >= critical) under Binomial(n, p)
+        if binomial_tail_p(critical, n, p) >= power:
+            return round(p, 3)
+        p += 0.001
+    return 1.0
 
 
 # --- 1. Leak -----------------------------------------------------------------
@@ -195,40 +289,37 @@ def check_leak(ctx: CheckContext) -> CheckResult:
         if leaked_here and len(examples) < 3:
             examples.append({"task_id": task.task_id, "gold": task.gold_answer})
 
+    # Zero tolerance. A view that names only the gold option, or a unit that
+    # outweighs every rival, settles that task for whoever holds it; one such task
+    # is a defect regardless of how many others are clean. This check once tested
+    # the share of leaking tasks against chance *accuracy*, which let a decisive
+    # leak in 43 of 200 tasks pass (docs/review-v0.2.md, M2).
     n = ctx.n
-    p_only, beats_only = _beats_chance(only_gold_named, n, ctx.chance, ctx.alpha)
-    p_unit, beats_unit = _beats_chance(single_unit_decides, n, ctx.chance, ctx.alpha)
-
     detail = {
-        "only_gold_named_in_a_view": _accuracy_row(
-            "only_gold_named_in_a_view", only_gold_named, n, ctx.chance, ctx.alpha
-        ),
-        "one_unit_outweighs_all_rivals": _accuracy_row(
-            "one_unit_outweighs_all_rivals", single_unit_decides, n, ctx.chance, ctx.alpha
-        ),
+        "tasks_where_a_view_names_only_gold": only_gold_named,
+        "tasks_where_one_unit_outweighs_all_rivals": single_unit_decides,
+        "n_tasks": n,
+        "tolerance": 0,
         "gold_string_appears_in_some_private_unit": {
             "n": gold_verbatim,
             "rate": gold_verbatim / n if n else 0.0,
             "note": (
                 "Informational. A unit mentioning the gold option is normal -- it is "
                 "evidence. It is only a leak when it settles the answer, which the two "
-                "probes above test."
+                "counts above test."
             ),
         },
         "examples": examples,
     }
 
-    if beats_only or beats_unit:
+    if only_gold_named or single_unit_decides:
         parts = []
-        if beats_only:
-            parts.append(
-                f"in {only_gold_named}/{n} tasks some agent's view names the gold option "
-                f"and no other (p={p_only:.2g})"
-            )
-        if beats_unit:
+        if only_gold_named:
+            parts.append(f"in {only_gold_named}/{n} tasks some agent's view names the gold option and no other")
+        if single_unit_decides:
             parts.append(
                 f"in {single_unit_decides}/{n} tasks a single unit outweighs every rival "
-                f"option's total support, so whoever holds it decides alone (p={p_unit:.2g})"
+                "option's total support, so whoever holds it decides alone"
             )
         return CheckResult(
             "leak",
@@ -242,8 +333,8 @@ def check_leak(ctx: CheckContext) -> CheckResult:
         "leak",
         "Answer leak into a single view",
         Status.PASS,
-        f"No view names the gold option alone and no single unit settles the task "
-        f"({only_gold_named}/{n} and {single_unit_decides}/{n}, both at or below chance).",
+        f"In none of {n} tasks does a view name the gold option alone or a single unit "
+        "settle the task.",
         detail,
         ("P4", "G6"),
     )
@@ -252,39 +343,87 @@ def check_leak(ctx: CheckContext) -> CheckResult:
 # --- 2. Solo solvability -----------------------------------------------------
 
 
+def _learned_single_view(ctx: CheckContext) -> dict[str, Any]:
+    """Learn any rule over within-view feature ranks on half the tasks; test on the rest.
+
+    Not limited to a hand-written list: on the first half of the batch it counts,
+    for every feature tuple from :func:`view_rank_features`, how often an option
+    with that tuple was gold; on the second half it picks, in each view, the option
+    whose tuple was gold most often. It can express "named but not most-named",
+    "least supported in common", "most private support" and their combinations.
+    Every agent's view is pooled, so one test covers the family.
+    """
+    half = ctx.n // 2
+    seen: dict[tuple[int, ...], list[int]] = {}
+    for task in ctx.tasks[:half]:
+        for view in task.views:
+            for option, tup in view_rank_features(view, task.answer_space).items():
+                cell = seen.setdefault(tup, [0, 0])
+                cell[0] += option == task.gold_answer
+                cell[1] += 1
+    trials: list[tuple[int, bool, int]] = []
+    for task in ctx.tasks[half:]:
+        for view in task.views:
+            by_option = view_rank_features(view, task.answer_space)
+            # Laplace-smoothed rate, so an unseen tuple scores as chance.
+            score = {o: (seen.get(f, [0, 0])[0] + 1) / (seen.get(f, [0, 0])[1] + 4)
+                     for o, f in by_option.items()}
+            best = max(score.values())
+            leaders = [o for o in task.answer_space if score[o] == best]
+            trials.append((len(leaders), task.gold_answer in leaders, len(task.answer_space)))
+    return {"trials": trials, "train_tasks": half}
+
+
 @_check
 def check_solo_solvability(ctx: CheckContext) -> CheckResult:
-    """No solver on one agent's view may beat chance."""
-    rng = ctx.rng()
+    """No solver on one agent's view may beat chance, at this sample size."""
     probes = {
         "scoring_rule_on_own_view": reference,
         "mention_count_on_own_view": mention_count,
         "named_in_my_private_units": _private_named_option,
         "scoring_rule_on_my_private_units": private_scoring_rule,
+        "named_not_most_named_privately": named_not_most_named_privately,
+        "least_shared_support": least_shared_support,
     }
     n_agents = max(t.n_agents for t in ctx.tasks)
-    alpha = family_alpha(ctx.alpha, len(probes) * n_agents)
+    # One more member of the family: the learned probe, pooled over agents.
+    alpha = family_alpha(ctx.alpha, len(probes) * n_agents + 1)
     rows: list[dict[str, Any]] = []
     for name, solver in probes.items():
         for agent_id in range(n_agents):
-            correct = 0
-            applicable = 0
+            trials = []
             for task in ctx.tasks:
                 if agent_id >= task.n_agents:
                     continue
-                applicable += 1
-                if solver(task.views[agent_id], task.answer_space, rng) == task.gold_answer:
-                    correct += 1
-            if applicable:
-                row = _accuracy_row(
-                    f"{name}[agent {agent_id}]", correct, applicable, ctx.chance, alpha
-                )
+                leaders = leaders_of(solver, task.views[agent_id], task.answer_space)
+                trials.append((len(leaders), task.gold_answer in leaders, len(task.answer_space)))
+            if trials:
+                row = _tie_credited_row(f"{name}[agent {agent_id}]", trials, ctx.chance, alpha)
                 row["probe"] = name
                 row["agent_id"] = agent_id
                 rows.append(row)
+    if ctx.n >= 20:
+        learned = _learned_single_view(ctx)
+        row = _tie_credited_row("learned_from_view_ranks[all agents, held-out half]",
+                                learned["trials"], ctx.chance, alpha)
+        row["probe"] = "learned_from_view_ranks"
+        row["train_tasks"] = learned["train_tasks"]
+        rows.append(row)
 
+    mda = minimum_detectable_accuracy(ctx.n, ctx.chance, alpha)
     beating = [r for r in rows if r["beats_chance"]]
-    detail = {"probes": rows, "chance": ctx.chance, "alpha_per_probe": alpha}
+    detail = {
+        "probes": rows,
+        "chance": ctx.chance,
+        "alpha_per_probe": alpha,
+        "minimum_detectable_accuracy": mda,
+        "minimum_detectable_accuracy_note": (
+            "The lowest true single-view accuracy a per-agent probe that commits to "
+            "one option detects with 80% power at this n and alpha. For an argmax-of-summed-evidence task some "
+            "view always carries information, so a pass bounds the advantage; it "
+            "does not show it is zero."
+        ),
+    }
     if beating:
         worst = max(beating, key=lambda r: r["accuracy"])
         return CheckResult(
@@ -304,8 +443,10 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         "solo_solvability",
         "Solvability from one agent's view",
         Status.PASS,
-        f"No single-view solver beats {ctx.chance:.1%} chance; the best is "
-        f"{best['accuracy']:.1%} (`{best['name']}`)." if best else "No probes ran.",
+        (f"No single-view probe is significantly above {ctx.chance:.1%} chance; the "
+         f"highest is {best['accuracy']:.1%} (`{best['name']}`). Not a guarantee: at "
+         f"this n a per-agent probe would usually miss a true accuracy below "
+         f"{mda:.1%}.") if best else "No probes ran.",
         detail,
         ("G6", "P4"),
     )
@@ -378,15 +519,14 @@ def check_full_solvability(ctx: CheckContext) -> CheckResult:
 @_check
 def check_shortcuts(ctx: CheckContext) -> CheckResult:
     """No content-blind shortcut on the full-information view may beat chance."""
-    rng = ctx.rng()
     alpha = family_alpha(ctx.alpha, len(SHORTCUT_SOLVERS))
     rows: list[dict[str, Any]] = []
     for name, solver in SHORTCUT_SOLVERS.items():
-        correct = sum(
-            solver(task.full_view(), task.answer_space, rng) == task.gold_answer
-            for task in ctx.tasks
-        )
-        rows.append(_accuracy_row(name, correct, ctx.n, ctx.chance, alpha))
+        trials = []
+        for task in ctx.tasks:
+            leaders = leaders_of(solver, task.full_view(), task.answer_space)
+            trials.append((len(leaders), task.gold_answer in leaders, len(task.answer_space)))
+        rows.append(_tie_credited_row(name, trials, ctx.chance, alpha))
 
     beating = [r for r in rows if r["beats_chance"]]
     detail = {"shortcuts": rows, "chance": ctx.chance, "alpha_per_probe": alpha}

@@ -25,24 +25,33 @@ generators. Nothing here is a pre-registered result.
 ## Single-view probes outside the battery
 
 Chance is 25%. `full_info_most_named_in_private_block` reads the full-information
-prompt's "Facts only you know" block.
+prompt's "Facts only you know" block. "As reviewed" is the control's layout at
+the time of the review, kept as the negative control `legacy_pointer_support`;
+"now" is the layout that replaced it. The example as reviewed is at commit
+`f9491cf` (`examples/02_write_an_environment.py`).
 
 | Environment | Probe | Correct |
 |---|---|---:|
 | hidden_profile_v2 (eval 10000-10199) | `named_not_most_named` | 600/600 |
 | hidden_profile_v2 (eval 10000-10199) | `least_shared_support` | 365/600 |
 | hidden_profile_v2 (eval 10000-10199) | `full_info_most_named_in_private_block` | 200/200 |
-| control (eval 1000-1199) | `named_not_most_named` | 600/600 |
-| control (eval 1000-1199) | `least_shared_support` | 311/600 |
-| control (eval 1000-1199) | `full_info_most_named_in_private_block` | 115/200 |
-| venue_choice (eval 10000-10199) | `named_not_most_named` | 600/600 |
-| venue_choice (eval 10000-10199) | `least_shared_support` | 306/600 |
-| venue_choice (eval 10000-10199) | `full_info_most_named_in_private_block` | 200/200 |
+| control as reviewed (eval 1000-1199) | `named_not_most_named` | 600/600 |
+| control as reviewed (eval 1000-1199) | `least_shared_support` | 311/600 |
+| control as reviewed (eval 1000-1199) | `full_info_most_named_in_private_block` | 115/200 |
+| control now (eval 1000-1199) | `named_not_most_named` | 138/600 |
+| control now (eval 1000-1199) | `least_shared_support` | 147/600 |
+| control now (eval 1000-1199) | `full_info_most_named_in_private_block` | 48/200 |
+| venue_choice now (eval 10000-10199) | `named_not_most_named` | 161/600 |
+| venue_choice now (eval 10000-10199) | `least_shared_support` | 152/600 |
+| venue_choice now (eval 10000-10199) | `full_info_most_named_in_private_block` | 51/200 |
 
-## A decisive leak in a fraction of tasks
+## A decisive leak in a fraction of tasks, under the current battery
+
+At the time of the review, the 0.1 and 0.2 rows passed `leak` (`docs/review-v0.2.md`, M2).
+The check is now zero-tolerance.
 
 | Fraction | Tasks with a decisive unit | Verdict | `leak` | `solo_solvability` |
 |---:|---:|---|---|---|
-| 0.1 | 23/200 | warn | pass | pass |
-| 0.2 | 43/200 | warn | pass | pass |
+| 0.1 | 23/200 | fail | fail | fail |
+| 0.2 | 43/200 | fail | fail | fail |
 | 0.3 | 69/200 | fail | fail | fail |

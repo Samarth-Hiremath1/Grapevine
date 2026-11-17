@@ -42,3 +42,21 @@ def v2_luna_no_communication_max() -> dict[str, Any]:
              for m in ("gpt-5.6-luna", "gpt-6-luna") for o in ("stated", "unstated")]
     top = max(cells, key=lambda c: c["correct"])
     return {"correct": top["correct"], "n": top["n"]}
+
+
+def control_first_option_1200() -> dict[str, Any]:
+    """``first_option`` on the clean control at seed range 1200: the one nominal false alarm.
+
+    Returns:
+        dict[str, Any]: ``n_correct`` and ``n`` of that shortcut probe.
+    """
+    import sys
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    from fixtures.flawed_envs import CLEAN_CONTROL  # type: ignore[import-not-found]
+
+    from grapevine import audit
+
+    rows = audit(CLEAN_CONTROL, n_tasks=200, seed=1200).get("shortcuts").detail["shortcuts"]
+    row = next(r for r in rows if r["name"] == "first_option")
+    return {"n_correct": row["n_correct"], "n": row["n"]}

@@ -46,12 +46,28 @@ Prepared on the `v0.2` branch. Not tagged and not published.
 - `minimality` reported the size of its 10-entry sample as the total count of
   redundant units. Found by the external review (`docs/review-v0.2.md`, M3).
 
-### Found by the review
+### Found by the review, and fixed
 
-- An independent review found single-view shortcuts the battery has no probe
-  for, in every bundled and example environment, and that a partial answer leak
-  passes. Documented under "Known gaps" in `docs/audit-battery.md`; not fixed in
-  this release. Response to every finding: `docs/review-v0.2-response.md`.
+- **Names-only and shared-block shortcuts.** `solo_solvability` gains
+  `named_not_most_named_privately`, `least_shared_support` and a cross-validated
+  learned probe over within-view feature ranks. The control's two earlier
+  layouts are kept as negative controls and fail.
+- **Partial answer leaks.** `leak` is zero-tolerance: one leaking task fails.
+- **Tie-break noise.** Probes score a k-way tie containing the gold option as
+  1/k, with an exact null distribution, instead of drawing one at random.
+- **Every card reports `minimum_detectable_accuracy`**, the smallest single-view
+  advantage the audit would usually see at its sample size.
+- The clean control and the example are rebuilt so that no name count in any
+  block is informative and gold wins by exactly one fact.
+- `studies/battery_calibration/` now measures missed defects as well as false
+  alarms. Response to every finding: `docs/review-v0.2-response.md`.
+
+### Known limitation
+
+- For a task decided by summed evidence, some single view always carries
+  information about the answer, so no such environment can pass
+  `solo_solvability` reliably; a pass bounds the advantage at the audited sample
+  size. `docs/audit-battery.md`, "Why a pass is a bound".
 
 ### Changed
 
