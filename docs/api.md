@@ -24,6 +24,13 @@ Anything else may change in any release.
 
 ::: grapevine.envs.hidden_profile_v2
 
+## Claims
+
+`grapevine verify-claims` re-derives every number registered in
+`docs/claims.yaml` and requires it to appear verbatim in its document.
+
+::: grapevine.claims
+
 ## RL
 
 Needs the `rl` extra for training; the gate and rewards import without it.

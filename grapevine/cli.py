@@ -217,6 +217,25 @@ def _cmd_gen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify_claims(args: argparse.Namespace) -> int:
+    """Re-derive every claimed number from its source and find it in its document."""
+    from grapevine.claims import ClaimsError, verify_claims
+
+    path = Path(args.claims)
+    try:
+        results = verify_claims(path, Path(args.root) if args.root else None)
+    except ClaimsError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    failed = [r for r in results if not r.ok]
+    for r in results:
+        if not r.ok or args.verbose:
+            mark = "ok  " if r.ok else "FAIL"
+            print(f"{mark} {r.claim_id} ({r.file}): {r.problem or r.rendered}")
+    print(f"{len(results) - len(failed)}/{len(results)} claims verified")
+    return 1 if failed else 0
+
+
 def _cmd_metrics(args: argparse.Namespace) -> int:
     from grapevine.eval.metrics import compute_metrics, metrics_markdown
     from grapevine.rollout.engine import Episode, load_transcript
@@ -325,6 +344,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_gen = sub.add_parser("gen", help="generate tasks as JSONL")
     _add_env_args(p_gen)
     p_gen.set_defaults(func=_cmd_gen)
+
+    p_claims = sub.add_parser(
+        "verify-claims",
+        help="re-derive every number in the docs from committed runs (run from a clone)",
+    )
+    p_claims.add_argument("--claims", default="docs/claims.yaml")
+    p_claims.add_argument("--root", default=None,
+                          help="repository root (default: the claims file's parent's parent)")
+    p_claims.add_argument("-v", "--verbose", action="store_true", help="list passing claims too")
+    p_claims.set_defaults(func=_cmd_verify_claims)
 
     p_metrics = sub.add_parser("metrics", help="aggregate metrics from a transcript")
     p_metrics.add_argument("transcript", help="path to a transcript .jsonl file")

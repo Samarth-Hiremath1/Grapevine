@@ -51,6 +51,8 @@ jobs:
         run: .venv/bin/python -m studies.v2_eval.report --check
       - name: Battery false-fail measurement is reproducible
         run: .venv/bin/python -m studies.battery_calibration.false_fail --check
+      - name: Every registered number in the docs re-derives from its source
+        run: .venv/bin/grapevine verify-claims
 
       - name: hidden_profile_v2's Validity Card regenerates byte-identically
         run: |

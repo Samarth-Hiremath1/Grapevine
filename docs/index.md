@@ -35,7 +35,7 @@ Both are in the record, with the numbers that went with them.
 | `hidden_profile_v2` | Bundled; fails one check, `solo_solvability`, found by its own eval |
 | `grapevine.rl` (TRL GRPO) | **GRPO integration, smoke-tested; no training results in this release.** |
 | The v0 case study | Audited and reproducible from committed runs |
-| A pre-registered eval on `hidden_profile_v2` | Run once, .28; [read against its pre-registration](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/v2_eval/README.md) |
+| A pre-registered eval on `hidden_profile_v2` | Run once, $1.28; [read against its pre-registration](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/v2_eval/README.md) |
 
 Results from the v0 study are on GitHub:
 [`docs/results.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/results.md).

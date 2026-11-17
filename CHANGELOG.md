@@ -25,6 +25,9 @@ Prepared on the `v0.2` branch. Not tagged and not published.
 - `grapevine eval` on held-out seeds.
 - A pre-registered eval of three models on `hidden_profile_v2`
   (`studies/v2_eval/`), its runs, and its analysis.
+- `grapevine verify-claims` and `docs/claims.yaml`: every registered number in
+  the documentation is re-derived from a committed run or a deterministic
+  computation, and must appear verbatim where it is claimed.
 - Examples under `examples/`, each executed by the test suite.
 - A documentation site (MkDocs, built with `--strict`).
 - Packaging as `grapevine-mas`, typed (`py.typed`), tested on Python 3.11–3.13.
