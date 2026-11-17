@@ -294,7 +294,8 @@ No dates. Each is something this release deliberately does not do:
 ## Citation
 
 To cite Grapevine itself, see [`CITATION.cff`](CITATION.cff). Works this
-repository relies on:
+repository relies on are below; the fuller list, each entry checked against its
+source, is [`docs/related-work.md`](docs/related-work.md).
 
 - Li, Y., Naito, A., & Shirado, H. Systematic Failures in Collective Reasoning
   under Distributed Information in Multi-Agent LLMs. ICML 2026 (PMLR 306).
