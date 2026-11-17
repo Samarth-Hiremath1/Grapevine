@@ -14,9 +14,12 @@ repository's own first result, it reports three failures — a content-blind
 shortcut that solves 200 of 200 tasks, an objective that never reached the
 models, and a single agent able to answer alone. The committed card is
 [`studies/underspecification/validity_card.md`](studies/underspecification/validity_card.md);
-`hidden_profile_v2` is built to answer every one of those findings and has a
-committed passing card at
-[`environments/hidden_profile_v2/validity_card.md`](environments/hidden_profile_v2/validity_card.md).
+`hidden_profile_v2` was built to answer every one of those findings and passed
+the battery as it then stood. Its first pre-registered eval then found a
+single-agent shortcut the battery had no probe for; the probe is now in, and
+v2's card at
+[`environments/hidden_profile_v2/validity_card.md`](environments/hidden_profile_v2/validity_card.md)
+fails `solo_solvability` (A2 in [`docs/audit.md`](docs/audit.md)).
 How the battery works and how it is calibrated is in
 [`docs/audit-battery.md`](docs/audit-battery.md).
 

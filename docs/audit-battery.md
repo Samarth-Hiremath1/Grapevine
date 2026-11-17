@@ -26,7 +26,7 @@ has ever got wrong.
 | Check | What it catches | Came from |
 |---|---|---|
 | `leak` | The gold answer, or a statistic sufficient for it, sits in one agent's view | P4, G6 |
-| `solo_solvability` | Some solver on a single view beats chance, so pooling is optional | G6, P4, **A1** |
+| `solo_solvability` | Some solver on a single view beats chance, so pooling is optional | G6, P4, **A1**, **A2** |
 | `full_solvability` | The stated scoring rule does not reach the answer even with everything pooled | G5 |
 | `shortcuts` | A content-blind solver — most-named, least-named, first option, longest option, shared facts only — beats chance | L3, I1 |
 | `name_hygiene` | An option name is a substring of another, or hides inside an ordinary word, so name matching counts word fragments | G11, L5 |
@@ -67,8 +67,10 @@ leaks the answer, a gold option named more often than any other, private units
 that all point at the answer, conditions that never state the objective, a
 baseline that changes framing as well as information, over-declared required
 units, the v0 parser's lenient matching, gold always listed first, a reward
-bonus for verbosity, and a generator that emits one task forever. CI requires
-the check named for each defect to fire, and the control to pass all thirteen.
+bonus for verbosity, a generator that emits one task forever, and private
+support that all favours the gold option even though name counts are equal (the
+layout the v2 eval exposed, A2). CI requires the check named for each defect to
+fire, and the control to pass all thirteen.
 
 A planted defect usually trips more than one check — a leak really does also
 make a task solo-solvable. The requirement is that the responsible check
@@ -98,6 +100,24 @@ model might do. Written up as A1 in `docs/audit.md`.
 It changes no reported number — condition B scored 0.5%, so the models did not
 take the shortcut — but it changes the interpretation: B's near-zero accuracy
 is a fact about these models, not a property of the task.
+
+## What a model found that the battery did not
+
+The first pre-registered eval on `hidden_profile_v2` found a gap in the battery
+itself. v2 answered A1 by equalising name counts, so the name-counting probe
+passed. But every private *supporting* fact still favoured gold, and nothing in
+the battery applied the scoring rule to one agent's private facts alone. That
+solver is right for 300 of 300 agents on the eval tasks, and `gpt-4o-mini`,
+with the objective unstated, voted gold from its own view 125 times in 300.
+
+The probe is now in `solo_solvability`, with a planted-flaw fixture only it
+catches. v2 fails it and keeps failing it, because its generator is frozen.
+Written up as A2 in `docs/audit.md`; the investigation is
+`studies/v2_eval/h1_investigation.md`.
+
+The lesson is about calibration: a battery is calibrated against the flaws its
+authors thought to plant. This gap was in the fixtures too, because the clean
+control had the same layout as v2.
 
 ## What it does not do
 
@@ -135,9 +155,11 @@ part is what makes a check possible:
 - **`conditions()`**, optional, to enable `objective` and `condition_diff`.
 - **`seed_split()`**, optional, so an RL user cannot train on eval seeds.
 
-`grapevine/envs/hidden_profile_v2.py` is the bundled environment that passes all
-thirteen, with each design choice traced to the finding it answers; its card is
-`environments/hidden_profile_v2/validity_card.md`.
+`grapevine/envs/hidden_profile_v2.py` is the bundled environment, with each
+design choice traced to the finding it answers; its card is
+`environments/hidden_profile_v2/validity_card.md`. It passed all thirteen checks
+when it was built, and fails `solo_solvability` since the probe added after its
+eval (A2, below).
 `tests/fixtures/flawed_envs/__init__.py` is a smaller worked example, and
 `grapevine/envs/adapters.py` shows how an environment that predates the protocol
 is wrapped rather than rewritten.

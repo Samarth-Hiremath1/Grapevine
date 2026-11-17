@@ -72,7 +72,7 @@ __all__ = [
     "ValidityCard",
     "audit",
     "check_ids",
-    # The registry and the bundled environment that passes its audit.
+    # The registry and the bundled environment.
     "DEFAULT_ENVIRONMENT",
     "HiddenProfileV2",
     "HiddenProfileV2Config",

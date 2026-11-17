@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 1000–1199
-- Grapevine: `0.0.1` · card hash: `5e4429b1885fda65`
+- Grapevine: `0.0.1` · card hash: `3a1d8ac63d0aaaf6`
 - Config: `n_agents=3`, `n_distractors=4`, `n_options=4`, `n_private_facts_per_agent=2`, `n_shared_facts=6`
 - Checks: 3 fail, 4 warn, 6 pass
 
@@ -11,7 +11,7 @@
 
 | | Check | Status | Finding |
 |---|---|---|---|
-| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 9 probes beat chance. Information that one agent can act on alone is not distributed information. |
+| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 6 of 12 probes beat chance. Information that one agent can act on alone is not distributed information. |
 | ❌ | `shortcuts` | fail | `mention_count` solves 200/200 (100.0%) against 25.0% chance (p=3.9e-121) without reading what any fact says. 1 of 5 shortcuts beat chance, so a result here measures whether a model applies the shortcut, not whether it reasons over the information. |
 | ❌ | `objective` | fail | 5 of 10 conditions never state the objective: `communication`, `communication_neutral`, `full_info`, `full_info_matched`, `no_communication`. Agents in those arms are not told what question they are answering or how the answer is scored, so a wrong answer there is not evidence of a coordination failure -- it may only be evidence that nobody said what to do. |
 | ⚠️ | `diversity` | warn | The batch is one puzzle in several arrangements rather than several problems: every one of the 200 tasks has the identical support pattern (6.0, 5.0, 1.0, 0.0). Intervals computed over these seeds measure variation over permutations of one task, not over tasks. |
@@ -29,7 +29,7 @@
 
 ### ❌ `solo_solvability` — Solvability from one agent's view
 
-**fail.** A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 9 probes beat chance. Information that one agent can act on alone is not distributed information.
+**fail.** A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 6 of 12 probes beat chance. Information that one agent can act on alone is not distributed information.
 
 *Exists because of G6, P4 in `docs/audit.md`.*
 
@@ -134,10 +134,43 @@
       "beats_chance": true,
       "probe": "named_in_my_private_units",
       "agent_id": 2
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 0]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 0
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 1]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 1
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 2]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 2
     }
   ],
   "chance": 0.25,
-  "alpha_per_probe": 0.005556
+  "alpha_per_probe": 0.004167
 }
 ```
 

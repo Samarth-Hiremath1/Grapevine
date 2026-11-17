@@ -46,8 +46,9 @@ ENVIRONMENTS: dict[str, Callable[[], Environment]] = {
     "split_evidence": SplitEvidenceV1,
 }
 
-#: The environment to reach for unless you have a reason not to: the one that
-#: passes its own audit. ``hidden_profile`` is kept because the committed case
+#: The environment to reach for unless you have a reason not to: the one with
+#: the fewest known flaws. It fails one check, ``solo_solvability``, found after
+#: its eval (``docs/audit.md``, A2). ``hidden_profile`` is kept because the committed case
 #: study is built on it and because an auditable example of a flawed environment
 #: is worth having; ``split_evidence`` is kept as a worked negative example.
 DEFAULT_ENVIRONMENT = "hidden_profile_v2"

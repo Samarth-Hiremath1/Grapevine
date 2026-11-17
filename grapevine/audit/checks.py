@@ -28,6 +28,7 @@ from grapevine.audit.solvers import (
     count_mentions,
     genuine_pooling,
     mention_count,
+    private_scoring_rule,
     reference,
     uniquely_determined,
     units_without,
@@ -257,6 +258,7 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         "scoring_rule_on_own_view": reference,
         "mention_count_on_own_view": mention_count,
         "named_in_my_private_units": _private_named_option,
+        "scoring_rule_on_my_private_units": private_scoring_rule,
     }
     n_agents = max(t.n_agents for t in ctx.tasks)
     alpha = family_alpha(ctx.alpha, len(probes) * n_agents)

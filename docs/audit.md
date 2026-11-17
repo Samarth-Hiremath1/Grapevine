@@ -334,6 +334,54 @@ control in `tests/fixtures/flawed_envs/` already does this, and
 `tests/test_audit.py::test_a1_a_new_finding_the_hand_audit_missed` pins the
 finding so it cannot quietly disappear.
 
+### A2. A1 was closed for name counts only, and a model found the rest
+
+*2026-11-16, found by the pre-registered `hidden_profile_v2` eval. Severity:
+**Invalidating** for any reading of v2's `no_communication` arm as a measure of
+what one agent cannot do, and for the claim that v2 passes its audit.*
+
+A1's consequence said v2 must distribute private support across options. That
+is not what was built. v2 kept every private *supporting* fact on the gold
+option and gave each agent extra *logistics* mentions of one non-gold option, so
+that counting names in one's own notes points away from the answer. That closes
+the probe A1 was found with, which counts names. It does not close the shortcut
+A1 described, which is reading one's own notes: an agent that applies the
+scoring rule to its private facts alone still gets gold every time, because
+every private fact that counts is about gold. The battery had no probe for that,
+so v2 passed.
+
+The eval found it. The pre-registration's H1 reading says a single agent above
+chance in `no_communication` is a gap in the battery, to be investigated before
+anything else is reported. `gpt-4o-mini` with the objective unstated scored
+45/100 there (95% interval 35.0% to 55.3%, against 25% chance;
+`studies/v2_eval/runs/20261116T091238Z_primary/results.md`). Its single agents
+voted for gold 125 times in 300; the private-only scoring rule picks gold for
+300/300 agents on the same tasks (`studies/v2_eval/h1_investigation.md`). A1's
+last paragraph predicted this case: a model weighing its own information more
+heavily could score in B without coordinating.
+
+**What changed.**
+
+- `solo_solvability` has a fourth probe, `scoring_rule_on_my_private_units`
+  (`grapevine.audit.solvers.private_scoring_rule`).
+- A planted-flaw fixture, `private_support_all_gold`, has the layout v2 has.
+  `tests/test_audit.py::TestTheGapTheV2EvalFound` requires that only the new probe
+  catches it, which is the record that the battery missed it before.
+- The clean control did not distribute private support either, contrary to
+  what A1 said. Its old layout is now that planted flaw. The control now gives
+  each agent private support for one non-gold option, one fact more than its
+  gold support, and still passes every check.
+- `hidden_profile_v2` now fails `solo_solvability` (200/200 on its card). Its
+  generator is not changed (`CLAUDE.md` rule 6): the eval ran on it, so the
+  failure stays on its card. The RL audit gate now refuses it unless
+  `--allow-flagged` is passed, and records the override when it is.
+
+**What it does and does not change.** No committed number changes. What changes
+is how the eval is read: v2 is not an environment with no known single-agent
+shortcut, and every `no_communication` cell has to be read as what these models
+chose to do, not what the task allowed. A successor environment that closes the
+gap would be new work under a new family name, with its own pre-registration.
+
 ---
 
 ## Could not check

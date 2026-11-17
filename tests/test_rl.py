@@ -207,11 +207,18 @@ class TestRollout:
 
 class TestGate:
     def test_passes_a_clean_environment_and_records_the_card(self) -> None:
-        result = audit_gate(ENV, RewardConfig(), n_tasks=50)
+        from fixtures.flawed_envs import CLEAN_CONTROL
+
+        result = audit_gate(CLEAN_CONTROL, RewardConfig(), n_tasks=50)
         assert result.passed and not result.allowed_flagged
         entry = result.to_dict()
         assert len(entry["card_hash"]) == 64
-        assert entry["seed"] == ENV.seed_split().train.start
+        assert entry["seed"] == CLEAN_CONTROL.seed_split().train.start
+
+    def test_refuses_hidden_profile_v2_as_it_stands(self) -> None:
+        """v2 fails solo_solvability (docs/audit.md, A2), so the gate refuses it."""
+        with pytest.raises(AuditGateError, match="solo_solvability"):
+            audit_gate(ENV, RewardConfig(), n_tasks=50)
 
     def test_refuses_a_shaped_reward_by_default(self) -> None:
         with pytest.raises(AuditGateError, match="reward_hacking"):
@@ -307,7 +314,7 @@ class TestConfig:
         assert manifest["reportable"] is False
         assert any("allow-flagged" in r for r in manifest["not_reportable_because"])
         on_disk = json.loads((tmp_path / "out" / "manifest.json").read_text())
-        assert on_disk["audit_gate"]["flagged_checks"] == ["reward_hacking"]
+        assert "reward_hacking" in on_disk["audit_gate"]["flagged_checks"]
 
 
 class TestEval:

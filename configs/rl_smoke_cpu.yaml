@@ -10,6 +10,8 @@
 model:
   name: hf-internal-testing/tiny-random-LlamaForCausalLM
 
+# hidden_profile_v2 is flagged (docs/audit.md, A2), so this runs with
+# --allow-flagged, which the manifest records. It is plumbing either way.
 environment:
   name: hidden_profile_v2
   n_train_tasks: 2

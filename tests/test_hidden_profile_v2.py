@@ -299,22 +299,27 @@ class TestConfigValidation:
 
 
 class TestAuditPasses:
-    """The deliverable: a bundled environment with a passing Validity Card."""
+    """v2 passes every check except the one added after its eval (A2).
 
-    def test_passes_every_check_on_the_committed_card_seeds(self) -> None:
+    It passed the battery as it stood when it was built. The ``hidden_profile_v2``
+    eval then found a single-agent shortcut the battery lacked a probe for
+    (``docs/audit.md``, A2). The generator is frozen (``CLAUDE.md`` rule 6), so
+    the failure is pinned here rather than designed away.
+    """
+
+    def test_fails_only_solo_solvability_on_the_committed_card_seeds(self) -> None:
         card = audit(get_environment("hidden_profile_v2"), n_tasks=200, seed=0)
-        failures = {
-            r.check_id: r.summary for r in card.results if r.status is not Status.PASS
+        not_passing = {
+            r.check_id: r.status for r in card.results if r.status is not Status.PASS
         }
-        assert failures == {}, failures
-        assert card.verdict is Status.PASS
+        assert not_passing == {"solo_solvability": Status.FAIL}, not_passing
         assert len(card.results) == len(CHECK_IDS)
 
     @pytest.mark.parametrize("seed", [0, 2000, 9000, 10000])
-    def test_passes_on_other_seed_ranges_too(self, seed: int) -> None:
-        """Including the held-out eval seeds, which is where it will be scored."""
+    def test_the_same_on_other_seed_ranges(self, seed: int) -> None:
+        """Including the held-out eval seeds, where it was scored."""
         card = audit(get_environment("hidden_profile_v2"), n_tasks=200, seed=seed)
-        assert card.passed, [r.check_id for r in card.results if r.status is Status.FAIL]
+        assert card.flagged_checks == ("solo_solvability",), card.flagged_checks
 
     def test_is_registered_and_is_the_default(self) -> None:
         from grapevine.envs import DEFAULT_ENVIRONMENT

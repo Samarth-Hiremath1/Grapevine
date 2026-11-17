@@ -12,6 +12,10 @@
 model:
   name: Qwen/Qwen2.5-0.5B-Instruct
 
+# hidden_profile_v2 fails solo_solvability (docs/audit.md, A2): one agent can
+# answer from its own private facts. The audit gate refuses this config unless
+# --allow-flagged is passed, and records the override if it is. Training a
+# policy here would reward that shortcut as much as coordination.
 environment:
   name: hidden_profile_v2
   n_train_tasks: 2000     # drawn from the environment's declared train seeds

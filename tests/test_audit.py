@@ -401,6 +401,37 @@ class TestRediscoversTheV0Audit:
             assert not row["beats_chance"], row
 
 
+class TestTheGapTheV2EvalFound:
+    """A2: a private-only scoring rule, missed by the battery until a model used it.
+
+    Recorded in ``docs/audit.md`` and ``studies/v2_eval/h1_investigation.md``.
+    """
+
+    def test_only_the_new_probe_catches_the_planted_layout(self) -> None:
+        """Every probe the battery had before A2 reports clean on this layout."""
+        flawed, _ = FLAWED_ENVS["private_support_all_gold"]
+        result = audit(flawed, n_tasks=100, seed=0).get("solo_solvability")
+        assert result.status is Status.FAIL
+        beating = {r["probe"] for r in result.detail["probes"] if r["beats_chance"]}
+        assert beating == {"scoring_rule_on_my_private_units"}
+
+    def test_hidden_profile_v2_fails_on_it(self) -> None:
+        """v2 passed the battery as it stood; it does not pass this probe.
+
+        v2's generator is frozen (``CLAUDE.md`` rule 6), so the failure stays
+        on its card rather than being designed away.
+        """
+        env = get_environment("hidden_profile_v2")
+        result = audit(env, n_tasks=100, seed=env.seed_split().eval[0]).get("solo_solvability")
+        assert result.status is Status.FAIL
+        rows = {r["name"]: r for r in result.detail["probes"]}
+        for agent_id in range(3):
+            assert rows[f"scoring_rule_on_my_private_units[agent {agent_id}]"]["n_correct"] == 100
+        others = [r for r in result.detail["probes"]
+                  if r["probe"] != "scoring_rule_on_my_private_units"]
+        assert not any(r["beats_chance"] for r in others)
+
+
 class TestSplitEvidenceIsARealPositiveControl:
     """``split_evidence`` failed for real, before any of this existed."""
 

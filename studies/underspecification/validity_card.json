@@ -60,7 +60,7 @@
       "check_id": "solo_solvability",
       "title": "Solvability from one agent's view",
       "status": "fail",
-      "summary": "A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 9 probes beat chance. Information that one agent can act on alone is not distributed information.",
+      "summary": "A single agent can beat chance alone: `named_in_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 6 of 12 probes beat chance. Information that one agent can act on alone is not distributed information.",
       "audit_findings": [
         "G6",
         "P4"
@@ -165,10 +165,43 @@
             "beats_chance": true,
             "probe": "named_in_my_private_units",
             "agent_id": 2
+          },
+          {
+            "name": "scoring_rule_on_my_private_units[agent 0]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "scoring_rule_on_my_private_units",
+            "agent_id": 0
+          },
+          {
+            "name": "scoring_rule_on_my_private_units[agent 1]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "scoring_rule_on_my_private_units",
+            "agent_id": 1
+          },
+          {
+            "name": "scoring_rule_on_my_private_units[agent 2]",
+            "n_correct": 200,
+            "n": 200,
+            "accuracy": 1.0,
+            "chance": 0.25,
+            "p_value_vs_chance": 0.0,
+            "beats_chance": true,
+            "probe": "scoring_rule_on_my_private_units",
+            "agent_id": 2
           }
         ],
         "chance": 0.25,
-        "alpha_per_probe": 0.005556
+        "alpha_per_probe": 0.004167
       }
     },
     {

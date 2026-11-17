@@ -38,6 +38,7 @@ __all__ = [
     "first_option",
     "longest_option",
     "mention_count",
+    "private_scoring_rule",
     "reference",
     "shared_only",
     "uniquely_determined",
@@ -102,6 +103,27 @@ def reference(view: AgentView, answer_space: Sequence[str], rng: random.Random) 
     a single agent's view it must *not* beat chance.
     """
     return _argmax(support_total(view.units, answer_space), answer_space, rng)
+
+
+def private_scoring_rule(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:
+    """Apply the scoring rule to this agent's *private* units alone.
+
+    A reader who trusts what only it knows and discounts common ground. Unlike
+    a name count, it reads which facts are support, so equalising how often each
+    option is named does not defeat it. On a hidden profile built so that every
+    private supporting fact favours the gold option, this solver is perfect from
+    one agent's view. The battery lacked it until the ``hidden_profile_v2`` eval
+    found a model doing exactly this (``studies/v2_eval/h1_investigation.md``).
+
+    Args:
+        view (AgentView): One agent's view.
+        answer_space (Sequence[str]): The options.
+        rng (random.Random): Breaks ties, as a solver facing one must guess.
+
+    Returns:
+        str: The option with the most private supporting weight.
+    """
+    return _argmax(support_total(view.private, answer_space), answer_space, rng)
 
 
 def mention_count(view: AgentView, answer_space: Sequence[str], rng: random.Random) -> str:

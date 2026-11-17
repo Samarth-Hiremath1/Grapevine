@@ -79,6 +79,31 @@ _SUPPORT = (
     "led the security review that closed nine findings",
     "mentored the intern cohort two years running",
     "turned round the project that had slipped two quarters",
+    "halved the cloud bill without dropping a service level",
+    "wrote the runbook that got the new region live early",
+    "closed the oldest open bug in the tracker after six years",
+    "built the load test that caught the launch-day bottleneck",
+    "drafted the API guidelines three teams now follow",
+    "ran the hiring loop that filled four roles in a month",
+    "rescued the data migration after the first attempt failed",
+    "automated the release notes the support team relies on",
+    "brought the flaky test rate below one percent",
+    "set up the alerting that caught the disk failure early",
+    "led the accessibility pass that cleared the audit",
+    "replaced the legacy queue with zero dropped messages",
+    "presented the architecture review the board approved",
+    "unblocked the mobile release by fixing the signing chain",
+    "kept the payments service up through the traffic spike",
+    "wrote the onboarding guide new hires rate highest",
+    "cut page load time by forty percent on the main site",
+    "ran the chaos drill that exposed the failover gap",
+    "coordinated the cross-team freeze with no missed deadline",
+    "found and fixed the memory leak in the search service",
+    "delivered the reporting dashboard finance asked for",
+    "rewrote the permissions model with no access incidents",
+    "handled the customer escalation that saved the account",
+    "documented the disaster recovery plan end to end",
+    "led the vendor evaluation that picked the current CDN",
 )
 
 #: Decision-irrelevant mentions. These name an option without being evidence
@@ -148,6 +173,10 @@ class ControlEnv(Environment):
             support pattern.
         colliding_names: Use option names that hide inside ordinary words, so
             counting a name also counts word fragments.
+        private_support_all_gold: Give agents private support for the gold
+            option only, the layout ``hidden_profile_v2`` uses. Scoring one's
+            own private facts then names the answer, even though name counts
+            are equalised (``studies/v2_eval/h1_investigation.md``).
     """
 
     leak_decisive_unit: bool = False
@@ -161,6 +190,7 @@ class ControlEnv(Environment):
     verbosity_bonus: bool = False
     single_template: bool = False
     colliding_names: bool = False
+    private_support_all_gold: bool = False
 
     name: str = "control"
     version: str = "1"
@@ -189,12 +219,24 @@ class ControlEnv(Environment):
         else:
             rng.shuffle(options)
 
-        # One gold-supporting unit per agent, plus extra rounds so the support
-        # pattern varies across seeds. The decoy always sits exactly one behind,
-        # which makes every gold unit load-bearing.
-        rounds = 1 if self.single_template else rng.choice([1, 2])
+        # `rounds` gold-supporting units per agent, varied so the support
+        # pattern differs across seeds. The decoy always sits exactly one behind
+        # in total, which makes every gold unit load-bearing.
+        #
+        # Each agent also privately holds rounds + 1 supporting facts for one
+        # non-gold option (its "pointer"), so applying the scoring rule to its
+        # own private facts alone names the pointer, not the answer. The decoy's
+        # shared support is reduced by its private share to keep the totals.
+        # With `private_support_all_gold` the pointer gets no private support:
+        # the layout that hid the gap the v2 eval found.
+        planted = self.private_support_all_gold
+        if planted:
+            rounds = 1 if self.single_template else rng.choice([1, 2])
+        else:
+            rounds = 2 if self.single_template else rng.choice([2, 3])
+        pointer_support = 0 if planted else rounds + 1
         n_gold = n_agents * rounds
-        n_decoy = n_gold - 1
+        n_decoy = n_gold - 1 - pointer_support
 
         support_pool = list(rng.sample(_SUPPORT, len(_SUPPORT)))
         neutral_pool = list(rng.sample(_NEUTRAL, len(_NEUTRAL)))
@@ -233,9 +275,13 @@ class ControlEnv(Environment):
                 unit = InfoUnit(f"a{agent_id}g{r}", support_fact(gold), gold)
                 private.append(unit)
                 required.append(unit.unit_id)
-            # Two neutral mentions of one non-gold option, so this agent's own
-            # notes point somewhere other than the answer.
+            # Private support and neutral mentions for one non-gold option, so
+            # this agent's own notes point somewhere other than the answer.
             pointer = (decoy, other, spare)[agent_id % 3]
+            for j in range(pointer_support):
+                private.append(
+                    InfoUnit(f"a{agent_id}p{j}", support_fact(pointer), pointer)
+                )
             for j in range(rounds + 1):
                 unit = InfoUnit(f"a{agent_id}n{j}", neutral_fact(pointer), None)
                 private.append(unit)
@@ -501,6 +547,16 @@ FLAWED_ENVS: dict[str, tuple[ControlEnv, Defect]] = {
             "measurement counts word fragments",
             "name_hygiene",
             "warn",
+        ),
+    ),
+    "private_support_all_gold": (
+        ControlEnv(name="flawed_private_support", private_support_all_gold=True),
+        Defect(
+            "private_support_all_gold",
+            "every private supporting fact favours the gold option, so an agent that "
+            "scores only its own private facts answers alone, though name counts are equal",
+            "solo_solvability",
+            "fail",
         ),
     ),
     "one_puzzle": (

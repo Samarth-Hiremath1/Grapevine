@@ -1,18 +1,18 @@
 # Validity Card: `hidden_profile_v2` v2
 
-✅ **PASS** — every check ran and found nothing.
+❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 0–199
-- Grapevine: `0.0.1` · card hash: `31e3b927e2a2a350`
+- Grapevine: `0.0.1` · card hash: `9485d874dbddf007`
 - Config: `domains=['hiring', 'vendor', 'site']`, `facts_per_agent=1`, `margin=1`, `n_agents=3`, `n_options=4`, `n_rounds=2`, `pool_sha256=798d96e46481df23d857f769da6905ffa8eba9e01043dc3cc0595248dc3da4ee`, `state_objective=True`, `vary_support=True`
-- Checks: 13 pass
+- Checks: 1 fail, 12 pass
 
 ## Summary
 
 | | Check | Status | Finding |
 |---|---|---|---|
+| ❌ | `solo_solvability` | fail | A single agent can beat chance alone: `scoring_rule_on_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 12 probes beat chance. Information that one agent can act on alone is not distributed information. |
 | ✅ | `leak` | pass | No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance). |
-| ✅ | `solo_solvability` | pass | No single-view solver beats 25.0% chance; the best is 0.0% (`scoring_rule_on_own_view[agent 0]`). |
 | ✅ | `full_solvability` | pass | Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks. |
 | ✅ | `shortcuts` | pass | No content-blind shortcut beats 25.0% chance; the best is `first_option` at 31.5%. |
 | ✅ | `name_hygiene` | pass | No option name is a substring of another, and none occurs inside an ordinary word, across 200 tasks. |
@@ -27,44 +27,9 @@
 
 ## Detail
 
-### ✅ `leak` — Answer leak into a single view
+### ❌ `solo_solvability` — Solvability from one agent's view
 
-**pass.** No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance).
-
-*Exists because of P4, G6 in `docs/audit.md`.*
-
-```json
-{
-  "only_gold_named_in_a_view": {
-    "name": "only_gold_named_in_a_view",
-    "n_correct": 0,
-    "n": 200,
-    "accuracy": 0.0,
-    "chance": 0.25,
-    "p_value_vs_chance": 1.0,
-    "beats_chance": false
-  },
-  "one_unit_outweighs_all_rivals": {
-    "name": "one_unit_outweighs_all_rivals",
-    "n_correct": 0,
-    "n": 200,
-    "accuracy": 0.0,
-    "chance": 0.25,
-    "p_value_vs_chance": 1.0,
-    "beats_chance": false
-  },
-  "gold_string_appears_in_some_private_unit": {
-    "n": 200,
-    "rate": 1.0,
-    "note": "Informational. A unit mentioning the gold option is normal -- it is evidence. It is only a leak when it settles the answer, which the two probes above test."
-  },
-  "examples": []
-}
-```
-
-### ✅ `solo_solvability` — Solvability from one agent's view
-
-**pass.** No single-view solver beats 25.0% chance; the best is 0.0% (`scoring_rule_on_own_view[agent 0]`).
+**fail.** A single agent can beat chance alone: `scoring_rule_on_my_private_units[agent 0]` scores 200/200 (100.0%) against 25.0% chance (p=3.9e-121). 3 of 12 probes beat chance. Information that one agent can act on alone is not distributed information.
 
 *Exists because of G6, P4 in `docs/audit.md`.*
 
@@ -169,10 +134,78 @@
       "beats_chance": false,
       "probe": "named_in_my_private_units",
       "agent_id": 2
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 0]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 0
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 1]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 1
+    },
+    {
+      "name": "scoring_rule_on_my_private_units[agent 2]",
+      "n_correct": 200,
+      "n": 200,
+      "accuracy": 1.0,
+      "chance": 0.25,
+      "p_value_vs_chance": 0.0,
+      "beats_chance": true,
+      "probe": "scoring_rule_on_my_private_units",
+      "agent_id": 2
     }
   ],
   "chance": 0.25,
-  "alpha_per_probe": 0.005556
+  "alpha_per_probe": 0.004167
+}
+```
+
+### ✅ `leak` — Answer leak into a single view
+
+**pass.** No view names the gold option alone and no single unit settles the task (0/200 and 0/200, both at or below chance).
+
+*Exists because of P4, G6 in `docs/audit.md`.*
+
+```json
+{
+  "only_gold_named_in_a_view": {
+    "name": "only_gold_named_in_a_view",
+    "n_correct": 0,
+    "n": 200,
+    "accuracy": 0.0,
+    "chance": 0.25,
+    "p_value_vs_chance": 1.0,
+    "beats_chance": false
+  },
+  "one_unit_outweighs_all_rivals": {
+    "name": "one_unit_outweighs_all_rivals",
+    "n_correct": 0,
+    "n": 200,
+    "accuracy": 0.0,
+    "chance": 0.25,
+    "p_value_vs_chance": 1.0,
+    "beats_chance": false
+  },
+  "gold_string_appears_in_some_private_unit": {
+    "n": 200,
+    "rate": 1.0,
+    "note": "Informational. A unit mentioning the gold option is normal -- it is evidence. It is only a leak when it settles the answer, which the two probes above test."
+  },
+  "examples": []
 }
 ```
 
