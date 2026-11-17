@@ -106,8 +106,10 @@ def family_alpha(alpha: float, n_probes: int) -> float:
     """``alpha`` Bonferroni-corrected for the number of probes in one check.
 
     This matters more than it sounds. A check that runs five shortcut probes at
-    an uncorrected 0.05 has a family-wise false-alarm rate near 23%, so roughly
-    one environment in four would be failed for nothing. For a validity auditor
+    an uncorrected 0.05 has a family-wise false-alarm rate of up to 1 - 0.95**5,
+    about 23%, if the probes were independent; they are correlated, and the
+    simulation in ``tests/test_audit.py`` gives about one clean environment in
+    five failed for nothing. For a validity auditor
     that is the worst available failure mode: it teaches people to ignore the
     tool. ``docs/audit.md`` S3 applied the same correction to the study's four
     paired comparisons.
@@ -530,7 +532,9 @@ def check_minimality(ctx: CheckContext) -> CheckResult:
             {"tasks_with_required_units": 0},
         )
 
-    redundant: list[dict[str, Any]] = []
+    redundant: list[dict[str, Any]] = []  # a sample, for the card
+    n_redundant = 0
+    redundant_tasks: set[str] = set()
     checked = 0
     for task in ctx.tasks:
         units = task.all_units()
@@ -542,6 +546,8 @@ def check_minimality(ctx: CheckContext) -> CheckResult:
             # longer has a unique answer without it.
             still = uniquely_determined(remaining, task.answer_space)
             if still == task.gold_answer:
+                n_redundant += 1
+                redundant_tasks.add(task.task_id)
                 if len(redundant) < 10:
                     redundant.append(
                         {
@@ -550,19 +556,20 @@ def check_minimality(ctx: CheckContext) -> CheckResult:
                             "answer_without_it": still,
                         }
                     )
-    n_redundant_tasks = len({r["task_id"] for r in redundant})
+    # The count and the sample are kept apart: the card once reported the size of
+    # the 10-entry sample as the total (docs/review-v0.2.md, M3).
     detail = {
         "required_units_checked": checked,
-        "redundant_found": len(redundant),
-        "tasks_affected_in_sample": n_redundant_tasks,
+        "redundant_found": n_redundant,
+        "tasks_affected": len(redundant_tasks),
         "examples": redundant,
     }
-    if redundant:
+    if n_redundant:
         return CheckResult(
             "minimality",
             "Minimality of the required units",
             Status.WARN,
-            f"{len(redundant)} of {checked} units the environment calls required are not: "
+            f"{n_redundant} of {checked} units the environment calls required are not: "
             f"removing one still leaves the gold answer winning. A surfacing or "
             f"information-pooling metric built on this set overstates what had to be "
             f"shared.",

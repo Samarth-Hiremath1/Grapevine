@@ -401,6 +401,25 @@ class TestRediscoversTheV0Audit:
             assert not row["beats_chance"], row
 
 
+class TestMinimalityCounts:
+    """The card reports the total, not the size of its 10-entry sample (review M3)."""
+
+    def test_the_count_is_not_capped_by_the_sample(self) -> None:
+        from grapevine.audit.solvers import uniquely_determined, units_without
+
+        flawed, _ = FLAWED_ENVS["redundant_required"]
+        result = audit(flawed, n_tasks=50, seed=0).get("minimality")
+        expected = sum(
+            uniquely_determined(units_without(t.all_units(), uid), t.answer_space) == t.gold_answer
+            for t in flawed.generate_batch(50, seed=0)
+            for uid in t.required_units
+        )
+        assert expected > 10
+        assert result.detail["redundant_found"] == expected
+        assert result.summary.startswith(f"{expected} of ")
+        assert len(result.detail["examples"]) == 10
+
+
 class TestTheGapTheV2EvalFound:
     """A2: a private-only scoring rule, missed by the battery until a model used it.
 

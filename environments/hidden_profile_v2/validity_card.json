@@ -314,7 +314,7 @@
       "detail": {
         "required_units_checked": 912,
         "redundant_found": 0,
-        "tasks_affected_in_sample": 0,
+        "tasks_affected": 0,
         "examples": []
       }
     },

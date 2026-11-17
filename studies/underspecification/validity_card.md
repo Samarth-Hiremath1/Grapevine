@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 1000–1199
-- Grapevine: `0.2.0` · card hash: `3a1d8ac63d0aaaf6`
+- Grapevine: `0.2.0` · card hash: `b32cf7add940a7a6`
 - Config: `n_agents=3`, `n_distractors=4`, `n_options=4`, `n_private_facts_per_agent=2`, `n_shared_facts=6`
 - Checks: 3 fail, 4 warn, 6 pass
 
@@ -733,7 +733,7 @@
 {
   "required_units_checked": 1200,
   "redundant_found": 0,
-  "tasks_affected_in_sample": 0,
+  "tasks_affected": 0,
   "examples": []
 }
 ```
