@@ -381,20 +381,21 @@ def _view_signature(view: AgentView, answer_space: Sequence[str]) -> dict[str, t
 
 
 def _twin_analysis(ctx: CheckContext) -> dict[str, Any]:
-    """Does one view uniquely determine the answer? Look for indistinguishable twins.
+    """Feature-level twins: do views with the same evidence pattern share an answer?
 
-    Two views are treated as indistinguishable when they have the same evidence
-    structure: the same multiset, over options, of (private support, private
-    mentions, shared support, shared mentions). Option names are assumed
-    exchangeable, and wording, order and length are ignored -- that is the
-    abstraction, and a shortcut through wording would not be seen here.
+    Two views are *feature twins* when they have the same evidence pattern: the
+    same multiset, over options, of (private support, private mentions, shared
+    support, shared mentions). This is indistinguishability at the level of
+    those four counts only. It does not show that the full observations -- the
+    actual text an agent reads -- are indistinguishable: wording, unit order and
+    length differ between feature twins, and a view could determine its answer
+    through them. So this test cannot prove that a view fails to determine the
+    answer; it reports how often the evidence pattern alone leaves it open.
 
-    A view is *certified not to determine* the answer when an indistinguishable
-    instance has a different gold option: either another option in the same view
-    has gold's evidence profile (swap their names and the view is unchanged but
-    the answer differs), or another audited view with the same structure has its
-    gold at a different profile. Otherwise it is unresolved: either it does
-    determine the answer, or no twin was sampled.
+    A view has a *feature twin with a different answer* when another option in
+    the same view has gold's feature profile, or another audited view with the
+    same pattern has its gold option at a different profile. Otherwise its
+    feature twins, if any, all agree, or it has none in the batch.
     """
     Profile = tuple[float, ...]
     signatures: dict[tuple[Profile, ...], set[Profile]] = {}
@@ -411,21 +412,23 @@ def _twin_analysis(ctx: CheckContext) -> dict[str, Any]:
             per_view.append((view.agent_id, canon, gold_profile, within))
     agents: dict[int, dict[str, int]] = {}
     for agent_id, canon, _, within in per_view:
-        row = agents.setdefault(agent_id, {"views": 0, "certified_not_determining": 0,
-                                           "unresolved_with_consistent_twins": 0,
-                                           "unresolved_no_twin": 0})
+        row = agents.setdefault(agent_id, {"views": 0, "feature_twin_with_different_answer": 0,
+                                           "feature_twins_all_same_answer": 0,
+                                           "no_feature_twin": 0})
         row["views"] += 1
         if within or len(signatures[canon]) > 1:
-            row["certified_not_determining"] += 1
+            row["feature_twin_with_different_answer"] += 1
         elif seen[canon] > 1:
-            row["unresolved_with_consistent_twins"] += 1
+            row["feature_twins_all_same_answer"] += 1
         else:
-            row["unresolved_no_twin"] += 1
+            row["no_feature_twin"] += 1
     return {
+        "level": "feature-level only",
         "abstraction": (
-            "views compared by evidence structure: per option (private support, private "
-            "mentions, shared support, shared mentions); names exchangeable; wording, "
-            "order and length ignored"
+            "views compared by evidence pattern: per option (private support, private "
+            "mentions, shared support, shared mentions); option names treated as "
+            "exchangeable; wording, order and length ignored. Feature twins are not "
+            "shown to be indistinguishable as full observations."
         ),
         "per_agent": {str(a): r for a, r in sorted(agents.items())},
     }
@@ -513,11 +516,16 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         gain = full_accuracy - row["chance"]
         row["share_of_pooling_gain"] = row["advantage"] / gain if gain > 0 else None
         # A reliable solo shortcut: the probe commits to one option on enough tasks
-        # and is never wrong when it does. Twenty right commitments by luck has
-        # probability 0.25**20, about 1e-12. Zero tolerance for error, like `leak`.
-        row["never_wrong_when_committed"] = (
-            row.get("commits", 0) >= MIN_TASKS_TO_CLASSIFY
-            and row.get("right_when_committed") == row.get("commits")
+        # and is never wrong when it does. This is evidence of high accuracy when
+        # committing, not certainty: n right out of n is consistent with a true
+        # rate as low as the two-sided 95% Clopper-Pearson bound, 0.025**(1/n)
+        # (83.2% at n = 20). See docs/validity-card.md for the assumptions.
+        commits = row.get("commits", 0)
+        right = row.get("right_when_committed", 0)
+        row["never_wrong_when_committed"] = commits >= MIN_TASKS_TO_CLASSIFY and right == commits
+        row["accuracy_when_committed"] = right / commits if commits else None
+        row["accuracy_when_committed_lower95"] = (
+            0.025 ** (1 / commits) if commits and right == commits else None
         )
     learned_rows = [r for r in rows if r["probe"] == "learned_from_view_ranks"]
     primary = learned_rows[0] if learned_rows else None
@@ -538,7 +546,7 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
             "the least optimistic single-view estimate here. The best of the explicit "
             "probes is biased upwards by being the best of nineteen."
         ),
-        "twin_test": twins,
+        "feature_twin_test": twins,
         "zero_information_diagnostic": {
             "label": "diagnostic only, not a validity requirement",
             "question": "does any probe beat chance at the Bonferroni-corrected alpha?",
@@ -576,9 +584,9 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
         agent = str(worst.get("agent_id", ""))
         twin_row = twins["per_agent"].get(agent) if twins and agent else None
         twin_text = (
-            f" The twin test found an indistinguishable instance with a different answer "
-            f"for {twin_row['certified_not_determining']} of that agent's "
-            f"{twin_row['views']} views." if twin_row else ""
+            f" At the feature level, {twin_row['feature_twin_with_different_answer']} of that "
+            f"agent's {twin_row['views']} views have a twin with a different answer."
+            if twin_row else ""
         )
         return CheckResult(
             "solo_solvability",
@@ -586,8 +594,9 @@ def check_solo_solvability(ctx: CheckContext) -> CheckResult:
             Status.FAIL,
             f"Reliable solo shortcut: from a single view, `{worst['name']}` commits to "
             f"one option on {worst['commits']} of {worst['n']} tasks and is right every "
-            f"time (with everything pooled: {full_accuracy:.0%}). {len(deterministic)} of "
-            f"{len(rows)} probes do this."
+            f"time, so its accuracy when it commits is at least "
+            f"{worst['accuracy_when_committed_lower95']:.1%} (95% interval; with everything "
+            f"pooled: {full_accuracy:.0%}). {len(deterministic)} of {len(rows)} probes do this."
             + twin_text,
             detail,
             ("G6", "P4"),

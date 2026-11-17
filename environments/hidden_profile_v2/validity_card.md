@@ -3,7 +3,7 @@
 ❌ **FAIL** — this environment does not measure what it claims. A coordination result from it would not mean what it says.
 
 - Tasks audited: **200**, seeds 0–199
-- Grapevine: `0.2.0` · card hash: `24f0eabdbe382bcc`
+- Grapevine: `0.2.0` · card hash: `59c582136a4320de`
 - Config: `domains=['hiring', 'vendor', 'site']`, `facts_per_agent=1`, `margin=1`, `n_agents=3`, `n_options=4`, `n_rounds=2`, `pool_sha256=798d96e46481df23d857f769da6905ffa8eba9e01043dc3cc0595248dc3da4ee`, `state_objective=True`, `vary_support=True`
 - Checks: 1 fail, 11 pass
 
@@ -11,7 +11,7 @@
 
 | | Check | Status | Finding |
 |---|---|---|---|
-| ❌ | `solo_solvability` | fail | Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time (with everything pooled: 100%). 10 of 19 probes do this. The twin test found an indistinguishable instance with a different answer for 0 of that agent's 200 views. |
+| ❌ | `solo_solvability` | fail | Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time, so its accuracy when it commits is at least 98.2% (95% interval; with everything pooled: 100%). 10 of 19 probes do this. At the feature level, 0 of that agent's 200 views have a twin with a different answer. |
 | 📏 | `reward_hacking` | measured | No non-pooling team matches pooling (200/200) and the reward pays only for correctness. The best non-pooling team, `always_first_option`, scores 31.5% [25.5%, 38.2%] against 25.0% chance; zero-information diagnostic not rejected at this n. |
 | ✅ | `leak` | pass | In none of 200 tasks does a view name the gold option alone or a single unit settle the task. |
 | ✅ | `full_solvability` | pass | Applying the stated scoring rule to every unit gives the gold answer in 200/200 tasks. |
@@ -29,7 +29,7 @@
 
 ### ❌ `solo_solvability` — Solvability from one agent's view
 
-**fail.** Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time (with everything pooled: 100%). 10 of 19 probes do this. The twin test found an indistinguishable instance with a different answer for 0 of that agent's 200 views.
+**fail.** Reliable solo shortcut: from a single view, `scoring_rule_on_my_private_units[agent 0]` commits to one option on 200 of 200 tasks and is right every time, so its accuracy when it commits is at least 98.2% (95% interval; with everything pooled: 100%). 10 of 19 probes do this. At the feature level, 0 of that agent's 200 views have a twin with a different answer.
 
 *Exists because of G6, P4 in `docs/audit.md`.*
 
@@ -55,7 +55,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -76,7 +78,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -97,7 +101,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -118,7 +124,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -139,7 +147,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -160,7 +170,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -181,7 +193,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -202,7 +216,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -223,7 +239,9 @@
       ],
       "advantage": -0.25,
       "share_of_pooling_gain": -0.333333,
-      "never_wrong_when_committed": false
+      "never_wrong_when_committed": false,
+      "accuracy_when_committed": 0.0,
+      "accuracy_when_committed_lower95": null
     },
     {
       "commits": 200,
@@ -244,7 +262,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 200,
@@ -265,7 +285,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 200,
@@ -286,7 +308,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 200,
@@ -307,7 +331,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 200,
@@ -328,7 +354,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 200,
@@ -349,7 +377,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.981725
     },
     {
       "commits": 55,
@@ -370,7 +400,9 @@
       ],
       "advantage": 0.3875,
       "share_of_pooling_gain": 0.516667,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.935129
     },
     {
       "commits": 55,
@@ -391,7 +423,9 @@
       ],
       "advantage": 0.3875,
       "share_of_pooling_gain": 0.516667,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.935129
     },
     {
       "commits": 55,
@@ -412,7 +446,9 @@
       ],
       "advantage": 0.3875,
       "share_of_pooling_gain": 0.516667,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.935129
     },
     {
       "commits": 300,
@@ -433,7 +469,9 @@
       ],
       "advantage": 0.75,
       "share_of_pooling_gain": 1.0,
-      "never_wrong_when_committed": true
+      "never_wrong_when_committed": true,
+      "accuracy_when_committed": 1.0,
+      "accuracy_when_committed_lower95": 0.987779
     }
   ],
   "chance": 0.25,
@@ -451,26 +489,27 @@
     "n": 300
   },
   "primary_estimate_note": "The learned probe, fitted on half the batch and scored on the other half: the least optimistic single-view estimate here. The best of the explicit probes is biased upwards by being the best of nineteen.",
-  "twin_test": {
-    "abstraction": "views compared by evidence structure: per option (private support, private mentions, shared support, shared mentions); names exchangeable; wording, order and length ignored",
+  "feature_twin_test": {
+    "level": "feature-level only",
+    "abstraction": "views compared by evidence pattern: per option (private support, private mentions, shared support, shared mentions); option names treated as exchangeable; wording, order and length ignored. Feature twins are not shown to be indistinguishable as full observations.",
     "per_agent": {
       "0": {
         "views": 200,
-        "certified_not_determining": 0,
-        "unresolved_with_consistent_twins": 200,
-        "unresolved_no_twin": 0
+        "feature_twin_with_different_answer": 0,
+        "feature_twins_all_same_answer": 200,
+        "no_feature_twin": 0
       },
       "1": {
         "views": 200,
-        "certified_not_determining": 0,
-        "unresolved_with_consistent_twins": 200,
-        "unresolved_no_twin": 0
+        "feature_twin_with_different_answer": 0,
+        "feature_twins_all_same_answer": 200,
+        "no_feature_twin": 0
       },
       "2": {
         "views": 200,
-        "certified_not_determining": 0,
-        "unresolved_with_consistent_twins": 200,
-        "unresolved_no_twin": 0
+        "feature_twin_with_different_answer": 0,
+        "feature_twins_all_same_answer": 200,
+        "no_feature_twin": 0
       }
     }
   },

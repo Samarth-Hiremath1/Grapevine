@@ -18,8 +18,13 @@ Prepared on the `v0.2` branch. Not tagged and not published.
 - The environment protocol: `Environment`, `DistributedTask`, `AgentView`,
   `InfoUnit`, `Objective`, `Condition`, `SeedSplit`, `ScoreResult`, `Scorer`,
   `exact_match`, `support_total`.
-- `hidden_profile_v2`, the default environment, with a committed Validity Card.
-  It fails one check, `solo_solvability`; see "Found by the eval" below.
+- `venue_choice`, the default and supported environment: it passes its audit
+  with a measured single-view advantage, and the eval and RL entry points use it
+  without `--allow-flagged`. It is the environment from
+  `examples/02_write_an_environment.py`, promoted unchanged; a test keeps the
+  two identical.
+- `hidden_profile_v2`, with a committed Validity Card: a documented flawed case
+  study, failing `solo_solvability`; see "Found by the eval" below.
 - `grapevine.rl`: TRL GRPO integration with an audit gate, frozen partners and
   a protocol-native rollout. **Smoke-tested; no training results in this
   release.** `grapevine train`, with `--dry-run` and `--allow-flagged`.
@@ -73,8 +78,9 @@ Prepared on the `v0.2` branch. Not tagged and not published.
   interval, the share of the pooling gain, and the audit's power. `reward_hacking`
   fails only when a non-pooling team matches pooling or the reward pays beyond
   correctness. The strict zero-information test is kept as a labelled diagnostic.
-- A twin test reports, per agent, how many views an indistinguishable instance
-  with a different answer certifies as not determining the answer.
+- A feature-level twin test reports, per agent, how many views have a twin with
+  the same evidence pattern and a different answer. It does not show that full
+  observations are indistinguishable.
 - Specification: `docs/validity-card.md`, including the assumptions under which
   zero single-view information is impossible.
 

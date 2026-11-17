@@ -39,6 +39,7 @@ from grapevine.envs import (
 )
 from grapevine.envs.base import Env, Task
 from grapevine.envs.hidden_profile_v2 import HiddenProfileV2, HiddenProfileV2Config
+from grapevine.envs.venue_choice import VenueChoice
 from grapevine.protocol import (
     AgentView,
     Condition,
@@ -76,6 +77,7 @@ __all__ = [
     "DEFAULT_ENVIRONMENT",
     "HiddenProfileV2",
     "HiddenProfileV2Config",
+    "VenueChoice",
     "get_environment",
     "list_environments",
     "register_environment",

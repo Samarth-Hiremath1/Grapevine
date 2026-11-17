@@ -181,8 +181,9 @@ The clean control and the example show the difference. Their exact
 Bayes-optimal single-view accuracy is 29.8% against 25% chance. Over 40 seed
 ranges each, the zero-information diagnostic rejects on 17 for the control and
 `solo_solvability` reports `measured` on all 40
-(`studies/battery_calibration/README.md`). The twin test certifies, for most
-views, that an indistinguishable instance with a different answer exists.
+(`studies/battery_calibration/README.md`). For most views, the feature-level twin
+test finds a twin with the same evidence pattern and a different answer; that
+is about the pattern, not the full text an agent reads.
 
 `reward_hacking` follows the same rule: a non-pooling team that beats chance is
 a measured advantage, and fails only when it cannot be told apart from pooling
@@ -231,11 +232,12 @@ part is what makes a check possible:
 - **`conditions()`**, optional, to enable `objective` and `condition_diff`.
 - **`seed_split()`**, optional, so an RL user cannot train on eval seeds.
 
-`grapevine/envs/hidden_profile_v2.py` is the bundled environment, with each
-design choice traced to the finding it answers; its card is
-`environments/hidden_profile_v2/validity_card.md`. It passed all thirteen checks
-when it was built, and fails `solo_solvability` since the probe added after its
-eval (A2, below).
+`grapevine/envs/venue_choice.py` is the supported environment; it passes, with
+a measured single-view advantage, and its card is
+`environments/venue_choice/validity_card.md`. `grapevine/envs/hidden_profile_v2.py`
+is a documented flawed case study: it passed all thirteen checks when it was
+built, and fails `solo_solvability` since the probe added after its eval (A2,
+below).
 `tests/fixtures/flawed_envs/__init__.py` is a smaller worked example, and
 `grapevine/envs/adapters.py` shows how an environment that predates the protocol
 is wrapped rather than rewritten.

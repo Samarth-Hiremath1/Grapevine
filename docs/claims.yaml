@@ -228,6 +228,10 @@ claims:
      source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
   - {id: spec.bound, file: docs/validity-card.md, template: "single-view accuracy, {bayes:.1%}, is computed",
      source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: spec.shortcut.lower20, file: docs/validity-card.md, template: "as low as {lower_20:.1%} (the two-sided 95% Clopper-Pearson bound",
+     source: {call: "studies.claims_sources:shortcut_rule_bounds"}}
+  - {id: spec.shortcut.lower200, file: docs/validity-card.md, template: "at 200 commitments, {lower_200:.1%})",
+     source: {call: "studies.claims_sources:shortcut_rule_bounds"}}
   # --- Spend ------------------------------------------------------------------
   - {id: progress.spend, file: docs/PROGRESS.md, template: "**Spend:** ${value:.4f} cumulative. $0.00 this step.",
      source: {call: "studies.v2_eval.run:committed_spend"}}

@@ -626,3 +626,35 @@ fail (reliable solo shortcut); clean control and example measured.
 GitHub CI has not run.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+---
+
+## Release corrections before the v0.1.0 PR
+
+*2026-11-17. Branches `v0.2` and `audit/pre-publication`. No API calls.*
+
+**Done**
+
+- The twin test is now the *feature-level* twin test: matching evidence
+  patterns is not shown to make full observations indistinguishable, and the
+  card, the spec and the docs say so. Field names changed accordingly. (The
+  previous entry's "certifies" overstated it.)
+- The reliable-shortcut rule's statistics are stated with their assumptions: the
+  0.25²⁰ figure holds only for an uninformative probe with a uniform answer and
+  independent tasks; a union bound over 19 probes gives about 1.7×10⁻¹¹ per
+  audit; against a partly informative probe, 20 of 20 bounds the accuracy when
+  committing only to at least 83.2% (95%), which the card now reports.
+- `venue_choice`, the example's environment promoted unchanged, is the default
+  and supported environment. It passes its audit on four disjoint seed ranges,
+  its card is committed and regenerated in CI, and training, the dry run and
+  evaluation use it without `--allow-flagged`; `hidden_profile_v2` is still
+  refused. v0 and v2 stay as documented flawed case studies.
+- README links are absolute, and a test requires each to name a real file.
+- The release checklist's rule: no merge, tag, release, upload or announcement
+  without green GitHub CI on that exact commit and Samarth's approval of that
+  step.
+- `audit/pre-publication` gained `cdf828d`, the same surfacing-label
+  correction as `v0.2`, before the v0.1.0 PR was opened, so the v0.1.0 tag would
+  not carry "hand labels". A trial merge of it into `v0.2` is clean.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.

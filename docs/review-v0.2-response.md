@@ -79,8 +79,9 @@ control's exact best single-view accuracy is 29.8% against 25% chance.
 commits on at least 20 tasks and is never wrong) from a measured advantage
 (`measured`, with an interval, the share of the pooling gain and the audit's
 power) and from too little evidence (`inconclusive`). The strict
-zero-information test is kept as a labelled diagnostic. A twin test checks, at
-the level of the evidence structure, whether views determine the answer. Over 40
+zero-information test is kept as a labelled diagnostic. A feature-level twin
+test reports how often a view's evidence pattern leaves the answer open; it does
+not show that full observations are indistinguishable. Over 40
 seed ranges the control is `measured` on all 40, though the diagnostic rejects
 on 17.
 

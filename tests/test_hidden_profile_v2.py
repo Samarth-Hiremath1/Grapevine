@@ -322,11 +322,12 @@ class TestAuditPasses:
         card = audit(get_environment("hidden_profile_v2"), n_tasks=200, seed=seed)
         assert card.flagged_checks == ("solo_solvability",), card.flagged_checks
 
-    def test_is_registered_and_is_the_default(self) -> None:
+    def test_is_registered_but_not_the_default(self) -> None:
+        """Kept as a documented flawed case study; venue_choice is the default."""
         from grapevine.envs import DEFAULT_ENVIRONMENT
 
         assert "hidden_profile_v2" in ENVIRONMENTS
-        assert DEFAULT_ENVIRONMENT == "hidden_profile_v2"
+        assert DEFAULT_ENVIRONMENT == "venue_choice"
 
     def test_the_committed_card_matches_a_fresh_audit(self) -> None:
         """The card in environments/ is regenerated in CI; this catches drift

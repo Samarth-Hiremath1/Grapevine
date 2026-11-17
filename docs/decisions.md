@@ -488,7 +488,11 @@ three classes: a confirmed shortcut (`fail`), a measured advantage
 The rules carry no tolerance on the size of an advantage. "Reliable solo
 shortcut" is a probe that commits to one option on at least 20 tasks and is
 never wrong, a zero tolerance for error; 20 is a floor on evidence, chosen so
-that luck is negligible (0.25²⁰). The first version of the rule required a probe
+that luck is negligible for an uninformative probe (0.25²⁰). *Restated
+2026-11-17:* that figure assumes no information, a uniform answer and
+independent tasks, and a union bound over 19 probes gives about 1.7×10⁻¹¹ per
+audit; against a partly informative probe, 20 of 20 bounds the accuracy when
+committing only to at least 83.2% (95%). `docs/validity-card.md`. The first version of the rule required a probe
 right on *every* task, and missed the `solo_solvable` fixture, whose agents
 sometimes hold nothing; the commit-and-never-wrong rule catches it.
 

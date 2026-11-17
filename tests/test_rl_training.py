@@ -84,21 +84,21 @@ def test_smoke_config_runs_two_steps_and_writes_a_manifest(tmp_path: Path) -> No
     path = tmp_path / "smoke.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
 
-    manifest = train(path, allow_flagged=True)
+    manifest = train(path)
 
     assert manifest["global_step"] == 2
     assert manifest["n_episodes_played"] > 0
     assert manifest["synthetic"] is True
     assert manifest["reportable"] is False
     assert manifest["partners_frozen"] is True
-    # v2 fails solo_solvability (docs/audit.md, A2). The smoke run is plumbing,
-    # never a result, and the override is recorded rather than silent.
-    assert manifest["audit_gate"]["passed"] is False
-    assert manifest["audit_gate"]["allowed_flagged"] is True
-    assert manifest["audit_gate"]["flagged_checks"] == ["solo_solvability"]
+    # venue_choice passes its audit, so the normal path needs no override.
+    assert manifest["audit_gate"]["passed"] is True
+    assert manifest["audit_gate"]["allowed_flagged"] is False
+    assert manifest["audit_gate"]["flagged_checks"] == []
     for key in ("model", "seed", "environment", "reward", "partners"):
         assert key in manifest, key
-    assert manifest["environment"]["version"] == "2"
+    assert manifest["environment"]["name"] == "venue_choice"
+    assert manifest["environment"]["version"] == "1"
     assert len(manifest["audit_gate"]["card_hash"]) == 64
     assert manifest["provenance_start"]["libraries"]["trl"].startswith("1.18")
 
@@ -108,7 +108,7 @@ def test_smoke_config_runs_two_steps_and_writes_a_manifest(tmp_path: Path) -> No
 
 def test_frozen_partners_are_unchanged_after_an_optimizer_step(tmp_path: Path) -> None:
     config = _config(tmp_path, kind="frozen")
-    ctx = prepare(config, allow_flagged=True)
+    ctx = prepare(config)
     trainer = build_trainer(ctx, extra_reward_funcs=[_varied_reward])
     partner = ctx.partner
     assert isinstance(partner, HFClient)
@@ -145,7 +145,7 @@ def test_the_v0_bug_would_be_caught(tmp_path: Path) -> None:
     not, the test above would be unable to detect the bug it exists for.
     """
     config = _config(tmp_path, kind="scripted")
-    ctx = prepare(config, allow_flagged=True)
+    ctx = prepare(config)
     trainer = build_trainer(ctx, extra_reward_funcs=[_varied_reward])
     shared = HFClient(trainer.model, trainer.processing_class, frozen=False)
 
@@ -171,7 +171,7 @@ def test_lora_trains_only_the_adapter_and_leaves_the_partner_alone(tmp_path: Pat
     config = dataclasses.replace(
         config, lora=LoraSettings(r=4, alpha=8, dropout=0.0, target_modules=("q_proj", "v_proj"))
     )
-    ctx = prepare(config, allow_flagged=True)
+    ctx = prepare(config)
     trainer = build_trainer(ctx, extra_reward_funcs=[_varied_reward])
     assert ctx.policy is not None and ctx.policy.lm is trainer.model  # type: ignore[attr-defined]
     trainable = [n for n, p in trainer.model.named_parameters() if p.requires_grad]
@@ -196,7 +196,7 @@ def test_self_play_is_recorded_as_not_frozen(tmp_path: Path) -> None:
     path = tmp_path / "self.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
 
-    manifest = train(path, allow_flagged=True)
+    manifest = train(path)
     assert manifest["mode"] == "self_play"
     assert manifest["partners_frozen"] is False
     assert manifest["trainable_agents"] == [0, 1, 2]

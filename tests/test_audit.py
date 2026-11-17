@@ -612,17 +612,18 @@ class TestClassification:
             result = audit(get_environment(name), n_tasks=N, seed=0).get("solo_solvability")
             assert result.status is Status.FAIL, name
             assert result.summary.startswith("Reliable solo shortcut")
-            # No indistinguishable instance with a different answer was found.
-            assert result.detail["twin_test"]["per_agent"]["0"]["certified_not_determining"] == 0
+            # At the feature level, no view has a twin with a different answer.
+            assert result.detail["feature_twin_test"]["per_agent"]["0"]["feature_twin_with_different_answer"] == 0
 
     def test_the_control_is_a_measured_advantage(self) -> None:
         result = audit(CLEAN_CONTROL, n_tasks=N, seed=0).get("solo_solvability")
         assert result.status is Status.MEASURED
-        twins = result.detail["twin_test"]["per_agent"]
+        twins = result.detail["feature_twin_test"]["per_agent"]
+        assert result.detail["feature_twin_test"]["level"] == "feature-level only"
         for agent in ("0", "1", "2"):
-            # Most views provably do not determine the answer: an indistinguishable
-            # instance with a different gold option exists.
-            assert twins[agent]["certified_not_determining"] > 0.8 * twins[agent]["views"]
+            # For most views, the evidence pattern alone leaves the answer open: a
+            # feature twin with a different gold option exists. Feature-level only.
+            assert twins[agent]["feature_twin_with_different_answer"] > 0.8 * twins[agent]["views"]
         estimate = result.detail["primary_estimate"]
         for key in ("accuracy", "ci95", "advantage", "share_of_pooling_gain", "n"):
             assert key in estimate

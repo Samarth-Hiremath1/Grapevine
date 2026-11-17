@@ -24,10 +24,14 @@ parts that went against the plan.
   ([`docs/audit-battery.md`](docs/audit-battery.md)).
 - **The environment protocol**, and a complete example environment in one file
   that passes on its eval seeds ([`examples/`](examples/README.md)).
-- **`hidden_profile_v2`**, the default environment. It passed the battery when
-  it was built. The eval below found a shortcut the battery had no probe for,
-  and it now fails `solo_solvability`. Its generator is frozen because committed
-  runs depend on it, so the failure stays on its card.
+- **`venue_choice`**, the default and supported environment. It passes its
+  audit with a measured single-view advantage, and training and evaluation use
+  it without `--allow-flagged`. It is the example environment, promoted
+  unchanged.
+- **`hidden_profile_v2`**, a documented flawed case study. It passed the battery
+  when it was built. The eval below found a shortcut the battery had no probe
+  for, and it now fails `solo_solvability`. Its generator is frozen because
+  committed runs depend on it, so the failure stays on its card.
 - **`grapevine.rl`**: TRL GRPO with an audit gate, frozen partners proven
   unchanged after an optimiser step, and a protocol-native rollout. **GRPO
   integration, smoke-tested; no training results in this release.** The gate

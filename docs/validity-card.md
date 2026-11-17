@@ -28,8 +28,9 @@ of three things:
 
 - **`fail` -- a confirmed shortcut.**
   - `solo_solvability`: some probe, on one agent's view, commits to a single
-    option on at least 20 tasks and is never wrong when it does. Twenty right
-    commitments by luck has probability 0.25²⁰, about 10⁻¹².
+    option on at least 20 tasks and is never wrong when it does. How certain
+    that is, and what it does and does not mean, is below under "How sure is a
+    reliable shortcut?".
   - `reward_hacking`: a non-pooling team cannot be distinguished from pooling,
     or the reward pays for something other than being right.
   - Deterministic answer leakage -- one unit that settles a task, or a view that
@@ -45,6 +46,39 @@ on evidence or a zero tolerance for error, not a tolerance on how large an
 advantage may be. The card does not decide whether a measured advantage is
 acceptable: that depends on what pooling adds, which it reports alongside.
 
+### How sure is a reliable shortcut?
+
+The rule detects a probe that commits to one option on at least 20 tasks and is
+never wrong. Two different questions are worth separating.
+
+**Could an uninformative probe do this by luck?** Only if every assumption here
+holds is the answer "almost never":
+
+- the probe's committed choice is independent of which option is gold (the
+  null of no information);
+- the gold option is uniform over `m` options, so a committed guess is right with
+  probability `1/m` -- `balance` tests this, and a skewed answer order breaks it;
+- commitments on different tasks are independent -- true here, because each task
+  is generated from its own seed, but not for a hand-built task set with
+  near-duplicates.
+
+Then 20 right commitments has probability `(1/m)²⁰`, about 9×10⁻¹³ for four
+options. `solo_solvability` runs 19 probes, three of which see the same tasks
+through different agents; a union bound, which needs no independence between
+probes, gives at most 19 × 0.25²⁰ ≈ 1.7×10⁻¹¹ per audit. Repeated audits add
+their own terms.
+
+**Does it mean the shortcut is perfect?** No. Environments of the kind in
+"Why zero information is a diagnostic" are never uninformative, so the relevant
+comparison is a probe with *some* information, not none. Twenty right out of
+twenty is consistent with a true accuracy-when-committing as low as 83.2% (the
+two-sided 95% Clopper-Pearson bound, `0.025^(1/20)`; at 200 commitments, 98.2%).
+The card reports this bound for every such probe as
+`accuracy_when_committed_lower95`, and the `fail` summary quotes it. So
+"reliable" means *right whenever it commits, on enough tasks that its accuracy
+when committing is high with 95% confidence* -- not certainly perfect, and not
+necessarily on every task, since a probe may decline to commit.
+
 ### What `solo_solvability` reports
 
 | Field | What it is |
@@ -52,7 +86,7 @@ acceptable: that depends on what pooling adds, which it reports alongside.
 | `primary_estimate` | The learned probe, fitted on half the batch and scored on the other half, pooled over agents: accuracy, 95% Wilson interval, advantage over chance, share of the pooling gain, n. The least optimistic estimate here. |
 | `probes` | Each of six explicit probes per agent, and the learned probe: accuracy, interval, advantage, share of pooling gain, commitments and how many were right, and its p-value against chance. A k-way tie containing the gold option scores 1/k. |
 | `full_information_accuracy` | How often the stated rule reaches the answer with everything pooled. |
-| `twin_test` | Per agent: views certified not to determine the answer, views with consistent twins, views with no twin (below). |
+| `feature_twin_test` | Per agent: views with a feature twin that has a different answer, views whose feature twins all agree, views with no feature twin (below). Feature-level only. |
 | `zero_information_diagnostic` | Whether any probe beats chance at the Bonferroni-corrected alpha. **Diagnostic only.** |
 | `minimum_detectable_accuracy` | The lowest true single-view accuracy a per-agent probe that commits to one option detects with 80% power at this n. The diagnostic's power. |
 | `rule` | The classification rule above, in words. |
@@ -60,22 +94,24 @@ acceptable: that depends on what pooling adds, which it reports alongside.
 The best explicit probe is the best of nineteen and is biased upwards. Report
 `primary_estimate` when quoting one number.
 
-### The twin test
+### The feature-level twin test
 
-*Does a single view uniquely determine the answer?* Two views count as
-indistinguishable when they have the same evidence structure: the same
-multiset, over options, of (private support, private mentions, shared support,
-shared mentions). A view is **certified not to determine** the answer when an
-indistinguishable instance has a different gold option: another option in the
-same view has gold's profile, so swapping their names leaves the view
-unchanged but moves the answer; or another audited view with the same structure
-has its gold elsewhere. Otherwise the view is unresolved, either because it does
-determine the answer or because no twin was sampled; the card says which of the
-two the audited views could tell apart.
+*Does the evidence pattern of one view pin down the answer?* Two views are
+**feature twins** when they have the same evidence pattern: the same multiset,
+over options, of (private support, private mentions, shared support, shared
+mentions). A view has a **feature twin with a different answer** when another
+option in the same view has gold's profile, or another audited view with the
+same pattern has its gold option elsewhere. Otherwise its feature twins all
+agree, or it has none in the batch.
 
-Its assumptions, stated rather than hidden: option names are exchangeable in the
-generator, and wording, unit order and text length carry no information. A
-shortcut through wording is invisible to this test, and to the learned probe.
+**What it does not show.** Feature twins are not indistinguishable
+observations. The text an agent actually reads -- wording, the order of units,
+their length -- differs between feature twins, and nothing here checks that it
+carries no information. So a feature twin with a different answer means the
+evidence *pattern* leaves the answer open; it does not prove the full view
+does. Conversely, feature twins that all agree are consistent with a view that
+determines its answer, not proof of one. The test is reported as evidence
+alongside the probes and never decides a status on its own.
 
 ## Why zero information is a diagnostic, not a requirement
 
@@ -139,8 +175,9 @@ power, and the status is decided by whether a shortcut is confirmed.
   objective, a lenient scorer, and the other checks in `docs/audit-battery.md`.
 - How much one agent, or a team that does not pool, can do, with an interval
   and the audit's power to detect more.
-- That most views do not determine the answer, when the twin test certifies
-  them, at the level of the evidence structure.
+- How often the evidence pattern of a view, at the level of four counts per
+  option, leaves the answer open (the feature-level twin test). Not that the
+  full view does.
 
 ## What it cannot establish
 
@@ -161,7 +198,7 @@ power, and the status is decided by whether a shortcut is confirmed.
 |---|---|---|
 | Significance for "beats chance" | 0.05, Bonferroni-corrected within a check | `family_alpha` |
 | Minimum tasks to classify `solo_solvability`, `reward_hacking` | 20 | `MIN_TASKS_TO_CLASSIFY` |
-| Reliable solo shortcut | at least 20 commitments, none wrong | `check_solo_solvability` |
+| Reliable solo shortcut | at least 20 commitments, none wrong (accuracy when committing ≥ 83.2% at 95% when exactly 20) | `check_solo_solvability` |
 | Leak tolerance | 0 tasks | `check_leak` |
 | Power reported | 80% | `minimum_detectable_accuracy` |
 | "Indistinguishable from pooling" | 0.05, not corrected | `check_reward_hacking` |

@@ -18,12 +18,14 @@ and is only needed for `grapevine train`.
 
 ```bash
 grapevine envs                               # what is bundled
-grapevine audit hidden_profile_v2            # card to stdout
-grapevine audit hidden_profile_v2 --out cards/
+grapevine audit venue_choice                 # the supported environment, card to stdout
+grapevine audit venue_choice --out cards/
+grapevine audit hidden_profile_v2            # a documented flawed case study
 ```
 
 The exit code is 0 when no check failed and 2 when one did, so an audit can
-gate CI. `hidden_profile_v2` currently exits 2: it fails `solo_solvability`
+gate CI. `venue_choice` exits 0 with a measured single-view advantage;
+`hidden_profile_v2` exits 2, a reliable solo shortcut
 (see [A2](audit.md#a2-a1-was-closed-for-name-counts-only-and-a-model-found-the-rest)).
 
 From Python:
@@ -31,7 +33,7 @@ From Python:
 ```python
 from grapevine import audit, get_environment
 
-env = get_environment("hidden_profile_v2")
+env = get_environment("venue_choice")
 card = audit(env, n_tasks=200, seed=env.seed_split().eval.start)
 print(card.verdict, card.flagged_checks)
 print(card.to_markdown())

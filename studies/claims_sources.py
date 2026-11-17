@@ -60,3 +60,19 @@ def control_first_option_1200() -> dict[str, Any]:
     rows = audit(CLEAN_CONTROL, n_tasks=200, seed=1200).get("shortcuts").detail["shortcuts"]
     row = next(r for r in rows if r["name"] == "first_option")
     return {"n_correct": row["n_correct"], "n": row["n"]}
+
+
+def shortcut_rule_bounds() -> dict[str, float]:
+    """The statistics behind the reliable-shortcut rule (``docs/validity-card.md``).
+
+    Returns:
+        dict[str, float]: Chance of 20 lucky commitments, its union bound over 19
+        probes, and the two-sided 95% Clopper-Pearson lower bound on accuracy
+        when committing, for 20 and 200 right out of as many.
+    """
+    return {
+        "luck_20": 0.25 ** 20,
+        "union_19": 19 * 0.25 ** 20,
+        "lower_20": 0.025 ** (1 / 20),
+        "lower_200": 0.025 ** (1 / 200),
+    }

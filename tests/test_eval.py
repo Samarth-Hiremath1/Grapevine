@@ -92,11 +92,16 @@ def test_cli_train_dry_run_needs_no_model(tmp_path: Path, capsys) -> None:  # ty
     config["output_dir"] = str(tmp_path / "out")
     path = tmp_path / "c.yaml"
     path.write_text(yaml.safe_dump(config), encoding="utf-8")
-    # v2 is flagged (docs/audit.md, A2): without the override the gate refuses.
-    assert main(["train", str(path), "--dry-run"]) == 2
-    assert main(["train", str(path), "--dry-run", "--allow-flagged"]) == 0
+    # The shipped config uses venue_choice, which passes: no override needed.
+    assert main(["train", str(path), "--dry-run"]) == 0
     assert '"dry_run": true' in capsys.readouterr().out
     assert (tmp_path / "out" / "manifest.json").exists()
+    # The same config on hidden_profile_v2 is refused without the override.
+    config["environment"]["name"] = "hidden_profile_v2"
+    config["output_dir"] = str(tmp_path / "v2")
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    assert main(["train", str(path), "--dry-run"]) == 2
+    assert main(["train", str(path), "--dry-run", "--allow-flagged"]) == 0
 
 
 def test_cli_train_refuses_a_flagged_reward(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]

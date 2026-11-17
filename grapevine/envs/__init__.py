@@ -8,6 +8,7 @@ from grapevine.envs.base import Env, Task
 from grapevine.envs.hidden_profile import HiddenProfileConfig, HiddenProfileEnv
 from grapevine.envs.hidden_profile_v2 import HiddenProfileV2, HiddenProfileV2Config
 from grapevine.envs.split_evidence import SplitEvidenceConfig, SplitEvidenceEnv
+from grapevine.envs.venue_choice import VenueChoice
 from grapevine.protocol import Environment
 
 #: Registry mapping a family name to its ``(Env, Config)`` classes. Only
@@ -41,17 +42,18 @@ UNREGISTERED: dict[str, str] = {
 #: audit's job is to say so, not to hide them. What :data:`UNREGISTERED` governs
 #: is whether an environment may be *run* to produce results.
 ENVIRONMENTS: dict[str, Callable[[], Environment]] = {
+    "venue_choice": VenueChoice,
     "hidden_profile_v2": HiddenProfileV2,
     "hidden_profile": HiddenProfileV1,
     "split_evidence": SplitEvidenceV1,
 }
 
-#: The environment to reach for unless you have a reason not to: the one with
-#: the fewest known flaws. It fails one check, ``solo_solvability``, found after
-#: its eval (``docs/audit.md``, A2). ``hidden_profile`` is kept because the committed case
-#: study is built on it and because an auditable example of a flawed environment
-#: is worth having; ``split_evidence`` is kept as a worked negative example.
-DEFAULT_ENVIRONMENT = "hidden_profile_v2"
+#: The supported environment: it passes its audit, with a measured single-view
+#: advantage, and the evaluation and RL entry points use it without
+#: ``--allow-flagged``. ``hidden_profile_v2`` (a reliable solo shortcut, A2) and
+#: ``hidden_profile`` (the v0 study's environment) are kept as documented case
+#: studies of flawed environments; ``split_evidence`` as a worked negative example.
+DEFAULT_ENVIRONMENT = "venue_choice"
 
 
 def get_environment(name: str) -> Environment:
@@ -109,6 +111,7 @@ def unavailable_reason(family: str) -> str | None:
 
 
 __all__ = [
+    "VenueChoice",
     "DEFAULT_ENVIRONMENT",
     "ENVIRONMENTS",
     "HiddenProfileV2",

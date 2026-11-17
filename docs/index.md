@@ -11,7 +11,7 @@ a Validity Card: thirteen checks, offline, no API key, about a second on 200
 tasks.
 
 ```bash
-grapevine audit hidden_profile_v2
+grapevine audit venue_choice
 ```
 
 ## Why it exists
@@ -32,7 +32,8 @@ Both are in the record, with the numbers that went with them.
 | | Status |
 |---|---|
 | `grapevine audit` and the Validity Card | Tested against planted flaws; has [known gaps](audit-battery.md#known-gaps) |
-| `hidden_profile_v2` | Bundled; fails one check, `solo_solvability`, found by its own eval |
+| `venue_choice` | The supported environment; passes, with a measured single-view advantage |
+| `hidden_profile_v2` | A documented flawed case study; fails `solo_solvability`, found by its own eval |
 | `grapevine.rl` (TRL GRPO) | **GRPO integration, smoke-tested; no training results in this release.** |
 | The v0 case study | Audited and reproducible from committed runs |
 | A pre-registered eval on `hidden_profile_v2` | Run once, $1.28; [read against its pre-registration](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/v2_eval/README.md) |

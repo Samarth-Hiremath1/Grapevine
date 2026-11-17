@@ -22,6 +22,8 @@ Anything else may change in any release.
 
 ::: grapevine.envs
 
+::: grapevine.envs.venue_choice
+
 ::: grapevine.envs.hidden_profile_v2
 
 ## Claims

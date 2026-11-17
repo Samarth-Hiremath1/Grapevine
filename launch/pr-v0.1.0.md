@@ -1,7 +1,8 @@
 # PR draft: `audit/pre-publication` → `main`, tag `v0.1.0`
 
-Not opened. This is the body to paste, plus the commands to run. I do not push
-to `main` or create tags (`CLAUDE.md` rule 10).
+Opened on 2026-11-17 with Samarth's approval to prepare and open it. Merging
+it and tagging `v0.1.0` each need his separate approval, and green GitHub CI
+on the commit being merged (`CLAUDE.md` rule 10, `launch/release-checklist.md`).
 
 ```bash
 # Open the PR (review the body first).
@@ -20,9 +21,10 @@ unpublished at `0.0.1`. `v0.1.0` gives the corrected write-up a citable point
 before `v0.2` turns the audit into a tool. Semantic versioning on the package
 starts at `0.2.0`, when there is a public API to be stable about.
 
-**Scope check:** this PR does not include the `v0.2` branch's work. It is the 16
-commits already on `audit/pre-publication` as of `7fdc544`. Merge this first;
-`v0.2` rebases onto the result.
+**Scope check:** this PR does not include the `v0.2` branch's work. It is the 17
+commits on `audit/pre-publication` as of `cdf828d`: the 16 reviewed earlier, and
+one correction made before opening (below). Merge this first; `v0.2` merges
+onto the result cleanly (checked with a trial merge).
 
 ---
 
@@ -112,9 +114,20 @@ being run.
 - No training results. The GRPO wiring has only ever run a 2-step CPU smoke
   test.
 
+## A correction made before opening
+
+The audit described the 40 labels behind the surfacing metric's precision and
+recall as hand labels made by one person. The transcript of the session that
+made them shows they were made by the assistant model, with no person labelling
+or reviewing them; the metric's verdict was hidden per pair, and messages were
+shown truncated to 420 characters. `cdf828d` corrects every description and adds
+`docs/audit_surfacing_labels.md`. No number changes: the precision and recall
+are now described as agreement with one model's judgement.
+
 ## Checks
 
-- 87 passed, 1 skipped. `ruff` clean. `mypy --strict` clean.
+- 87 passed, 1 skipped. `ruff` clean. `mypy --strict` clean. (Run locally on
+  `cdf828d`; GitHub CI runs on this PR.)
 - One command rebuilds every table and the figure from the committed runs, with
   no API calls, and CI fails if any generated file changes.
 - Task content regenerates byte-for-byte from its seed: 0 of 200 mismatches

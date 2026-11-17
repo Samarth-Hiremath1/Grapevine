@@ -1,9 +1,13 @@
 # Release checklist: v0.1.0, then v0.2.0 — for Samarth's approval
 
-Nothing here has been done. Every step is yours to run (`CLAUDE.md` rule 10:
-no pushing to `main`, no tags, no PyPI, no posts by anyone else). Each step
-says what it depends on. **Nothing is published until GitHub CI is green on
-the exact commit being released.**
+**The rule for every step below.** No merge, no tag, no GitHub release, no PyPI
+upload and no announcement happens unless (a) every GitHub CI job has passed
+on the exact commit concerned, and (b) Samarth has approved that specific
+step. A red, pending, cancelled or partial run means stop. CI passing elsewhere,
+or locally, does not count.
+
+Done so far: the v0.1.0 PR is opened (step 1), with Samarth's approval to
+prepare and open it. Nothing has been merged, tagged, published or announced.
 
 ## 0. Decisions to approve before anything is pushed
 
@@ -12,16 +16,21 @@ the exact commit being released.**
       `inconclusive` below 20 tasks. Approve, or say what to change.
 - [ ] The label correction: the 40 v0 surfacing labels are model labels
       (`docs/audit_surfacing_labels.md`). Approve the wording.
-- [ ] The README's relative links will not resolve on PyPI (step 6). Decide how
-      to handle them.
+- [ ] `venue_choice` as the default and supported environment, with v0 and
+      `hidden_profile_v2` kept as documented flawed case studies.
+- [x] README links: now absolute, on `main`; a test requires every one to point
+      at a file in the repository. They resolve once `v0.2` is merged.
 
 ## 1. v0.1.0: the audited case study
 
-1. Review and open the PR in `pr-v0.1.0.md` (`audit/pre-publication` → `main`).
-2. **CI gate.** Wait for the PR's checks to pass on GitHub. If any fails, stop
-   and fix on the branch; do not merge red.
-3. Merge, then tag `v0.1.0` on `main` with the commands in that file. No PyPI
-   upload for v0.1.0.
+1. ~~Open the PR in `pr-v0.1.0.md`~~ — opened 2026-11-17, head `cdf828d`, which
+   adds the surfacing-label correction to the 16 reviewed commits.
+2. **CI gate.** Every check on the PR must pass on its head commit. If any fails,
+   stop and fix on `audit/pre-publication`; do not merge red. The branch's
+   workflow is the older one (one `lint-and-test` job, unpinned `trl>=0.11`).
+3. **With separate approval:** merge, then tag `v0.1.0` on `main` with the
+   commands in that file, only once CI on the merge commit on `main` is green.
+   No PyPI upload for v0.1.0.
 
 ## 2. v0.2: push the branch and open the PR
 
@@ -53,11 +62,9 @@ gh pr create --base main --head v0.2 \
 
 Depends on 2 merged with CI green.
 
-6. **README links.** The README is the PyPI long description; its relative links
-   and figure do not resolve on PyPI. Rewrite them to absolute
-   `https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2.0/...` URLs, or
-   point `readme` at a short PyPI-specific file. That change goes through a PR
-   and its own green CI run.
+6. **README links.** Already absolute (`blob/main/...`, `raw.githubusercontent.com`
+   for the figure), and tested to point at real files. After the merge, open
+   two or three on GitHub to confirm they resolve.
 7. **Trusted publishing.** On PyPI, add a pending trusted publisher for
    `grapevine-mas`: this repository, workflow `release.yml`, environment `pypi`.
    On GitHub, create the environment `pypi` with yourself as a required
@@ -100,5 +107,6 @@ Stated in the docs; none blocks the release, but each should be known:
 - The condition prompts' layout is not audited; `hidden_profile_v2`'s
   full-information prompt carries a cue.
 - Every fixture was written by the author of the checks.
-- `hidden_profile_v2` fails its own audit (a reliable solo shortcut), so the
-  GRPO configs need `--allow-flagged`; there are no training results.
+- `hidden_profile_v2` and v0 `hidden_profile` fail their audits and are shipped
+  as documented case studies; the GRPO configs use `venue_choice`, which passes.
+  There are no training results.

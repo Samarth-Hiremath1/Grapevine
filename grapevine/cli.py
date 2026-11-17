@@ -327,7 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Hub id or local path (a PEFT adapter directory works), or 'scripted'",
     )
-    p_eval.add_argument("--env", default="hidden_profile_v2", help="environment name")
+    p_eval.add_argument("--env", default="venue_choice", help="environment name")
     p_eval.add_argument(
         "--split", default="eval", choices=("eval", "pilot"), help="held-out seed range"
     )

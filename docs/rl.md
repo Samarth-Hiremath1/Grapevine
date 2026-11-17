@@ -162,9 +162,11 @@ parse failures and mean reward — and, on exactly the same tasks, the baselines
 policy has to beat: chance, the best content-blind shortcut the audit knows, a
 team that discusses only common ground, and a team that never talks.
 
-On `hidden_profile_v2` every baseline sits at or below chance by construction,
-which makes its eval split the shortcut-removed probe: a policy cannot score
-there by counting names or trusting the majority. On v0 `hidden_profile` the same
+On `venue_choice`, the supported environment, a team that never talks scores
+above chance, because some single view always leans towards the answer
+(`docs/validity-card.md`); that baseline, not chance, is what a policy has to
+beat. `hidden_profile_v2` is not a fair probe: one agent can answer from its own
+private facts, which no baseline here tries. On v0 `hidden_profile` the same
 report would have shown a content-blind shortcut at 100%, which is the number
 any trained policy would have had to beat for its score to mean anything.
 
