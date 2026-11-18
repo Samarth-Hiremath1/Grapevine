@@ -26,11 +26,13 @@ prepare and open it. Nothing has been merged, tagged, published or announced.
 1. ~~Open the PR in `pr-v0.1.0.md`~~ — opened 2026-11-17 as
    https://github.com/Samarth-Hiremath1/Grapevine/pull/1, head `cdf828d`, which
    adds the surfacing-label correction to the 16 reviewed commits.
-   **CI status: not run.** Its only job, `lint-and-test` (run 44205827782),
-   was not started: GitHub reports "your account is locked due to a billing
-   issue". Resolve the billing lock in the account's Billing settings, then
-   re-run the job; nothing here can proceed until it is green.
-2. **CI gate.** Every check on the PR must pass on its head commit. If any fails,
+   **CI status: green on `cdf828d`.** Its only job, `lint-and-test` (run
+   44205827782), was blocked for attempts 1–3 by a GitHub account billing lock
+   ("your account is locked due to a billing issue"); no step ran. Attempt 4,
+   on 2026-11-18 after the lock was lifted, passed every step, including the
+   unpinned training-extra install and the CPU GRPO smoke test:
+   https://github.com/Samarth-Hiremath1/Grapevine/actions/runs/44205827782/job/134662980159
+2. ~~**CI gate.**~~ Met on `cdf828d` (item 1). **CI gate.** Every check on the PR must pass on its head commit. If any fails,
    stop and fix on `audit/pre-publication`; do not merge red. The branch's
    workflow is the older one (one `lint-and-test` job, unpinned `trl>=0.11`).
 3. **With separate approval:** merge, then tag `v0.1.0` on `main` with the

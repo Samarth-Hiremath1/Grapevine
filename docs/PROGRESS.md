@@ -663,3 +663,14 @@ GitHub CI has not run.
 https://github.com/Samarth-Hiremath1/Grapevine/pull/1 (head `cdf828d` → `main`).
 GitHub CI did not run: the `lint-and-test` job was not started because the
 account is locked for a billing issue. Not merged, not tagged.
+
+**v0.1.0 CI.** After the lock was lifted, attempt 4 of the same run passed on
+`cdf828d` (2026-11-18): lint, types, byte-identical table regeneration, the
+training-extra install and the tests all green.
+
+- Done: the PR's CI gate is met on its head commit.
+- Next: Samarth's separate approval to merge PR #1; then green CI on the merge
+  commit on `main`; then, with separate approval, the `v0.1.0` tag. `v0.2` is
+  still local.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.
