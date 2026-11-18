@@ -658,3 +658,8 @@ GitHub CI has not run.
   not carry "hand labels". A trial merge of it into `v0.2` is clean.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+**v0.1.0 PR.** Opened with Samarth's approval:
+https://github.com/Samarth-Hiremath1/Grapevine/pull/1 (head `cdf828d` → `main`).
+GitHub CI did not run: the `lint-and-test` job was not started because the
+account is locked for a billing issue. Not merged, not tagged.
