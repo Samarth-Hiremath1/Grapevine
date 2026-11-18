@@ -1,8 +1,8 @@
 # PR draft: `v0.2` → `main`
 
-Not opened. Open it after the v0.1.0 PR (`pr-v0.1.0.md`) has merged, with the
-commands in `release-checklist.md`. I do not push or open PRs (`CLAUDE.md`
-rule 10).
+Opened on 2026-11-18 with Samarth's approval, after the v0.1.0 PR merged and was
+tagged. Merging it needs his separate approval and green GitHub CI on all five
+jobs (`launch/release-checklist.md`).
 
 ---
 
@@ -19,11 +19,12 @@ parts that went against the plan.
 
 - **`grapevine audit`**: thirteen offline checks on a distributed-information
   environment, written as a Validity Card. Exit code 2 when a check fails.
-  Calibrated against planted-flaw fixtures for eleven of the thirteen checks
-  and a clean control that must pass all of them
-  ([`docs/audit-battery.md`](docs/audit-battery.md)).
+  Calibrated against planted-flaw fixtures and a clean control that must pass
+  every check ([`docs/audit-battery.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/docs/audit-battery.md)), and measured
+  for false fails over 40 seed ranges
+  ([`studies/battery_calibration/`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/studies/battery_calibration/README.md)).
 - **The environment protocol**, and a complete example environment in one file
-  that passes on its eval seeds ([`examples/`](examples/README.md)).
+  that passes on its eval seeds ([`examples/`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/examples/README.md)).
 - **`venue_choice`**, the default and supported environment. It passes its
   audit with a measured single-view advantage, and training and evaluation use
   it without `--allow-flagged`. It is the example environment, promoted
@@ -50,7 +51,7 @@ parts that went against the plan.
 
 Pre-registered (`docs/prereg/hidden_profile_v2_eval.md`) and committed before any
 call. Three models, 100 held-out tasks, six cells each; read model by model in
-[`studies/v2_eval/README.md`](studies/v2_eval/README.md), against the readings
+[`studies/v2_eval/README.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/studies/v2_eval/README.md), against the readings
 registered in advance:
 
 - `gpt-5.6-luna`: no gap detected between a communicating team and one agent
@@ -81,21 +82,25 @@ up as A2 in `docs/audit.md`.
   some single-view advantage, so a zero-information requirement would pass or
   fail the same environment depending on sample size. It is kept as a labelled
   diagnostic.
-- **CI has never run on GitHub.** Every job was run locally, and a clean clone of
-  the branch passes with no API key, but the workflows run here for the first
-  time.
-- **README links are relative** and will not resolve on PyPI. To be settled
-  before the first upload.
+- **This branch's workflows run on GitHub for the first time here.** All five
+  jobs were run locally, step by step from the workflow file, and pass. The
+  v0.1.0 PR's older single-job workflow passed on GitHub on `cdf828d` and again
+  on the merge commit `681d6dc`.
+- **README links are absolute**, pinned to `main`, so they resolve on PyPI once
+  this merges; a test checks every one points at a file that exists.
+- **`release.yml` publishes to PyPI on a `v*` tag.** It is not triggered by this
+  PR, and the existing `v0.1.0` tag points at a commit without it. No PyPI
+  trusted publisher is configured yet.
 - Total API spend for the whole project: see `docs/PROGRESS.md`; the eval's own
   runs are in their manifests.
 
 ## Independent review
 
 An independent pass with no prior context reviewed the branch:
-[`docs/review-v0.2.md`](docs/review-v0.2.md), committed verbatim. Its verdict:
+[`docs/review-v0.2.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/docs/review-v0.2.md), committed verbatim. Its verdict:
 the bookkeeping holds, the scientific claims were stronger than the evidence.
 Every finding was re-derived before anything changed, and
-[`docs/review-v0.2-response.md`](docs/review-v0.2-response.md) says what was
+[`docs/review-v0.2-response.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/v0.2/docs/review-v0.2-response.md) says what was
 done about each. In short: the eval's readings were rewritten to drop
 "replicates" and to state the failed `gpt-6-luna` prediction plainly; the
 minimality count bug is fixed; the battery now catches the names-only shortcut
