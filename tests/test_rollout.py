@@ -27,10 +27,49 @@ def test_parse_answer_freeform_and_none() -> None:
     assert parse_answer("no option named here", options) is None
 
 
-def test_parse_answer_last_mentioned_on_conflict() -> None:
+def test_parse_answer_multiple_options_fails_loudly() -> None:
     options = ["Avery", "Blair"]
-    # Both appear; the later mention wins.
-    assert parse_answer("Maybe Avery, but actually Blair.", options) == "Blair"
+    # Both appear and there is no JSON answer: refuse to guess.
+    assert parse_answer("Maybe Avery, but actually Blair.", options) is None
+
+
+#: (name, model output, what a careful reader would take it to mean, what the
+#: parser must return). The parser may fail loudly (None) on an answer a human
+#: could read, but it must never return an option the text does not choose.
+ADVERSARIAL_ANSWERS = [
+    ("clean JSON", '{"answer": "Blair"}', "Blair", "Blair"),
+    ("empty JSON answer", '{"answer": ""}', None, None),
+    ("single letter", '{"answer": "A"}', None, None),
+    ("single lowercase letter", '{"answer": "e"}', None, None),
+    ("refusal", "I cannot determine an answer.", None, None),
+    ("none fit", "None of the candidates is clearly best.", None, None),
+    ("reject then pick", "Not Avery. I choose Blair.", "Blair", None),
+    ("pick then reject", "I choose Blair. Actually no, Avery.", "Avery", None),
+    ("pick then mention", "Blair is best; Avery was close.", "Blair", None),
+    ("two named, no verdict", "It is between Avery and Blair.", None, None),
+    ("fenced JSON", '```json\n{"answer": "Devon"}\n```', "Devon", "Devon"),
+    ("lowercase", '{"answer": "devon"}', "Devon", "Devon"),
+    ("trailing period", '{"answer": "Devon."}', "Devon", "Devon"),
+    ("option inside a longer word", "Averyone agrees on Cameron.", "Cameron", "Cameron"),
+    ("all four listed", "Options: Avery, Blair, Cameron, Devon.", None, None),
+    ("nested JSON", '{"result": {"answer": "Blair"}}', "Blair", "Blair"),
+    ("answer under another key", '{"choice": "Blair"}', "Blair", "Blair"),
+    ("JSON answer is a sentence", '{"answer": "I pick Blair over Avery"}', "Blair", None),
+]
+
+
+def test_parse_answer_adversarial_never_returns_a_wrong_option() -> None:
+    """Regression test for audit finding D1.
+
+    The old parser matched substrings in both directions, so an empty or
+    one-letter answer resolved to the first option, and free text took the
+    last-mentioned option. 7 of these 18 cases used to return a wrong option.
+    """
+    options = ["Avery", "Blair", "Cameron", "Devon"]
+    for name, text, meant, expected in ADVERSARIAL_ANSWERS:
+        got = parse_answer(text, options)
+        assert got in (meant, None), f"{name}: returned {got!r}, text means {meant!r}"
+        assert got == expected, f"{name}: returned {got!r}, expected {expected!r}"
 
 
 async def test_run_episode_correct_when_aggregator_picks_gold() -> None:
@@ -201,3 +240,51 @@ async def test_task_statement_only_shown_when_requested() -> None:
     assert len(seen_c) == task.n_agents + 1  # one discussion round plus aggregation
     for prompt in seen_a + seen_c:
         assert prompt.startswith(statement + "\n\n")
+
+
+async def test_aggregator_system_prompt_follows_prompt_style() -> None:
+    """Every call in a neutral-style episode, including aggregation, gets the neutral
+    system prompt; instructed-style episodes keep the team prompt throughout.
+
+    Regression test for audit finding L11: the aggregation branch used to send
+    TEAM_SYSTEM_PROMPT regardless of prompt_style.
+    """
+    from grapevine.rollout.engine import NEUTRAL_SYSTEM_PROMPT, TEAM_SYSTEM_PROMPT
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    task = env.generate(1006)
+
+    for style, template in (("neutral", NEUTRAL_SYSTEM_PROMPT), ("instructed", TEAM_SYSTEM_PROMPT)):
+        systems: list[str] = []
+
+        def responder(messages: list[Message], systems: list[str] = systems) -> str:
+            systems.append(messages[0].content)
+            return f'{{"answer": "{task.answer}"}}'
+
+        await run_episode(task, ScriptedClient(responder), RolloutConfig(n_rounds=1, prompt_style=style))
+        assert len(systems) == task.n_agents + 1
+        allowed = {template.format(agent_id=i, n_agents=task.n_agents) for i in range(task.n_agents)}
+        assert all(s in allowed for s in systems), f"{style}: a call used the wrong system prompt"
+
+
+async def test_full_info_matched_presentation() -> None:
+    """Matched A: same facts as original A, laid out and framed like B/C/D."""
+    from grapevine.rollout.engine import FULL_INFO_MATCHED_SYSTEM_PROMPT, TASK_STATEMENT
+
+    env = HiddenProfileEnv(HiddenProfileConfig())
+    task = env.generate(1006)
+    seen: list[tuple[str, str]] = []
+
+    def responder(messages: list[Message]) -> str:
+        seen.append((messages[0].content, messages[-1].content))
+        return f'{{"answer": "{task.answer}"}}'
+
+    cfg = RolloutConfig(show_task=True, full_info_presentation="matched")
+    await run_single_agent(task, ScriptedClient(responder), cfg)
+    system, prompt = seen[0]
+    assert system == FULL_INFO_MATCHED_SYSTEM_PROMPT
+    assert prompt.startswith(TASK_STATEMENT.format(question=task.question) + "\n\n")
+    assert "Facts known to the whole committee:" in prompt and "Facts only you know:" in prompt
+    assert "team discussion" not in prompt.lower() and "expert" not in system.lower()
+    for fact in task.metadata["shared_facts"] + [f for fl in task.metadata["private_facts"] for f in fl]:
+        assert fact in prompt

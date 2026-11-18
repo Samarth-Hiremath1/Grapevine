@@ -4,13 +4,17 @@ Every metric here is computed from ground-truth environment state (the gold
 answer, the engineered decoy option, the known required private facts) or from
 mechanical properties of the transcript. No LLM judge is involved anywhere.
 
-Uncertainty is reported as a percentile bootstrap 95% interval over episodes,
-which makes no normality assumption and behaves sensibly near 0 and 1 where a
-normal approximation would run outside [0, 1].
+Per-condition rates (accuracy, decoy rate) use exact Clopper-Pearson 95%
+intervals. The earlier percentile bootstrap collapses to a zero-width interval
+when every episode has the same outcome (1/200 gave [0, 1.5%], 100/100 gave
+[100%, 100%]; see audit L6). Differences between conditions on the same tasks
+still use a paired percentile bootstrap, since a difference of two binary
+outcomes is not itself binomial.
 """
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -52,6 +56,50 @@ def bootstrap_ci(
     return (means[lo_idx], means[hi_idx])
 
 
+def _binom_cdf(k: int, n: int, p: float) -> float:
+    """P(X <= k) for X ~ Binomial(n, p), summed in log space for stability."""
+    if p <= 0.0:
+        return 1.0
+    if p >= 1.0:
+        return 1.0 if k >= n else 0.0
+    log_p, log_q = math.log(p), math.log1p(-p)
+    total = 0.0
+    for i in range(k + 1):
+        log_term = (
+            math.lgamma(n + 1) - math.lgamma(i + 1) - math.lgamma(n - i + 1)
+            + i * log_p + (n - i) * log_q
+        )
+        total += math.exp(log_term)
+    return min(total, 1.0)
+
+
+def clopper_pearson(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
+    """Exact Clopper-Pearson interval for ``k`` successes in ``n`` trials.
+
+    Found by bisection on the binomial CDF, so no SciPy dependency. The bounds
+    are 0 when ``k == 0`` and 1 when ``k == n``; otherwise the lower bound solves
+    ``P(X >= k) = alpha/2`` and the upper bound ``P(X <= k) = alpha/2``.
+    """
+    if n <= 0:
+        return (float("nan"), float("nan"))
+    if not 0 <= k <= n:
+        raise ValueError(f"k={k} outside [0, n={n}]")
+
+    def solve(f: Any) -> float:
+        lo, hi = 0.0, 1.0
+        for _ in range(100):
+            mid = (lo + hi) / 2
+            if f(mid):
+                hi = mid
+            else:
+                lo = mid
+        return (lo + hi) / 2
+
+    lower = 0.0 if k == 0 else solve(lambda p: 1.0 - _binom_cdf(k - 1, n, p) >= alpha / 2)
+    upper = 1.0 if k == n else solve(lambda p: _binom_cdf(k, n, p) <= alpha / 2)
+    return (lower, upper)
+
+
 @dataclass
 class ConditionSummary:
     """Aggregate metrics for one experimental condition.
@@ -61,12 +109,12 @@ class ConditionSummary:
             ``communication``).
         n: Number of episodes.
         accuracy: Fraction whose team answer equals the gold answer.
-        accuracy_ci: Bootstrap 95% CI for ``accuracy``.
+        accuracy_ci: Clopper-Pearson 95% interval for ``accuracy``.
         decoy_rate: Fraction landing on the engineered decoy -- the option that
             shared information alone favours. The mechanistic metric: failures
             concentrated here indicate reasoning from common ground rather than
             pooled private evidence.
-        decoy_rate_ci: Bootstrap 95% CI for ``decoy_rate``.
+        decoy_rate_ci: Clopper-Pearson 95% interval for ``decoy_rate``.
         other_wrong_rate: Fraction wrong but not on the decoy.
         parse_failures: Episodes where no option could be parsed at all. Reported
             separately so refusals are never silently scored as reasoning errors.
@@ -97,6 +145,7 @@ class ConditionSummary:
     total_prompt_tokens: int
     total_completion_tokens: int
     total_calls: int
+    ci_method: str = "clopper-pearson"
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -158,9 +207,9 @@ def summarize_condition(
         condition=condition,
         n=n,
         accuracy=sum(correct) / n,
-        accuracy_ci=bootstrap_ci(correct, seed=bootstrap_seed),
+        accuracy_ci=clopper_pearson(int(sum(correct)), n),
         decoy_rate=sum(decoy_hits) / n,
-        decoy_rate_ci=bootstrap_ci(decoy_hits, seed=bootstrap_seed + 1),
+        decoy_rate_ci=clopper_pearson(int(sum(decoy_hits)), n),
         other_wrong_rate=other_wrong / n,
         parse_failures=parse_failures,
         parse_failure_rate=parse_failures / n,

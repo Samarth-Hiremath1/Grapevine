@@ -1,0 +1,10 @@
+panel,condition,correct,n,accuracy,ci_low,ci_high
+Task and rule not stated,A,171,200,0.855,0.798439,0.900691
+Task and rule not stated,B,1,200,0.005,0.000127,0.027542
+Task and rule not stated,C,134,200,0.67,0.600171,0.734702
+Task and rule not stated,D,111,200,0.555,0.483246,0.625099
+Task question and scoring rule stated,A,96,100,0.96,0.900743,0.988996
+Task question and scoring rule stated,A (matched),100,100,1.0,0.963783,1.0
+Task question and scoring rule stated,B,0,100,0.0,0.0,0.036217
+Task question and scoring rule stated,C,100,100,1.0,0.963783,1.0
+Task question and scoring rule stated,D,99,100,0.99,0.945541,0.999747

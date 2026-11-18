@@ -82,6 +82,40 @@ NO_COMM_PROMPT = (
     'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
 )
 
+#: Presentation-matched condition A (``full_info_presentation="matched"``). One
+#: agent with every fact, laid out and framed like conditions B/C/D: same
+#: shared/private headers, a system prompt built like SOLO_SYSTEM_PROMPT, and the
+#: NO_COMM_PROMPT answer instruction minus its "deciding alone" line. Added to
+#: separate information access from presentation (audit L4).
+FULL_INFO_MATCHED_SYSTEM_PROMPT = (
+    "You are Agent 0 of a 1-agent group. You hold all of the group's information: "
+    "every shared fact and every private fact. Reason carefully over the information "
+    "you have and commit to the best answer you can."
+)
+
+FULL_INFO_MATCHED_PROMPT = (
+    "{context}\n\n"
+    "Choose exactly one of these options: {options}.\n"
+    'Respond with only a JSON object: {{"answer": "<one option exactly as written>"}}.'
+)
+
+
+def full_context_matched(task: Task) -> str:
+    """Every fact of ``task`` in the same two-block layout agents see in B/C/D.
+
+    The shared block is identical to an agent's; the private block holds every
+    agent's private facts, in agent order. Same facts as :meth:`Task.full_context`.
+    """
+    shared = task.metadata.get("shared_facts", [])
+    private = [f for facts in task.metadata.get("private_facts", []) for f in facts]
+    return (
+        "Facts known to the whole committee:\n"
+        + "\n".join(f"- {f}" for f in shared)
+        + "\n\nFacts only you know:\n"
+        + "\n".join(f"- {f}" for f in private)
+    )
+
+
 VOTE_PROMPT = (
     "{context}\n\n"
     "Full team discussion:\n{history}\n\n"
@@ -127,6 +161,9 @@ class RolloutConfig:
         show_task: When True, every prompt starts with :data:`TASK_STATEMENT` (the
             task question plus the scoring rule). Off by default, which keeps
             prompts byte-identical to those used for the four-condition run.
+        full_info_presentation: Condition A only. ``"original"`` is the prompt
+            used in the committed runs; ``"matched"`` presents the same facts in
+            B/C/D's layout and framing (see FULL_INFO_MATCHED_PROMPT).
     """
 
     n_rounds: int = 2
@@ -137,6 +174,7 @@ class RolloutConfig:
     final_temperature: float = 0.0
     prompt_style: str = "instructed"
     show_task: bool = False
+    full_info_presentation: str = "original"
 
     def __post_init__(self) -> None:
         if self.n_rounds < 1:
@@ -145,6 +183,8 @@ class RolloutConfig:
             raise ValueError("aggregation must be 'aggregator' or 'vote'")
         if self.prompt_style not in ("instructed", "neutral"):
             raise ValueError("prompt_style must be 'instructed' or 'neutral'")
+        if self.full_info_presentation not in ("original", "matched"):
+            raise ValueError("full_info_presentation must be 'original' or 'matched'")
 
     def discussion_prompts(self) -> tuple[str, str]:
         """Return ``(system_prompt, turn_prompt)`` templates for this style."""
@@ -230,45 +270,59 @@ def _render_history(messages: list[TranscriptMessage]) -> str:
     return "\n".join(lines) if lines else "(no messages yet)"
 
 
-def parse_answer(text: str, options: list[str]) -> str | None:
-    """Extract the chosen option from a model response.
+#: Characters stripped from the ends of a raw answer before matching.
+_ANSWER_TRIM = " \t\n\"'`.,;:!?*()[]{}"
 
-    Tries, in order: a ``{"answer": ...}`` JSON object, then an exact
-    case-insensitive option match anywhere in the text. Returns ``None`` if no
-    option can be identified.
+
+def _options_named(text: str, options: list[str]) -> list[str]:
+    """Return the options named in ``text`` as whole words, case-insensitively."""
+    return [opt for opt in options if re.search(rf"\b{re.escape(opt)}\b", text, re.IGNORECASE)]
+
+
+def parse_answer(text: str, options: list[str]) -> str | None:
+    """Extract the chosen option from a model response, or return ``None``.
+
+    An option is returned only when the response identifies exactly one:
+
+    1. if the text contains a JSON object with an ``"answer"`` field, that value
+       decides, via :func:`_match_option`;
+    2. otherwise, free text counts only if it names exactly one option as a
+       whole word.
+
+    Everything else fails loudly with ``None``: empty or fragmentary answers,
+    several options named ("Not Avery. I choose Blair."), no option named. That
+    gives up some answers a human could read, on purpose -- an unparsed answer is
+    counted and reported as a parse failure, while a wrongly parsed one would be
+    invisible in every metric. See audit finding D1.
     """
-    # 1) JSON object with an "answer" field.
     for match in re.finditer(r"\{[^{}]*\}", text, re.DOTALL):
         try:
             obj = json.loads(match.group(0))
         except json.JSONDecodeError:
             continue
         if isinstance(obj, dict) and "answer" in obj:
-            candidate = str(obj["answer"]).strip()
-            resolved = _match_option(candidate, options)
-            if resolved is not None:
-                return resolved
-    # 2) Any option string appearing verbatim (case-insensitive).
-    lowered = text.lower()
-    hits = [opt for opt in options if opt.lower() in lowered]
-    if len(hits) == 1:
-        return hits[0]
-    if len(hits) > 1:
-        # Prefer the last-mentioned option (closest to a concluding statement).
-        positions = {opt: lowered.rfind(opt.lower()) for opt in hits}
-        return max(positions, key=lambda o: positions[o])
-    return None
+            return _match_option(str(obj["answer"]), options)
+    named = _options_named(text, options)
+    return named[0] if len(named) == 1 else None
 
 
 def _match_option(candidate: str, options: list[str]) -> str | None:
-    """Resolve a raw answer string to one of ``options`` (exact/substring)."""
+    """Resolve a raw answer string to exactly one option, or ``None``.
+
+    Exact match first (case-insensitive, surrounding quotes and punctuation
+    stripped); otherwise the candidate must name exactly one option as a whole
+    word. There is deliberately no substring matching: the previous version
+    matched in both directions, so ``""``, ``"A"`` or ``"e"`` all resolved to the
+    first option.
+    """
+    cand = candidate.strip().strip(_ANSWER_TRIM)
+    if not cand:
+        return None
     for opt in options:
-        if candidate.lower() == opt.lower():
+        if cand.casefold() == opt.casefold():
             return opt
-    for opt in options:
-        if opt.lower() in candidate.lower() or candidate.lower() in opt.lower():
-            return opt
-    return None
+    named = _options_named(cand, options)
+    return named[0] if len(named) == 1 else None
 
 
 def _majority_vote(votes: list[str | None], options: list[str]) -> str | None:
@@ -389,7 +443,7 @@ async def run_episode(
                 options=", ".join(task.options),
             )
             convo = [
-                Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agent_id, n_agents=n_agents)),
+                Message("system", system_tmpl.format(agent_id=agent_id, n_agents=n_agents)),
                 Message("user", prompt),
             ]
             completion = usage_acc.add(
@@ -411,7 +465,10 @@ async def run_episode(
             options=", ".join(task.options),
         )
         convo = [
-            Message("system", TEAM_SYSTEM_PROMPT.format(agent_id=agg, n_agents=n_agents)),
+            # The decision step uses the same system prompt as the discussion, so a
+            # neutral-style run is neutral end to end (it previously always got
+            # the instructed prompt here; see docs/audit.md L11).
+            Message("system", system_tmpl.format(agent_id=agg, n_agents=n_agents)),
             Message("user", prompt),
         ]
         completion = usage_acc.add(
@@ -555,24 +612,33 @@ async def run_single_agent(
     client: LLMClient,
     config: RolloutConfig | None = None,
 ) -> Episode:
-    """Run the single-agent, full-information upper-bound condition.
+    """Run condition A: one agent holding every fact, no discussion.
 
-    One agent is shown the union of every fact (``task.full_context()``) and
-    answers directly, with no discussion. Used as the accuracy ceiling in
-    evaluation.
+    ``cfg.full_info_presentation`` picks the layout: ``"original"`` (a flat list,
+    as in the committed runs) or ``"matched"`` (B/C/D's layout and framing). This
+    is a full-information baseline, not an upper bound: with the task stated, the
+    communicating conditions scored above it (see docs/results.md).
     """
     cfg = config or RolloutConfig()
     usage_acc = _UsageAccumulator()
 
-    prompt = AGGREGATOR_PROMPT.format(
-        context=_with_task(
-            "All available information:\n" + task.full_context(), task, cfg.show_task
-        ),
-        history="(you have all information; no discussion needed)",
-        options=", ".join(task.options),
-    )
+    if cfg.full_info_presentation == "matched":
+        prompt = FULL_INFO_MATCHED_PROMPT.format(
+            context=_with_task(full_context_matched(task), task, cfg.show_task),
+            options=", ".join(task.options),
+        )
+        system = FULL_INFO_MATCHED_SYSTEM_PROMPT
+    else:
+        prompt = AGGREGATOR_PROMPT.format(
+            context=_with_task(
+                "All available information:\n" + task.full_context(), task, cfg.show_task
+            ),
+            history="(you have all information; no discussion needed)",
+            options=", ".join(task.options),
+        )
+        system = "You are an expert decision-maker. Reason carefully, then answer."
     convo = [
-        Message("system", "You are an expert decision-maker. Reason carefully, then answer."),
+        Message("system", system),
         Message("user", prompt),
     ]
     completion = usage_acc.add(

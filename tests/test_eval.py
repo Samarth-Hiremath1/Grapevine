@@ -39,7 +39,7 @@ def test_compute_metrics_gap_closure() -> None:
     single = [
         _make_episode(True, True, "single_agent_full_context"),
         _make_episode(True, True, "single_agent_full_context"),
-    ]  # 100% ceiling
+    ]  # 100% on the full-information condition
     metrics = compute_metrics(team, single)
     assert metrics.team_accuracy == 0.5
     assert metrics.single_agent_accuracy == 1.0

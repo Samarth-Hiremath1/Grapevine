@@ -1,7 +1,8 @@
 """Main figure for the coordination ablation.
 
 Reads one or more run directories produced by ``grapevine.experiments.run`` and
-draws accuracy and decoy rate per condition with bootstrap 95% intervals. Extra
+draws accuracy and decoy rate per condition with exact Clopper-Pearson 95%
+intervals. Extra
 runs (for example the rule arm) are appended as further bars, and the caption
 states which seeds each run covered. Writes PNG, SVG, and the source table as
 CSV, so a plot never becomes separated from the numbers behind it.
@@ -23,8 +24,20 @@ from typing import Any
 
 import matplotlib
 
+from grapevine.experiments.analysis import clopper_pearson
+
 matplotlib.use("Agg")  # headless: no display needed
 import matplotlib.pyplot as plt  # noqa: E402
+
+# Deterministic output: fixed SVG element ids and no date or version metadata,
+# so regenerating the figure from the same data gives the same bytes.
+plt.rcParams["svg.hashsalt"] = "grapevine"
+
+
+def _save(fig: Any, png: Path, svg: Path) -> None:
+    fig.savefig(png, dpi=200, metadata={"Software": None})
+    fig.savefig(svg, metadata={"Date": None, "Creator": None})
+
 
 #: Display names, in the order they appear on the x-axis.
 CONDITION_LABELS = {
@@ -32,8 +45,11 @@ CONDITION_LABELS = {
     "no_communication": "B. No communication\n(3 agents, no talking)",
     "communication": "C. Instructed sharing\n(3 agents, 2 rounds)",
     "communication_neutral": "D. Neutral prompt\n(3 agents, 2 rounds)",
-    "full_info_rule": "A + rule\n(question and\nrule shown)",
-    "communication_rule": "C + rule\n(question and\nrule shown)",
+    "full_info_rule": "A + rule",
+    "full_info_matched_rule": "A (matched) + rule",
+    "no_communication_rule": "B + rule",
+    "communication_rule": "C + rule",
+    "communication_neutral_rule": "D + rule",
 }
 
 
@@ -53,6 +69,11 @@ def collect_rows(run_dirs: list[Path]) -> list[dict[str, Any]]:
         manifest = load_manifest(run_dir)
         seeds = manifest["resolved"]["seeds"]
         for cond, summary in manifest["summaries"].items():
+            # Intervals are recomputed as Clopper-Pearson from counts, so figures
+            # from older manifests (bootstrap intervals) match current ones.
+            n = int(summary["n"])
+            acc_ci = clopper_pearson(round(summary["accuracy"] * n), n)
+            dec_ci = clopper_pearson(round(summary["decoy_rate"] * n), n)
             rows.append(
                 {
                     "condition": cond,
@@ -60,11 +81,11 @@ def collect_rows(run_dirs: list[Path]) -> list[dict[str, Any]]:
                     "seeds": f"{seeds[0]}-{seeds[1]}",
                     "n": summary["n"],
                     "accuracy": round(summary["accuracy"], 6),
-                    "accuracy_ci_low": round(summary["accuracy_ci"][0], 6),
-                    "accuracy_ci_high": round(summary["accuracy_ci"][1], 6),
+                    "accuracy_ci_low": round(acc_ci[0], 6),
+                    "accuracy_ci_high": round(acc_ci[1], 6),
                     "decoy_rate": round(summary["decoy_rate"], 6),
-                    "decoy_ci_low": round(summary["decoy_rate_ci"][0], 6),
-                    "decoy_ci_high": round(summary["decoy_rate_ci"][1], 6),
+                    "decoy_ci_low": round(dec_ci[0], 6),
+                    "decoy_ci_high": round(dec_ci[1], 6),
                     "other_wrong_rate": round(summary["other_wrong_rate"], 6),
                     "parse_failures": summary["parse_failures"],
                     "tie_rate": summary["tie_rate"],
@@ -109,7 +130,7 @@ def _caption(rows: list[dict[str, Any]], primary: dict[str, Any]) -> str:
         "the correct candidate and on the decoy (the candidate favoured by the facts every "
         f"agent already shares). Discussion conditions use {n_rounds} rounds; C and D differ "
         f"only in whether the prompt instructs fact-sharing.{rule_text} Error bars are "
-        f"percentile bootstrap 95% intervals over episodes. {seed_text}"
+        f"exact Clopper-Pearson 95% intervals. {seed_text}"
     )
     return "\n".join(textwrap.wrap(text, 150))
 
@@ -188,8 +209,86 @@ def make_figure(
 
     png = out / "accuracy_by_condition.png"
     svg = out / "accuracy_by_condition.svg"
-    fig.savefig(png, dpi=200)
-    fig.savefig(svg)
+    _save(fig, png, svg)
+    plt.close(fig)
+    return png, svg, csv_path
+
+
+#: Axis labels for the two-panel figure, keyed by table label.
+PANEL_LABELS = {
+    "A": "A\nfull info,\n1 agent",
+    "A (matched)": "A\nfull info,\nmatched prompt",
+    "B": "B\n3 agents,\nno talking",
+    "C": "C\n3 agents,\ntold to share",
+    "D": "D\n3 agents,\nneutral prompt",
+}
+
+
+def make_two_panel_figure(
+    panels: list[tuple[str, list[tuple[str, dict[str, Any]]]]],
+    out_dir: Path,
+    stem: str = "accuracy_by_condition",
+) -> tuple[Path, Path, Path]:
+    """Accuracy per condition, one panel per framing, exact 95% intervals.
+
+    ``panels`` is a list of ``(panel title, [(label, cell), ...])`` where each
+    cell has ``accuracy``, ``ci95``, ``n`` and ``correct``. Writes PNG, SVG and
+    a CSV of the plotted numbers.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / f"{stem}.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["panel", "condition", "correct", "n", "accuracy", "ci_low", "ci_high"])
+        for title, cells in panels:
+            for label, c in cells:
+                writer.writerow(
+                    [title.split("\n")[0], label, c["correct"], c["n"],
+                     round(c["accuracy"], 6), round(c["ci95"][0], 6), round(c["ci95"][1], 6)]
+                )
+
+    widths = [len(cells) for _, cells in panels]
+    fig, axes = plt.subplots(
+        1, len(panels), figsize=(12.5, 5.6), sharey=True,
+        gridspec_kw={"width_ratios": widths},
+    )
+    for ax, (title, cells) in zip(axes, panels, strict=True):
+        x = list(range(len(cells)))
+        acc = [c["accuracy"] for _, c in cells]
+        lo = [c["accuracy"] - c["ci95"][0] for _, c in cells]
+        hi = [c["ci95"][1] - c["accuracy"] for _, c in cells]
+        ax.bar(x, acc, 0.62, yerr=[lo, hi], capsize=4, color="#2b6cb0")
+        ax.axhline(0.25, linestyle="--", linewidth=1.1, color="#4a5568")
+        for i, (a, h) in enumerate(zip(acc, hi, strict=True)):
+            ax.text(i, a + h + 0.025, f"{a * 100:.1f}%", ha="center", fontsize=9)
+        ax.set_xticks(x)
+        ax.set_xticklabels([PANEL_LABELS.get(lbl, lbl) for lbl, _ in cells], fontsize=8.5)
+        ax.set_title(title, fontsize=10)
+        ax.set_ylim(0, 1.12)
+        ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.grid(axis="y", alpha=0.25)
+    axes[0].set_ylabel("Accuracy (share of episodes correct)")
+    axes[0].text(
+        -0.44, 0.30, "chance 25%", ha="left", va="bottom", fontsize=8.5,
+        color="#1a202c", bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.5},
+    )
+    fig.suptitle(
+        "Hidden-profile tasks, gpt-5.6-luna: accuracy with and without the task stated",
+        fontsize=11,
+    )
+    caption = (
+        "Error bars are exact Clopper-Pearson 95% intervals. B, C and D split the facts across "
+        "three agents; C and D discuss for 2 rounds, C's prompt tells agents to share facts and "
+        "D's does not. A (matched) gives one agent every fact in the same layout and framing as "
+        "B-D; original A uses a different prompt. Every wrong answer in every condition was the "
+        "decoy option. Left: primary run and the D rerun; right: rule-arm runs."
+    )
+    fig.text(0.5, 0.01, "\n".join(textwrap.wrap(caption, 165)), ha="center", fontsize=8,
+             color="#2d3748")
+    fig.tight_layout(rect=(0, 0.08, 1, 0.95))
+    png, svg = out_dir / f"{stem}.png", out_dir / f"{stem}.svg"
+    _save(fig, png, svg)
     plt.close(fig)
     return png, svg, csv_path
 

@@ -1,0 +1,103 @@
+{
+  "label": "D_fixed",
+  "started_utc": "2026-09-18T22:27:32.147205+00:00",
+  "finished_utc": "2026-09-18T22:32:55.730032+00:00",
+  "duration_seconds": 323.582827,
+  "git_commit": "fe7d9074a1f761d9eab50c3f306b7e391d0d18ef",
+  "git_dirty": false,
+  "python": "3.11.4",
+  "config_path": "configs/coordination_ablation.yaml",
+  "config": {
+    "model": {
+      "name": "gpt-5.6-luna",
+      "provider": "openai",
+      "max_retries": 5,
+      "retry_base_delay": 0.5
+    },
+    "env": {
+      "family": "hidden_profile",
+      "n_agents": 3,
+      "n_shared_facts": 6,
+      "n_private_facts_per_agent": 2,
+      "n_distractors": 4,
+      "n_options": 4
+    },
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature": 0.7,
+      "final_temperature": 0.0
+    },
+    "run": {
+      "label": "primary",
+      "n_episodes": 200,
+      "seed_start": 1000,
+      "concurrency": 8,
+      "output_dir": "runs"
+    }
+  },
+  "resolved": {
+    "conditions_run": [
+      "communication_neutral"
+    ],
+    "n_episodes": 200,
+    "seed_start": 1000,
+    "seeds": [
+      1000,
+      1199
+    ],
+    "concurrency": 8,
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature_requested": 0.7,
+      "final_temperature_requested": 0.0,
+      "temperature_honoured": false,
+      "effective_temperature": 1.0,
+      "token_param": "max_completion_tokens",
+      "task_statement_template": "Task: {question}\nDecision rule: the strongest candidate is the one with the most supporting facts. Each fact describing a candidate's strengths counts as one supporting fact for that candidate.",
+      "task_statement_shown_in": []
+    },
+    "chance_accuracy": 0.25
+  },
+  "client_totals": {
+    "n_calls": 1400.0,
+    "prompt_tokens": 565922.0,
+    "completion_tokens": 169978.0,
+    "cost_usd": 0.31715799999999994
+  },
+  "total_cost_usd": 0.31715799999999994,
+  "failures": {
+    "communication_neutral": []
+  },
+  "paired_differences": {},
+  "summaries": {
+    "communication_neutral": {
+      "condition": "communication_neutral",
+      "n": 200,
+      "accuracy": 0.555,
+      "accuracy_ci": [
+        0.485,
+        0.625
+      ],
+      "decoy_rate": 0.425,
+      "decoy_rate_ci": [
+        0.355,
+        0.495
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 4,
+      "parse_failure_rate": 0.02,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 0.8141666666666667,
+      "total_cost_usd": 0.31715799999999994,
+      "total_prompt_tokens": 565922,
+      "total_completion_tokens": 169978,
+      "total_calls": 1400,
+      "extra": {}
+    }
+  }
+}

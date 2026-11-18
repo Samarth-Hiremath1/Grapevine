@@ -1,0 +1,141 @@
+{
+  "label": "rule_arm",
+  "started_utc": "2026-09-13T01:38:26.422077+00:00",
+  "finished_utc": "2026-09-13T01:41:53.837574+00:00",
+  "duration_seconds": 207.415497,
+  "git_commit": "40dc11228524113060b0ec4424724be060f1dac2",
+  "git_dirty": false,
+  "python": "3.11.4",
+  "config_path": "configs/coordination_ablation.yaml",
+  "config": {
+    "model": {
+      "name": "gpt-5.6-luna",
+      "provider": "openai",
+      "max_retries": 5,
+      "retry_base_delay": 0.5
+    },
+    "env": {
+      "family": "hidden_profile",
+      "n_agents": 3,
+      "n_shared_facts": 6,
+      "n_private_facts_per_agent": 2,
+      "n_distractors": 4,
+      "n_options": 4
+    },
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature": 0.7,
+      "final_temperature": 0.0
+    },
+    "run": {
+      "label": "primary",
+      "n_episodes": 200,
+      "seed_start": 1000,
+      "concurrency": 8,
+      "output_dir": "runs"
+    }
+  },
+  "resolved": {
+    "conditions_run": [
+      "full_info_rule",
+      "communication_rule"
+    ],
+    "n_episodes": 100,
+    "seed_start": 1000,
+    "seeds": [
+      1000,
+      1099
+    ],
+    "concurrency": 8,
+    "rollout": {
+      "n_rounds": 2,
+      "aggregation": "aggregator",
+      "max_tokens": 400,
+      "temperature_requested": 0.7,
+      "final_temperature_requested": 0.0,
+      "temperature_honoured": false,
+      "effective_temperature": 1.0,
+      "token_param": "max_completion_tokens",
+      "task_statement_template": "Task: {question}\nDecision rule: the strongest candidate is the one with the most supporting facts. Each fact describing a candidate's strengths counts as one supporting fact for that candidate.",
+      "task_statement_shown_in": [
+        "full_info_rule",
+        "communication_rule"
+      ]
+    },
+    "chance_accuracy": 0.25
+  },
+  "client_totals": {
+    "n_calls": 800.0,
+    "prompt_tokens": 386657.0,
+    "completion_tokens": 89331.0,
+    "cost_usd": 0.18452859999999988
+  },
+  "total_cost_usd": 0.18452859999999993,
+  "failures": {
+    "full_info_rule": [],
+    "communication_rule": []
+  },
+  "paired_differences": {
+    "full_info_rule_minus_communication_rule": {
+      "mean": -0.04,
+      "ci95": [
+        -0.08,
+        -0.01
+      ]
+    }
+  },
+  "summaries": {
+    "full_info_rule": {
+      "condition": "full_info_rule",
+      "n": 100,
+      "accuracy": 0.96,
+      "accuracy_ci": [
+        0.92,
+        0.99
+      ],
+      "decoy_rate": 0.04,
+      "decoy_rate_ci": [
+        0.01,
+        0.08
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": null,
+      "total_cost_usd": 0.012776000000000004,
+      "total_prompt_tokens": 33058,
+      "total_completion_tokens": 5137,
+      "total_calls": 100,
+      "extra": {}
+    },
+    "communication_rule": {
+      "condition": "communication_rule",
+      "n": 100,
+      "accuracy": 1.0,
+      "accuracy_ci": [
+        1.0,
+        1.0
+      ],
+      "decoy_rate": 0.0,
+      "decoy_rate_ci": [
+        0.0,
+        0.0
+      ],
+      "other_wrong_rate": 0.0,
+      "parse_failures": 0,
+      "parse_failure_rate": 0.0,
+      "tie_rate": null,
+      "accuracy_ties_incorrect": null,
+      "surfacing_rate": 1.0,
+      "total_cost_usd": 0.17175259999999992,
+      "total_prompt_tokens": 353599,
+      "total_completion_tokens": 84194,
+      "total_calls": 700,
+      "extra": {}
+    }
+  }
+}
