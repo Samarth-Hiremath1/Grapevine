@@ -39,8 +39,11 @@ prepare and open it. Nothing has been merged, tagged, published or announced.
    `681d6dc` on `main` (parents `40dc112`, `cdf828d`). **CI on `681d6dc`:
    green**, every step:
    https://github.com/Samarth-Hiremath1/Grapevine/actions/runs/44265683723/job/134669497835
-   **Still needs separate approval:** tag `v0.1.0` on `681d6dc` with the
-   commands in `pr-v0.1.0.md`. No PyPI upload for v0.1.0.
+   ~~Tag~~ — `v0.1.0` tagged 2026-11-18 with Samarth's approval: an annotated
+   tag (`976b341`, "v0.1.0: the audited case study") on `681d6dc`, pushed to
+   GitHub. It triggered no workflow: `main` carries only `ci.yml`, which runs
+   on pushes to `main` and on PRs. No GitHub release was created and nothing
+   was uploaded to PyPI.
 
 ## 2. v0.2: push the branch and open the PR
 

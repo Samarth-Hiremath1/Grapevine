@@ -685,3 +685,14 @@ the new `main` without conflicts (checked with `git merge-tree`).
   push `v0.2` and open its PR.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+**v0.1.0 tagged.** With Samarth's approval, annotated tag `v0.1.0` on `681d6dc`,
+pushed. Checked first that no workflow on `main` runs on tags (`release.yml`
+exists only on `v0.2`); after the push, no run started and there is no GitHub
+release. Nothing is on PyPI.
+
+- Done: v0.1.0 is tagged on `main`.
+- Next: with approval, push `v0.2` and open its PR; all five CI jobs must pass
+  on GitHub.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.
