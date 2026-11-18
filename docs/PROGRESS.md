@@ -674,3 +674,14 @@ training-extra install and the tests all green.
   still local.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+**v0.1.0 merged.** With Samarth's approval, PR #1 was merged into `main` as
+merge commit `681d6dc` (a merge commit, not a squash, so the commit hashes the
+docs cite stay on `main`). CI on `681d6dc` passed every step. `v0.2` merges onto
+the new `main` without conflicts (checked with `git merge-tree`).
+
+- Done: v0.1.0 is on `main` with green CI.
+- Next: with separate approval, tag `v0.1.0` on `681d6dc`; then, with approval,
+  push `v0.2` and open its PR.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.

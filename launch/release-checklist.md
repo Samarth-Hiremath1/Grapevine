@@ -35,9 +35,12 @@ prepare and open it. Nothing has been merged, tagged, published or announced.
 2. ~~**CI gate.**~~ Met on `cdf828d` (item 1). **CI gate.** Every check on the PR must pass on its head commit. If any fails,
    stop and fix on `audit/pre-publication`; do not merge red. The branch's
    workflow is the older one (one `lint-and-test` job, unpinned `trl>=0.11`).
-3. **With separate approval:** merge, then tag `v0.1.0` on `main` with the
-   commands in that file, only once CI on the merge commit on `main` is green.
-   No PyPI upload for v0.1.0.
+3. ~~Merge~~ — merged 2026-11-18 with Samarth's approval, as merge commit
+   `681d6dc` on `main` (parents `40dc112`, `cdf828d`). **CI on `681d6dc`:
+   green**, every step:
+   https://github.com/Samarth-Hiremath1/Grapevine/actions/runs/44265683723/job/134669497835
+   **Still needs separate approval:** tag `v0.1.0` on `681d6dc` with the
+   commands in `pr-v0.1.0.md`. No PyPI upload for v0.1.0.
 
 ## 2. v0.2: push the branch and open the PR
 
