@@ -696,3 +696,18 @@ release. Nothing is on PyPI.
   on GitHub.
 
 **Spend:** $3.0655 cumulative. $0.00 this step.
+
+**v0.2 PR.** With Samarth's approval, `v0.2` was pushed and opened as
+https://github.com/Samarth-Hiremath1/Grapevine/pull/2. Before opening, the PR
+description was brought up to date (`843c04c`): it no longer says README links
+are relative, drops a count of calibrated checks that could not be traced, and
+makes every link absolute. The first GitHub run of this branch's workflows (run
+44267547203, on `843c04c`) passed all five jobs: `core`, `tests` on 3.11, 3.12
+and 3.13, `docs`, `package` and `rl-smoke`.
+
+- Done: PR #2 open with green CI on its head commit.
+- Next: Samarth reads the review and the response, then decides on merging
+  (separate approval, green CI on the head commit). Publishing to PyPI needs
+  the trusted publisher, the `pypi` environment and its own approval.
+
+**Spend:** $3.0655 cumulative. $0.00 this step.

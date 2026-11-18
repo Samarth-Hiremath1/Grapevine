@@ -50,25 +50,24 @@ prepare and open it. Nothing has been merged, tagged, published or announced.
 Depends on 1: `v0.2` is cut from `audit/pre-publication`, so once that is in
 `main` the PR shows only the v0.2 work.
 
-```bash
-git push -u origin v0.2
-gh pr create --base main --head v0.2 \
-    --title "v0.2: grapevine audit, hidden_profile_v2, GRPO wiring, and the pre-registered eval" \
-    --body-file launch/pr-v0.2.md
-```
+Done 2026-11-18 with Samarth's approval: `v0.2` pushed and opened as
+https://github.com/Samarth-Hiremath1/Grapevine/pull/2, titled "v0.2: the audit
+as a tool, venue_choice, and smoke-tested GRPO wiring", with the body in
+`pr-v0.2.md`.
 
-4. **CI gate.** CI has never run on GitHub. Every job has been run locally and a
-   clean clone of the branch passes with no API key, but these five jobs run for
-   the first time on the PR, and every one must pass:
-   - [ ] `core` — lint, types, every reproducibility check (including the ~3 min
+4. **CI gate.** Every one of the five jobs must pass on the PR's head commit.
+   First run on GitHub, on `843c04c` (run 44267547203), all green:
+   https://github.com/Samarth-Hiremath1/Grapevine/actions/runs/44267547203
+   - [x] `core` — lint, types, every reproducibility check (including the ~3 min
          calibration study), `verify-claims`, the test suite
-   - [ ] `tests` on Python 3.11, 3.12 and 3.13
-   - [ ] `docs` — `mkdocs build --strict`
-   - [ ] `package` — build, `twine check --strict`, examples against the bare wheel
-   - [ ] `rl-smoke` — the GRPO smoke and isolation tests with the `[rl]` extra
+   - [x] `tests` on Python 3.11, 3.12 and 3.13
+   - [x] `docs` — `mkdocs build --strict`
+   - [x] `package` — build, `twine check --strict`, examples against the bare wheel
+   - [x] `rl-smoke` — the GRPO smoke and isolation tests with the `[rl]` extra
 
-   Expect to fix something on the first run. Fix on `v0.2`, push, and wait for
-   all five again. Do not merge, tag or publish on a red or partial run.
+   Any later push to `v0.2` (this record included) re-runs all five, and the
+   gate applies to the head commit at merge time. Do not merge, tag or publish
+   on a red or partial run.
 5. Read `docs/review-v0.2.md` and `docs/review-v0.2-response.md` before merging.
 
 ## 3. Before the first PyPI upload
