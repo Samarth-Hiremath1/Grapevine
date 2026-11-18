@@ -1,5 +1,51 @@
 # Grapevine
 
+Grapevine checks whether a multi-agent eval or RL environment measures
+coordination or something else. It gives you a protocol for building
+environments that pass that check, and GRPO wiring that refuses to train on one
+that does not.
+
+```bash
+grapevine audit venue_choice        # the supported environment: passes, advantage measured
+grapevine audit hidden_profile_v2   # a documented flawed case study: a reliable solo shortcut
+grapevine audit hidden_profile      # the one this repository's first result used
+```
+
+Offline, no API key, under a second on 200 tasks. On the environment behind this
+repository's own first result, it reports three failures — a content-blind
+shortcut that solves 200 of 200 tasks, an objective that never reached the
+models, and a single agent able to answer alone. The committed card is
+[`studies/underspecification/validity_card.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/underspecification/validity_card.md);
+`hidden_profile_v2` was built to answer every one of those findings and passed
+the battery as it then stood. Its first pre-registered eval then found a
+single-agent shortcut the battery had no probe for; the probe is now in, and
+v2's card at
+[`environments/hidden_profile_v2/validity_card.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/environments/hidden_profile_v2/validity_card.md)
+fails `solo_solvability` (A2 in [`docs/audit.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/audit.md)).
+How the battery works, how it is tested, and what it misses is in
+[`docs/audit-battery.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/audit-battery.md).
+
+The tool exists because that first result was wrong, and the rest of this README
+is that story.
+
+## Install
+
+Prepared for PyPI as `grapevine-mas` (import name `grapevine`), **not published
+yet**. From a clone, on Python 3.11, 3.12 or 3.13:
+
+```bash
+git clone https://github.com/Samarth-Hiremath1/Grapevine.git
+cd Grapevine
+uv sync --extra dev                       # or: pip install -e ".[dev]"
+uv run python examples/02_write_an_environment.py
+```
+
+[`examples/`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/examples/README.md) has three offline examples, each run by the
+test suite. The documentation site builds from `docs/` with
+`uv run --extra docs mkdocs serve`.
+
+---
+
 **Question:** when the facts needed for a decision are split across LLM agents,
 what breaks?
 
@@ -16,7 +62,7 @@ objective can produce a coordination failure that looks real — every fact gets
 shared, the team still chooses wrong — and vanishes once the objective is
 stated.
 
-![Accuracy by condition, with and without the task stated](docs/figures/accuracy_by_condition.png)
+![Accuracy by condition, with and without the task stated](https://raw.githubusercontent.com/Samarth-Hiremath1/Grapevine/main/studies/underspecification/figures/accuracy_by_condition.png)
 
 ## What this is and isn't
 
@@ -67,6 +113,38 @@ those 100. Intervals, paired differences and the full account are in
   to beat A (100 and 99 against 96). A's prompt was laid out differently from the
   other conditions. Given the same layout, A scored 100/100.
 
+## v0.2: the pre-registered eval on `hidden_profile_v2`
+
+Three models, 100 held-out tasks, six cells each, pre-registered before any
+call; $1.28 for the run. Read model by model against the pre-registration in
+[`studies/v2_eval/README.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/v2_eval/README.md):
+
+- `gpt-5.6-luna`: with the objective stated, the communicating team was
+  within 3 points of one agent holding every fact (95% interval [−2, +8]). No
+  gap detected, but **not a replication**: the agent who decides can reach the
+  answer from its own private facts, and pooling was not measured.
+- `gpt-6-luna` missed the pre-registered prediction, and no pre-registered
+  reading applies.
+- `gpt-4o-mini` scored 62/100 with every fact and the objective stated, below
+  the 90% the pre-registration required, so its contrasts are capability
+  results, not coordination results.
+
+The eval also found a single-agent shortcut in `hidden_profile_v2` that the
+audit battery had no probe for. The probe is now in the battery and v2 fails it
+(A2 in [`docs/audit.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/audit.md)). An external review then found more
+(`docs/review-v0.2.md`), and the response to each finding is in
+[`docs/review-v0.2-response.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/review-v0.2-response.md).
+
+**What a passing card means.** That no check confirmed a validity failure at the
+sample size audited. It is never a guarantee against shortcuts. A card separates
+a confirmed failure (`fail`: a leak, or a single view that lets a probe commit
+to the answer and never be wrong) from a measured partial-information advantage
+(`measured`: what one agent can do, with an interval and the audit's power)
+and from too little evidence (`inconclusive`). For a task decided by summed
+evidence, some agent's view always carries some information about the answer,
+under assumptions stated in [`docs/validity-card.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/validity-card.md); the
+card measures how much, and leaves judging it to you.
+
 ## How it was checked
 
 The docs that matter most here are the ones about my own errors:
@@ -77,6 +155,13 @@ The docs that matter most here are the ones about my own errors:
   that made the work look worse.
 - `docs/decisions.md` — every judgement call, dated, including conditions
   registered before they were run.
+
+The experiment itself lives in
+[`studies/underspecification/`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/underspecification/README.md). Because
+the finding is about a prompt, the prompts are frozen: the exact strings sent to
+the model are rebuilt from the code and hashed — 14 digests covering all 1,580
+committed episodes — so a template edit that broke reproduction would fail CI
+rather than pass unnoticed.
 
 ## Limitations
 
@@ -99,7 +184,9 @@ The full list, each with its numbers, is in `docs/results.md`.
 
 ## Reproduce
 
-Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.11 or later. The
+byte-identical regeneration below is checked on 3.11, the version in
+`.python-version`.
 
 ```bash
 git clone https://github.com/Samarth-Hiremath1/Grapevine.git
@@ -111,31 +198,26 @@ cp .env.example .env        # put an OpenAI key in .env; it is gitignored
 Rebuild every table and the figure from the committed runs (no API calls):
 
 ```bash
-uv run python -m grapevine.experiments.report_tables
+uv run python -m studies.underspecification.reproduce
 ```
 
-Rerun the experiments. Runs write to a new timestamped directory under `runs/`
-and never overwrite. Costs are what the committed runs cost.
+To see the paid commands that produced the committed runs, each with the cost it
+actually incurred — reconstructed from that run's own manifest, and not executed:
 
 ```bash
-# Task not stated: A, B, C, D, seeds 1000-1199 (~$0.76)
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
-
-# Task and rule stated, seeds 1000-1099 (~$0.38 in total)
-uv run python -m grapevine.experiments.run --config configs/coordination_ablation.yaml \
-    --n-episodes 100 --label rule_arm \
-    --conditions full_info_rule,full_info_matched_rule,no_communication_rule,communication_rule,communication_neutral_rule
+uv run python -m studies.underspecification.reproduce --rerun
 ```
 
 Reruns regenerate identical tasks; answers vary because temperature cannot be
-set for this model. Each run directory holds `manifest.json` (config, seeds, git
-commit at start and end, metrics, token and cost totals, failures) and one
-`episodes_<condition>.jsonl` per condition with full transcripts. To compare a
-new run with the committed ones:
+set for this model. A rerun writes a new timestamped directory under
+`studies/underspecification/runs/` and overwrites nothing. Each run directory
+holds `manifest.json` (config, seeds, git commit at start and end, metrics,
+token and cost totals, failures) and one `episodes_<condition>.jsonl` per
+condition with full transcripts. To compare a new run with the committed ones:
 
 ```bash
 uv run python -m grapevine.experiments.compare \
-    --base runs/20260910T065248Z_primary --base-cond communication \
+    --base studies/underspecification/runs/20260910T065248Z_primary --base-cond communication \
     --other runs/<new-run> --other-cond communication_rule
 ```
 
@@ -143,42 +225,95 @@ Read a transcript, with each required fact marked by whether and when it was
 shared:
 
 ```bash
-uv run grapevine view runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
+uv run grapevine view studies/underspecification/runs/20260913T013826Z_rule_arm/episodes_communication_rule.jsonl
 ```
+
+## Train with GRPO
+
+**GRPO integration, smoke-tested; no training results in this release.**
+
+```bash
+uv sync --extra rl                                                       # torch, transformers, trl, peft
+grapevine train configs/rl_smoke_cpu.yaml --dry-run                      # audit gate + plan, no model
+grapevine train configs/rl_smoke_cpu.yaml                                # two CPU steps, tiny random model
+grapevine eval --policy runs/<run>/policy                                # held-out seeds, beside the baselines
+```
+
+Training refuses to start on an environment its audit flags, including when the
+flag comes from the reward itself: the optional surfacing shaping term is
+collectable without answering. The shipped configs use `venue_choice`, which
+passes. `hidden_profile_v2` is refused, because one agent can answer from its
+own private facts. Overriding a refusal needs `--allow-flagged`, which the run
+manifest records. Frozen partners are separately loaded copies, and a
+test proves they are unchanged after an optimiser step. What has and has not
+been run is in [`docs/rl.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/rl.md).
 
 ## Tests
 
 ```bash
-uv run pytest -q
-uv run ruff check grapevine tests
+uv run pytest -q                                   # includes every example
+uv run ruff check grapevine tests studies examples
 uv run mypy
+uv run --extra docs mkdocs build --strict
 ```
 
-CI runs all three on every push, plus a two-step CPU smoke test of the GRPO
-training loop.
+CI runs the tests on Python 3.11, 3.12 and 3.13 on a core-only install; checks
+that every committed result, card and frozen prompt regenerates byte-identically;
+builds the docs with `--strict`; builds the wheel and runs the examples against
+it alone; and separately runs the GRPO smoke and isolation tests with the `[rl]`
+extra. See [`CONTRIBUTING.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/CONTRIBUTING.md).
 
 ## Repository layout
 
 ```
-grapevine/envs/         task families behind a common Env interface
-grapevine/rollout/      async multi-agent engine and provider client
+grapevine/protocol.py   the environment protocol you implement
+grapevine/audit/        the validity battery and the Validity Card
+grapevine/envs/         bundled environments, the registry, protocol adapters
+grapevine/rollout/      async multi-agent engine, prompt builders, provider client
 grapevine/rewards/      exact-match reward, fact-surfacing metric
-grapevine/experiments/  runner, analysis, cross-run comparison, tables, figure
+grapevine/experiments/  experiment runner, statistics, cross-run comparison, figures
 grapevine/eval/         transcript viewer
-grapevine/diagnostics/  degenerate-policy checks against the reward
-grapevine/train/        TRL GRPO wiring (smoke-tested only; never trained)
-configs/                experiment and training configs
-docs/                   results, methodology, assumptions, audit, decisions
-runs/                   committed experiment runs, one directory per run
+grapevine/rl/           GRPO via TRL behind the audit gate ([rl] extra; smoke-tested, never trained)
+studies/                one directory per case study: its configs, runs and write-up
+examples/               offline, runnable, tested
+configs/                GRPO configs: a CPU smoke config CI runs, a GPU config marked not run
+docs/                   the documentation site; also results, audit, decisions, prereg
 ```
 
-Task families plug in through `grapevine/envs/`. `hidden_profile` is the one used
-here. `split_evidence` exists but is excluded from experiments because it leaks
-the answer to one agent (`docs/decisions.md`). The harness is being extended to
-run existing benchmarks as further families; nothing in the results above
-depends on that.
+The library and the evidence are kept apart. `grapevine/` is the installable
+package; `studies/` holds the experiments that justify what it claims, and is
+not installed. The study behind this README is
+[`studies/underspecification/`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/studies/underspecification/README.md), which
+reproduces with one command and freezes the exact prompts its runs used.
+
+Task families plug in through `grapevine/envs/`. `hidden_profile` is the one
+the v0 study used; `hidden_profile_v2` is the environment of the v0.2 eval,
+and fails its audit; `venue_choice` is the default and the one that passes.
+Both flawed ones are kept as documented case studies. `split_evidence` is
+present but **unregistered**: it leaks the gold answer into one agent's view in
+100 of 100 generated tasks, so nothing that resolves a family by name will hand
+one out. It is kept as a worked negative example (`docs/decisions.md`).
+
+## Roadmap (not in this release)
+
+No dates. Each is something this release deliberately does not do:
+
+- real training runs, and GPU jobs;
+- a successor to `hidden_profile_v2` that closes A2, under a new family name
+  and with its own pre-registration;
+- a new RL algorithm;
+- a `verifiers` v1 multi-agent adapter (per-role `AgentConfig`, non-trainable
+  helper roles), once v1 is on PyPI;
+- adapters for external benchmarks; Inspect or OpenEnv integration;
+- privacy or disclosure-constraint environments;
+- communication-budget, routing or counterfactual-replay machinery;
+- any claim about another benchmark's results.
 
 ## Citation
+
+To cite Grapevine itself, see [`CITATION.cff`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/CITATION.cff). Works this
+repository relies on are below; the fuller list, each entry checked against its
+source, is [`docs/related-work.md`](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/docs/related-work.md).
 
 - Li, Y., Naito, A., & Shirado, H. Systematic Failures in Collective Reasoning
   under Distributed Information in Multi-Agent LLMs. ICML 2026 (PMLR 306).
@@ -191,4 +326,4 @@ depends on that.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](https://github.com/Samarth-Hiremath1/Grapevine/blob/main/LICENSE).

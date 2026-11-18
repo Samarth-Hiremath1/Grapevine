@@ -1,0 +1,11 @@
+{
+  "_comment": "SHA-256 over the opening prompts of every task in every cell, per phase. Recorded in docs/prereg/hidden_profile_v2_eval.md before any run. Regenerate with 'python -m studies.v2_eval.freeze'.",
+  "pilot": {
+    "n_prompts": 320,
+    "sha256": "7a97e5dee30b0144a2c74be9a96520bacc1f572c909160130b34910a918bb4e5"
+  },
+  "primary": {
+    "n_prompts": 1600,
+    "sha256": "1fde107ce6d62d149bd8621345ac516ec18c75df4aa88a09338da334644d60b5"
+  }
+}

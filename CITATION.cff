@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use Grapevine, please cite it as below."
+title: "Grapevine: checking whether a multi-agent LLM evaluation measures coordination"
+type: software
+authors:
+  - family-names: Hiremath
+    given-names: Samarth
+version: 0.2.0
+license: MIT
+repository-code: "https://github.com/Samarth-Hiremath1/Grapevine"
+keywords:
+  - multi-agent systems
+  - large language models
+  - evaluation validity
+  - hidden profile

@@ -15,7 +15,8 @@ conditions and writes everything needed to reproduce the numbers:
 Conditions run on identical task seeds so comparisons are paired.
 
 Usage:
-    python -m grapevine.experiments.run --config configs/coordination_ablation.yaml
+    python -m grapevine.experiments.run \
+        --config studies/underspecification/configs/coordination_ablation.yaml
 
 Every run writes to a fresh timestamped directory under ``output_dir``; nothing
 is ever overwritten.
@@ -35,7 +36,7 @@ from typing import Any
 
 import yaml
 
-from grapevine.envs import REGISTRY
+from grapevine.envs import REGISTRY, unavailable_reason
 from grapevine.envs.base import Task
 from grapevine.experiments.analysis import (
     ConditionSummary,
@@ -116,10 +117,13 @@ def load_config(path: str | Path) -> dict[str, Any]:
             raise ValueError(f"config missing required section {key!r}")
     fam = data["env"].get("family", "hidden_profile")
     if fam != "hidden_profile":
+        reason = unavailable_reason(fam)
+        detail = f": it {reason}" if reason else ""
         raise ValueError(
-            f"family {fam!r} is not supported for this experiment. Only "
-            "'hidden_profile' is used: split_evidence leaks the gold answer "
-            "verbatim into one agent's context (see docs/decisions.md)."
+            f"family {fam!r} is not supported for this experiment{detail}. The "
+            "committed runs all use 'hidden_profile', and a different family "
+            "would not be paired with them. Registered: "
+            f"{', '.join(sorted(REGISTRY))}."
         )
     return data
 

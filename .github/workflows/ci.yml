@@ -10,38 +10,191 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Actions are pinned by commit SHA, with the release each SHA was read as
+# (resolved 2026-11-16).
+permissions:
+  contents: read
+
 jobs:
-  lint-and-test:
+  core:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Install locked environment (core + dev, Python from .python-version)
         run: uv sync --locked --extra dev
 
       - name: Lint (ruff)
-        run: .venv/bin/ruff check grapevine tests
+        run: .venv/bin/ruff check grapevine tests studies examples
 
       - name: Type check (mypy)
         run: .venv/bin/mypy
 
-      - name: Results regenerate byte-identically from committed runs
+      - name: Results and the Validity Card regenerate byte-identically
         run: |
-          .venv/bin/python -m grapevine.experiments.report_tables
-          git diff --exit-code -- docs/figures/results_tables.json docs/figures/accuracy_by_condition.csv
+          .venv/bin/python -m studies.underspecification.reproduce
+          git diff --exit-code -- \
+            studies/underspecification/figures/results_tables.json \
+            studies/underspecification/figures/accuracy_by_condition.csv \
+            studies/underspecification/validity_card.json \
+            studies/underspecification/validity_card.md
 
-      - name: Install training extra (CPU-only torch)
+      - name: Pre-registered eval prompts still match the pre-registration
+        run: .venv/bin/python -m studies.v2_eval.freeze --check
+      - name: H1 investigation is reproducible
+        run: .venv/bin/python -m studies.v2_eval.h1_investigation --check
+      - name: v2 eval results block matches the analysis output
+        run: .venv/bin/python -m studies.v2_eval.report --check
+      - name: Review follow-up is reproducible
+        run: .venv/bin/python -m studies.v2_eval.review_followup --check
+      - name: Battery false-fail measurement is reproducible
+        run: .venv/bin/python -m studies.battery_calibration.false_fail --check
+      - name: Every registered number in the docs re-derives from its source
+        run: .venv/bin/grapevine verify-claims
+
+      - name: hidden_profile_v2's Validity Card regenerates byte-identically
         run: |
-          uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-          uv pip install "trl>=0.11" "transformers>=4.44" "datasets>=2.20" "accelerate>=0.33"
+          # Exits 2: v2 fails solo_solvability (docs/audit.md, A2). Any other
+          # exit code, or any change to the card, fails this step.
+          .venv/bin/grapevine audit hidden_profile_v2 --n 200 --seed 0 \
+            --out environments/hidden_profile_v2 && exit 1 || test $? -eq 2
+          git diff --exit-code -- environments/hidden_profile_v2
 
-      - name: Tests (includes the 2-step CPU GRPO smoke test)
+      - name: venue_choice's Validity Card regenerates byte-identically, and passes
+        run: |
+          .venv/bin/grapevine audit venue_choice --n 200 --seed 0 --out environments/venue_choice
+          git diff --exit-code -- environments/venue_choice
+
+      - name: Study prompts still match the committed runs
+        run: .venv/bin/python -m studies.underspecification.freeze_prompts --check
+
+      - name: Quickstart works with no API key
+        run: |
+          .venv/bin/grapevine envs
+          # Exits 2 because hidden_profile genuinely fails its audit; that is the
+          # finding the quickstart is meant to show, so a 0 here would be the bug.
+          .venv/bin/grapevine audit hidden_profile --n 50 > /dev/null && exit 1 || test $? -eq 2
+
+      - name: Core stays light (grapevine.rl imports no torch)
+        run: |
+          .venv/bin/python - <<'EOF'
+          import importlib.util, sys
+          assert importlib.util.find_spec("torch") is None, "core install pulled in torch"
+          import grapevine, grapevine.rl, grapevine.rl.grpo, grapevine.rl.eval  # noqa: F401
+          heavy = [m for m in ("torch", "transformers", "trl", "peft") if m in sys.modules]
+          assert not heavy, f"importing grapevine.rl loaded {heavy}"
+          EOF
+
+      - name: Tests on the core install (model-loading tests skip)
+        run: .venv/bin/pytest -q
+
+  tests:
+    # The supported Python versions. The regeneration checks above run once, on
+    # the version in .python-version, because byte-identical output is the point.
+    name: tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install locked environment (core + dev)
+        run: uv sync --locked --extra dev
+
+      - name: Tests, including every example
+        run: uv run --no-sync pytest -q
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install locked environment with the [docs] extra
+        run: uv sync --locked --extra docs
+
+      - name: Build the site; any warning fails
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: .venv/bin/mkdocs build --strict
+
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Build the sdist and wheel
+        run: uv build
+
+      - name: Check the metadata renders
+        run: uvx twine@7.0.0 check --strict dist/*
+
+      - name: Install the wheel alone and use it
+        run: |
+          uv venv /tmp/wheel-env
+          uv pip install --python /tmp/wheel-env/bin/python dist/*.whl
+          cd /tmp
+          /tmp/wheel-env/bin/python -c "import grapevine; assert grapevine.__version__ == '0.2.0'"
+          /tmp/wheel-env/bin/grapevine envs
+          for example in "$GITHUB_WORKSPACE"/examples/[0-9][0-9]_*.py; do
+            /tmp/wheel-env/bin/python "$example" > /dev/null
+          done
+
+  rl-smoke:
+    # GRPO integration, smoke-tested. These runs prove the loop is wired and that
+    # frozen partners stay frozen; they are not training and report no results.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install locked environment with the [rl] extra (CPU torch on Linux)
+        run: uv sync --locked --extra dev --extra rl
+
+      - name: GRPO smoke run, isolation test and its negative control
         env:
           HF_HUB_DOWNLOAD_TIMEOUT: "60"
-        run: .venv/bin/pytest -q
+        run: .venv/bin/pytest -q tests/test_rl_training.py
+
+      - name: The shipped smoke config runs through the CLI
+        env:
+          HF_HUB_DOWNLOAD_TIMEOUT: "60"
+        run: |
+          .venv/bin/grapevine train configs/rl_smoke_cpu.yaml
+          .venv/bin/python - <<'EOF'
+          import json
+          m = json.load(open("runs/rl_smoke_cpu/manifest.json"))
+          assert m["global_step"] == 2, m["global_step"]
+          assert m["reportable"] is False and m["synthetic"] is True
+          assert m["partners_frozen"] is True
+          assert m["audit_gate"]["passed"] is True
+          assert m["audit_gate"]["allowed_flagged"] is False
+          EOF
+
+      - name: The GPU config passes the gate, and the same config on v2 is refused (dry run)
+        run: |
+          .venv/bin/grapevine train configs/rl_single_gpu.yaml --dry-run
+          sed 's/name: venue_choice/name: hidden_profile_v2/' configs/rl_single_gpu.yaml > /tmp/v2.yaml
+          .venv/bin/grapevine train /tmp/v2.yaml --dry-run && exit 1 || test $? -eq 2

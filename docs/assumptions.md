@@ -254,7 +254,7 @@ committed runs, and whether they are recorded anywhere in the manifests.
 conclusion for the published commit.
 
 **R5. The figure regenerates from committed data.**
-`grapevine/experiments/figure.py`, `runs/20260910T065248Z_primary/`.
+`grapevine/experiments/figure.py`, `studies/underspecification/runs/20260910T065248Z_primary/`.
 *Check:* regenerate into a scratch directory from the committed run and compare
 the source table against the committed `figure_data.csv`.
 
@@ -296,7 +296,7 @@ sets"; condition D's 85/115 surfacing split at 61.2% and 47.0%.
 *Check:* recompute each from committed episodes.
 
 **C5. The docs describe the current state of the work.**
-`runs/20260913T013826Z_rule_arm/` exists on disk, uncommitted, containing the
+`studies/underspecification/runs/20260913T013826Z_rule_arm/` exists on disk, uncommitted, containing the
 experiment that README and `docs/results.md` both describe as the *next*
 experiment. The published docs would therefore describe an open question that has
 already been measured.

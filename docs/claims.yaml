@@ -1,0 +1,237 @@
+# Every registered number in the prose, with where it comes from.
+#
+#   grapevine verify-claims          # CI and tests/test_claims.py run this
+#
+# Each claim renders `template` from its source and must appear verbatim in
+# `file` (whitespace and minus signs normalised). Sources are committed files
+# or deterministic functions in this repository; see grapevine/claims.py.
+#
+# Not yet registered, and therefore not machine-checked: the surfacing metric's
+# precision, recall and label count (README "Limitations", docs/audit.md L5) --
+# recall depends on pool sizes no committed file stores, and who produced the
+# labels were a model (docs/audit_surfacing_labels.md); "12 fact sentences"
+# and the support pattern (6, 5, 1, 0) in the README; the HiddenBench figures,
+# which come from the paper, not from a run.
+
+v0_tables: &v0 studies/underspecification/figures/results_tables.json
+v0_card: &v0card studies/underspecification/validity_card.json
+v2_card: &v2card environments/hidden_profile_v2/validity_card.json
+v2_results: &v2r studies/v2_eval/runs/20261116T091238Z_primary/results.json
+v2_primary: &v2p studies/v2_eval/runs/20261116T091238Z_primary/manifest.json
+v2_pilot: &v2pilot studies/v2_eval/runs/20261116T074017Z_pilot/manifest.json
+
+claims:
+  # --- README: the v0 study -------------------------------------------------
+  - {id: readme.v0.headline.A, file: README.md, template: "dropped accuracy from {accuracy:.1%}",
+     source: {json: *v0, path: [no_rule, A]}}
+  - {id: readme.v0.headline.B, file: README.md, template: "to {accuracy:.1%}, and it stayed",
+     source: {json: *v0, path: [no_rule, B]}}
+  - {id: readme.v0.headline.B-rule, file: README.md, template: "at {accuracy:.0%} even when the task was stated",
+     source: {json: *v0, path: [rule, B]}}
+  - {id: readme.v0.headline.C-rule, file: README.md, template: "teams scored {correct}/{n} and",
+     source: {json: *v0, path: [rule, C]}}
+  - {id: readme.v0.headline.D-rule, file: README.md, template: "and {correct}/{n}, the same",
+     source: {json: *v0, path: [rule, D]}}
+  - {id: readme.v0.table.A, file: README.md, template: "| A. one agent, all facts | {correct}/{n} · {accuracy:.1%} |",
+     source: {json: *v0, path: [no_rule, A]}}
+  - {id: readme.v0.table.A-rule, file: README.md, template: "original prompt {correct}/{n} · {accuracy:.0%}",
+     source: {json: *v0, path: [rule, A]}}
+  - {id: readme.v0.table.A-matched-rule, file: README.md, template: "matched prompt {correct}/{n} · {accuracy:.0%}",
+     source: {json: *v0, path: [rule, "A (matched)"]}}
+  - {id: readme.v0.table.B, file: README.md, template: "| B. three agents, no talking | {correct}/{n} · {accuracy:.1%} |",
+     source: {json: *v0, path: [no_rule, B]}}
+  - {id: readme.v0.table.B-rule, file: README.md, template: "no talking | 1/200 · 0.5% | {correct}/{n} · {accuracy:.0%} |",
+     source: {json: *v0, path: [rule, B]}}
+  - {id: readme.v0.table.C, file: README.md, template: "| C. three agents, told to share | {correct}/{n} · {accuracy:.1%} |",
+     source: {json: *v0, path: [no_rule, C]}}
+  - {id: readme.v0.table.C-rule, file: README.md, template: "told to share | 134/200 · 67.0% | {correct}/{n} · {accuracy:.0%} |",
+     source: {json: *v0, path: [rule, C]}}
+  - {id: readme.v0.table.D, file: README.md, template: "| D. three agents, neutral prompt | {correct}/{n} · {accuracy:.1%} |",
+     source: {json: *v0, path: [no_rule, D]}}
+  - {id: readme.v0.table.D-rule, file: README.md, template: "neutral prompt | 111/200 · 55.5% | {correct}/{n} · {accuracy:.0%} |",
+     source: {json: *v0, path: [rule, D]}}
+  - {id: readme.v0.C-over-D, file: README.md,
+     template: "C over D was {mean!p:+.1f} points [{ci95[0]!p:+.1f}, {ci95[1]!p:+.1f}] without the task",
+     source: {json: *v0, path: [within_no_rule, C-D]}}
+  - {id: readme.v0.C-over-D-rule, file: README.md,
+     template: "and {mean!p:+.1f} [{ci95[0]!p:.1f}, {ci95[1]!p:+.1f}] with it",
+     source: {json: *v0, path: [within_rule, C-D]}}
+  - {id: readme.v0.A-minus-C, file: README.md, template: "still trailed A by {mean!p:.1f} points",
+     source: {json: *v0, path: [within_no_rule, A-C]}}
+  - {id: readme.v0.asked, file: README.md, template: "({asked_for_criteria} of {n} C episodes)",
+     source: {json: *v0, path: [no_rule, C]}}
+  - {id: readme.v0.C-same-seeds, file: README.md, template: "took C from {correct}/{n} to",
+     source: {json: *v0, path: [no_rule_seeds_1000_1099, C]}}
+  - {id: readme.v0.C-rule-after, file: README.md, template: "to {correct}/{n} on the same tasks",
+     source: {json: *v0, path: [rule, C]}}
+  - {id: readme.v0.asked-rule, file: README.md, template: "requests fell to {asked_for_criteria} of {n}",
+     source: {json: *v0, path: [rule, C]}}
+  - {id: readme.v0.layout.C, file: README.md, template: "to beat A ({correct} and",
+     source: {json: *v0, path: [rule, C]}}
+  - {id: readme.v0.layout.D, file: README.md, template: "and {correct} against",
+     source: {json: *v0, path: [rule, D]}}
+  - {id: readme.v0.layout.A, file: README.md, template: "against {correct}). A's prompt",
+     source: {json: *v0, path: [rule, A]}}
+  - {id: readme.v0.layout.A-matched, file: README.md, template: "Given the same layout, A scored {correct}/{n}.",
+     source: {json: *v0, path: [rule, "A (matched)"]}}
+  - {id: readme.v0.position.first, file: README.md, template: "(C: {accuracy:.0%} at the first position",
+     source: {json: *v0, path: [position_effect, no_rule, C, "0"]}}
+  - {id: readme.v0.position.last, file: README.md, template: "{accuracy:.0%} at the last)",
+     source: {json: *v0, path: [position_effect, no_rule, C, "3"]}}
+  - {id: readme.v0.D-parse-failures, file: README.md, template: "Condition D's {parse_failures} parse failures",
+     source: {json: *v0, path: [no_rule, D]}}
+  - {id: readme.v0.shortcut.intro, file: README.md, template: "shortcut that solves {n_correct} of {n} tasks",
+     source: {json: *v0card, path: [results, 3, detail, shortcuts, 0]}}
+  - {id: readme.v0.shortcut.limitations, file: README.md, template: "counting name mentions solves {n_correct} of {n}",
+     source: {json: *v0card, path: [results, 3, detail, shortcuts, 0]}}
+  - {id: readme.v0.one-pattern, file: README.md, template: "All {n_tasks} tasks share one support pattern",
+     source: {json: *v0card, path: [results, 6, detail]}, expect: {distinct_support_patterns: 1}}
+  - {id: readme.v0.prompt-freeze, file: README.md, template: "{digests} digests covering all {episodes:,}",
+     source: {call: "studies.claims_sources:v0_prompt_freeze"}}
+
+  # --- README and home page: the v0.2 eval ------------------------------------
+  - {id: readme.v2.cost, file: README.md, template: "call; ${value:.2f} for the run",
+     source: {json: *v2p, path: total_cost_usd}}
+  - {id: index.v2.cost, file: docs/index.md, template: "Run once, ${value:.2f}",
+     source: {json: *v2p, path: total_cost_usd}}
+  - {id: readme.v2.tasks, file: README.md, template: "Three models, {n} held-out tasks",
+     source: {json: *v2r, path: [cells, gpt-5.6-luna, full_info/stated]}}
+  - {id: readme.v2.h3.5.6, file: README.md,
+     template: "within {mean_difference!p:.0f} points of one agent holding every fact (95% interval [{ci95[0]!p:+.0f}, {ci95[1]!p:+.0f}])",
+     source: {json: *v2r, path: [contrasts, gpt-5.6-luna, "full_info - communication, stated"]}}
+  - {id: readme.v2.h4.4o, file: README.md, template: "`gpt-4o-mini` scored {correct}/{n} with every fact",
+     source: {json: *v2r, path: [cells, gpt-4o-mini, full_info/stated]}}
+
+  # --- studies/v2_eval/README.md ----------------------------------------------
+  - {id: v2.run.pilot.calls, file: studies/v2_eval/README.md, template: "| Calls | {n_calls:,} |",
+     source: {json: *v2pilot}}
+  - {id: v2.run.primary.calls, file: studies/v2_eval/README.md, template: "| Calls | 1,320 | {n_calls:,} |",
+     source: {json: *v2p}}
+  - {id: v2.run.pilot.episodes, file: studies/v2_eval/README.md,
+     template: "| Episodes | {episodes_completed}/{episodes_expected} |", source: {json: *v2pilot}}
+  - {id: v2.run.primary.episodes, file: studies/v2_eval/README.md,
+     template: "| Episodes | 360/360 | {episodes_completed:,}/{episodes_expected:,} |", source: {json: *v2p}}
+  - {id: v2.run.pilot.truncated, file: studies/v2_eval/README.md, template: "| Truncated calls | {truncated_calls} |",
+     source: {json: *v2pilot}}
+  - {id: v2.run.primary.truncated, file: studies/v2_eval/README.md, template: "| Truncated calls | 1 | {truncated_calls} |",
+     source: {json: *v2p}}
+  - {id: v2.run.pilot.cost, file: studies/v2_eval/README.md,
+     template: "| Cost | ${total_cost_usd:.4f} (ceiling ${approved_usd}) |", source: {json: *v2pilot}}
+  - {id: v2.run.primary.cost, file: studies/v2_eval/README.md,
+     template: "${total_cost_usd:.4f} (ceiling ${approved_usd}) |\n", source: {json: *v2p}}
+  - {id: v2.h4.5.6, file: studies/v2_eval/README.md, template: "Holds for `gpt-5.6-luna` ({correct}/{n})",
+     source: {json: *v2r, path: [cells, gpt-5.6-luna, full_info/stated]}}
+  - {id: v2.h4.6, file: studies/v2_eval/README.md, template: "and `gpt-6-luna` ({correct}/{n}). Fails",
+     source: {json: *v2r, path: [cells, gpt-6-luna, full_info/stated]}}
+  - {id: v2.h4.4o, file: studies/v2_eval/README.md, template: "`gpt-4o-mini` ({correct}/{n}), so by",
+     source: {json: *v2r, path: [cells, gpt-4o-mini, full_info/stated]}}
+  - {id: v2.h3.5.6, file: studies/v2_eval/README.md,
+     template: "`gpt-5.6-luna`: {mean_difference!p:+.1f} points, 95% [{ci95[0]!p:+.1f}, {ci95[1]!p:+.1f}]",
+     source: {json: *v2r, path: [contrasts, gpt-5.6-luna, "full_info - communication, stated"]}}
+  - {id: v2.h3.6, file: studies/v2_eval/README.md,
+     template: "`gpt-6-luna`: {mean_difference!p:+.1f} points, 95% [{ci95[0]!p:+.1f}, {ci95[1]!p:+.1f}], Bonferroni [{ci_bonferroni[0]!p:+.1f}, {ci_bonferroni[1]!p:+.1f}]",
+     source: {json: *v2r, path: [contrasts, gpt-6-luna, "full_info - communication, stated"]}}
+  - {id: v2.h3.4o, file: studies/v2_eval/README.md,
+     template: "`gpt-4o-mini`: {mean_difference!p:+.1f} points, Bonferroni [{ci_bonferroni[0]!p:+.1f}, {ci_bonferroni[1]!p:+.1f}]",
+     source: {json: *v2r, path: [contrasts, gpt-4o-mini, "full_info - communication, stated"]}}
+  - {id: v2.h2.5.6.full, file: studies/v2_eval/README.md, template: "supported in both: {mean_difference!p:+.1f} in `full_info`",
+     source: {json: *v2r, path: [contrasts, gpt-5.6-luna, "objective effect, full_info"]}}
+  - {id: v2.h2.5.6.comm, file: studies/v2_eval/README.md, template: "{mean_difference!p:+.1f} in `communication`, both Bonferroni",
+     source: {json: *v2r, path: [contrasts, gpt-5.6-luna, "objective effect, communication"]}}
+  - {id: v2.h2.6.comm, file: studies/v2_eval/README.md, template: "`gpt-6-luna`: {mean_difference!p:+.1f} in `communication`",
+     source: {json: *v2r, path: [contrasts, gpt-6-luna, "objective effect, communication"]}}
+  - {id: v2.h2.6.full, file: studies/v2_eval/README.md,
+     template: "**{mean_difference!p:+.1f} in `full_info`**, 95% [{ci95[0]!p:+.1f}, {ci95[1]!p:+.1f}]",
+     source: {json: *v2r, path: [contrasts, gpt-6-luna, "objective effect, full_info"]}}
+  - {id: v2.h2.4o.full, file: studies/v2_eval/README.md,
+     template: "in `full_info` ({mean_difference!p:+.1f}, Bonferroni [{ci_bonferroni[0]!p:+.1f}, {ci_bonferroni[1]!p:+.1f}])",
+     source: {json: *v2r, path: [contrasts, gpt-4o-mini, "objective effect, full_info"]}}
+  - {id: v2.h2.4o.comm, file: studies/v2_eval/README.md, template: "{mean_difference!p:+.1f} in `communication`, interval",
+     source: {json: *v2r, path: [contrasts, gpt-4o-mini, "objective effect, communication"]}}
+  - {id: v2.h1.4o, file: studies/v2_eval/README.md,
+     template: "`gpt-4o-mini`, unstated: {correct}/{n}, 95% [{ci95[0]:.1%}, {ci95[1]:.1%}]",
+     source: {json: *v2r, path: [cells, gpt-4o-mini, no_communication/unstated]}}
+  - {id: v2.h1.luna.max, file: studies/v2_eval/README.md, template: "all four cells (at most {correct}/{n})",
+     source: {call: "studies.claims_sources:v2_luna_no_communication_max"}}
+  - {id: v2.solver, file: studies/v2_eval/README.md, template: "every time ({solver_gold}/{solver_agents} agents",
+     source: {call: "studies.v2_eval.h1_investigation:investigate"}}
+
+  # --- docs/audit.md A2 and docs/audit-battery.md -----------------------------
+  - {id: audit.a2.cell, file: docs/audit.md,
+     template: "scored {correct}/{n} there (95% interval {ci95[0]:.1%} to {ci95[1]:.1%}",
+     source: {json: *v2r, path: [cells, gpt-4o-mini, no_communication/unstated]}}
+  - {id: audit.a2.votes, file: docs/audit.md, template: "voted for gold {gold} times in {votes}",
+     source: {call: "studies.v2_eval.h1_investigation:investigate", path: [votes, gpt-4o-mini, unstated]}}
+  - {id: audit.a2.solver, file: docs/audit.md, template: "picks gold for {solver_gold}/{solver_agents} agents",
+     source: {call: "studies.v2_eval.h1_investigation:investigate"}}
+  - {id: audit.a2.card, file: docs/audit.md, template: "fails `solo_solvability` ({n_correct}/{n} on its card)",
+     source: {json: *v2card, path: [results, 1, detail, probes, 9]}}
+  - {id: battery.a2.solver, file: docs/audit-battery.md, template: "right for {solver_gold} of {solver_agents} agents",
+     source: {call: "studies.v2_eval.h1_investigation:investigate"}}
+  - {id: battery.a2.votes, file: docs/audit-battery.md, template: "voted gold from its own view {gold} times in {votes}",
+     source: {call: "studies.v2_eval.h1_investigation:investigate", path: [votes, gpt-4o-mini, unstated]}}
+  - {id: battery.mda, file: docs/audit-battery.md, template: "usually misses a true single-view accuracy below {value:.1%}",
+     source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
+  - {id: battery.bound, file: docs/audit-battery.md, template: "single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: battery.detection, file: docs/audit-battery.md, template: "is caught on {detected} of {runs} ranges",
+     source: {call: "studies.battery_calibration.false_fail:detection_floor"}}
+  - {id: readme.mda, file: docs/review-v0.2-response.md, template: "usually misses a true single-view accuracy below {value:.1%}",
+     source: {json: studies/battery_calibration/results.json, path: minimum_detectable_accuracy}}
+  - {id: response.bound, file: docs/review-v0.2-response.md, template: "best single-view accuracy is {bayes:.1%} against {chance:.0%} chance",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: decisions.bound, file: docs/decisions.md, template: "exact Bayes-optimal single-view accuracy of {bayes:.1%} against {chance:.0%}",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+
+  # --- Exploratory follow-up to the review (studies/v2_eval/review_followup.py)
+  - {id: v2.followup.surfacing, file: studies/v2_eval/README.md,
+     template: "In {not_all_gold_surfaced} of the {correct} correct communication episodes",
+     source: {call: "studies.v2_eval.review_followup:surfacing", path: [gpt-5.6-luna]}}
+  - {id: v2.followup.h3-6.truncated, file: studies/v2_eval/README.md,
+     template: "Of the {only_full} tasks only `full_info` got right, {only_full_comm_failed_to_answer} are communication",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna]}}
+  - {id: v2.followup.h3-6.seed, file: studies/v2_eval/README.md, template: "moving to {value!p:+.1f} with a different bootstrap seed",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna, bonferroni_lower_by_seed, "1"]}}
+  - {id: v2.followup.layout-cue, file: studies/v2_eval/README.md,
+     template: "gives gold on {value[0]} of {value[1]} tasks from v2's eval split",
+     source: {call: "studies.v2_eval.review_followup:probes",
+              path: ["hidden_profile_v2 (eval 10000-10199)", full_info_most_named_in_private_block]}}
+
+  - {id: response.surfacing, file: docs/review-v0.2-response.md,
+     template: "gives {not_all_gold_surfaced} of {correct} correct `gpt-5.6-luna` communication episodes",
+     source: {call: "studies.v2_eval.review_followup:surfacing", path: [gpt-5.6-luna]}}
+  - {id: response.m4, file: docs/review-v0.2-response.md,
+     template: "({only_full} v {only_comm} discordant, {only_full_comm_failed_to_answer} truncated, McNemar {mcnemar_p:.3f}",
+     source: {call: "studies.v2_eval.review_followup:h3_detail", path: [gpt-6-luna]}}
+  - {id: response.leak.0.1, file: docs/review-v0.2-response.md, template: "exactly ({leaky_tasks},",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [0]}}
+  - {id: response.leak.0.2, file: docs/review-v0.2-response.md, template: ", {leaky_tasks}, ",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [1]}}
+  - {id: response.leak.0.3, file: docs/review-v0.2-response.md, template: "{leaky_tasks} of 200)",
+     source: {call: "studies.v2_eval.review_followup:partial_leak", path: [2]}}
+  - {id: response.probe.control, file: docs/review-v0.2-response.md,
+     template: "is also {value[0]}/{value[1]} on the clean control",
+     source: {call: "studies.v2_eval.review_followup:probes", path: ["control as reviewed (eval 1000-1199)", named_not_most_named]}}
+  - {id: battery.stable.control, file: docs/audit-battery.md,
+     template: "the zero-information diagnostic rejects on {zero_information_rejected[solo_solvability]} for the control and `solo_solvability` reports `measured` on all {power_limited_statuses[solo_solvability][measured]}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: battery.verdicts.control, file: docs/audit-battery.md, template: "verdict is `measured` on {verdicts[measured]} and differs on 2",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}, expect: {verdicts: {fail: 1, measured: 38, warn: 1}}}
+  - {id: battery.verdicts.venue, file: docs/audit-battery.md, template: "verdict is `measured` on {verdicts[measured]} and differs on 2",
+     source: {json: studies/battery_calibration/results.json, path: [clean, venue_choice]}, expect: {verdicts: {fail: 1, measured: 38, warn: 1}}}
+  - {id: battery.first-option, file: docs/audit-battery.md, template: "`first_option` was right in {n_correct} of {n} tasks",
+     source: {call: "studies.claims_sources:control_first_option_1200"}}
+  - {id: response.stable, file: docs/review-v0.2-response.md,
+     template: "the control is `measured` on all {power_limited_statuses[solo_solvability][measured]}, though the diagnostic rejects on {zero_information_rejected[solo_solvability]}",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: decisions.diagnostic, file: docs/decisions.md, template: "sees that on {zero_information_rejected[solo_solvability]} of {audits} seed ranges",
+     source: {json: studies/battery_calibration/results.json, path: [clean, control]}}
+  - {id: spec.bound, file: docs/validity-card.md, template: "single-view accuracy, {bayes:.1%}, is computed",
+     source: {call: "studies.battery_calibration.bound:control_bound"}}
+  - {id: spec.shortcut.lower20, file: docs/validity-card.md, template: "as low as {lower_20:.1%} (the two-sided 95% Clopper-Pearson bound",
+     source: {call: "studies.claims_sources:shortcut_rule_bounds"}}
+  - {id: spec.shortcut.lower200, file: docs/validity-card.md, template: "at 200 commitments, {lower_200:.1%})",
+     source: {call: "studies.claims_sources:shortcut_rule_bounds"}}
+  # --- Spend ------------------------------------------------------------------
+  - {id: progress.spend, file: docs/PROGRESS.md, template: "**Spend:** ${value:.4f} cumulative. $0.00 this step.",
+     source: {call: "studies.v2_eval.run:committed_spend"}}

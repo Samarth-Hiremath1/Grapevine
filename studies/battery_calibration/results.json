@@ -1,0 +1,177 @@
+{
+  "clean": {
+    "control": {
+      "audits": 40,
+      "failed": 1,
+      "failed_outside_power_limited": 1,
+      "by_check": {
+        "shortcuts": 1
+      },
+      "verdicts": {
+        "fail": 1,
+        "measured": 38,
+        "warn": 1
+      },
+      "power_limited_statuses": {
+        "solo_solvability": {
+          "measured": 40
+        },
+        "reward_hacking": {
+          "measured": 40
+        }
+      },
+      "zero_information_rejected": {
+        "reward_hacking": 17,
+        "solo_solvability": 17
+      }
+    },
+    "venue_choice": {
+      "audits": 40,
+      "failed": 1,
+      "failed_outside_power_limited": 1,
+      "by_check": {
+        "shortcuts": 1
+      },
+      "verdicts": {
+        "fail": 1,
+        "measured": 38,
+        "warn": 1
+      },
+      "power_limited_statuses": {
+        "solo_solvability": {
+          "measured": 40
+        },
+        "reward_hacking": {
+          "measured": 40
+        }
+      },
+      "zero_information_rejected": {
+        "reward_hacking": 18,
+        "solo_solvability": 17
+      }
+    }
+  },
+  "detection": {
+    "answer_leak": {
+      "check": "leak",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "colliding_names": {
+      "check": "name_hygiene",
+      "status": "warn",
+      "detected": 10,
+      "runs": 10
+    },
+    "gold_least_shared": {
+      "check": "solo_solvability",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "gold_share_bias": {
+      "check": "solo_solvability",
+      "status": "measured",
+      "detected": 10,
+      "runs": 10
+    },
+    "legacy_gold_only_private_support": {
+      "check": "solo_solvability",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "legacy_pointer_support": {
+      "check": "solo_solvability",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "lenient_scorer": {
+      "check": "scorer_fuzz",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "mention_count_shortcut": {
+      "check": "shortcuts",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "mismatched_baseline": {
+      "check": "condition_diff",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "one_puzzle": {
+      "check": "diversity",
+      "status": "warn",
+      "detected": 10,
+      "runs": 10
+    },
+    "partial_leak_0_05": {
+      "check": "leak",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "partial_leak_0_1": {
+      "check": "leak",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "partial_leak_0_2": {
+      "check": "leak",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "position_correlated_gold": {
+      "check": "balance",
+      "status": "warn",
+      "detected": 10,
+      "runs": 10
+    },
+    "redundant_required": {
+      "check": "minimality",
+      "status": "warn",
+      "detected": 10,
+      "runs": 10
+    },
+    "solo_solvable": {
+      "check": "solo_solvability",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "unstated_objective": {
+      "check": "objective",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "verbosity_shaping": {
+      "check": "reward_hacking",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "hidden_profile_v2": {
+      "check": "solo_solvability",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    },
+    "hidden_profile (v0)": {
+      "check": "shortcuts",
+      "status": "fail",
+      "detected": 10,
+      "runs": 10
+    }
+  },
+  "minimum_detectable_accuracy": 0.372
+}

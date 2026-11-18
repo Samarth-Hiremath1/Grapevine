@@ -275,3 +275,240 @@ The last commit containing it is `4cde7e8`; recover it with
 `git show 4cde7e8:experiments/baseline/run_baseline.py`. Nothing outside the
 directory referenced it, and no reported number came from it. The ruff invocation
 in CI and in `README.md` no longer names the now-absent `experiments` path.
+
+## Skip the `verifiers` adapter in v0.2
+
+*2026-11-15, during v0.2 planning.* The plan was to expose `hidden_profile_v2`
+through `verifiers` as a taskset plus a multi-agent `Env`, but only if that
+turned out to be a small, clean wrapper. It does not.
+
+The v1 API documented at `docs.primeintellect.ai` is a good fit on paper: an
+`Env` subclass with `async def run(self, task, agents)`, one `vf.AgentConfig`
+per role so each agent can have its own model, and `agents.<role>.trainable =
+False` to freeze a helper role. That is close to what Grapevine's conditions
+need.
+
+The problem is availability. The latest release of `verifiers` on PyPI is
+0.4.1, which is a different library generation from the one the docs describe.
+The documented install is `git clone PrimeIntellect-ai/verifiers && uv sync`;
+the local commands (`vf-run`, `vf-validate`) run from inside that clone; full
+evaluations go through `prime-rl`; and Harbor tasksets require Python 3.12+
+while this project supports 3.11+. The minimal taskset package layout is not
+specified on the pages that describe building one.
+
+Taking that on means a dependency `uv.lock` cannot pin, a second CLI toolchain
+in CI, and a Python floor raised for a feature nobody has asked for yet. It
+also cuts against the rule that external APIs are pinned to a version actually
+read: a git `main` is not a version.
+
+Decision: no adapter in v0.2. It goes in the README roadmap as "`verifiers` v1
+multi-agent adapter (per-role `AgentConfig`, non-trainable helper roles)",
+without a date, and is revisited when v1 is released to PyPI. TRL GRPO remains
+the only training integration, which is enough for what Step 5 claims.
+
+## PyPI distribution name `grapevine-mas`
+
+*2026-11-15.* The import name `grapevine` is what the code, the docs and the
+committed runs already use, and changing it would break every path in the
+repository for no gain. But `grapevine` on PyPI is taken by an unrelated
+project, so the distribution name has to differ.
+
+`grapevine-mas` (multi-agent systems) was checked against the PyPI JSON API on
+2026-11-15: both `grapevine-mas` and `grapevine_mas` return HTTP 404, so the
+name is free under PyPI's normalisation. `pip install grapevine-mas` then
+`import grapevine` is a common and well-understood split.
+
+Nothing is published in v0.2. The release workflow is prepared and left
+untriggered.
+
+## Pre-register the eval run; decide on spending later
+
+*2026-11-15.* The planned eval run wanted three inexpensive current models from
+different providers. Only `OPENAI_API_KEY` is set in this environment, so that
+design cannot be executed as written.
+
+Rather than quietly narrowing it to one provider now, or dropping it, the
+pre-registration and the analysis script are written during Steps 2-5 — both
+cost nothing and neither commits to a run. Whether the run happens, on which
+models, and under what budget is decided once `hidden_profile_v2` exists and
+there is something worth measuring. Until a run is committed, every document
+says `not run`.
+
+## Keep `split_evidence` as a negative example rather than fixing or deleting it
+
+*2026-11-15, Step 4.* The plan said to fix the family so it passes its audit or
+delete it, whichever was cheaper. Deleting is cheaper — fixing means redesigning
+the hop chain so the terminal station is identified by a property rather than
+named, which is task-design work the release does not need now that
+`hidden_profile_v2` fills the environment slot.
+
+I kept it anyway, and this is the reason. `split_evidence` is the only
+environment in this repository that leaked its answer *for real*: it was
+registered, nearly used for condition B, and caught by hand before any run
+(`docs/decisions.md`, 2026-09-08). The leak check now reproduces that hand count
+exactly — the gold answer is readable from a single agent's view in 100 of 100
+generated tasks — which is the strongest available evidence that the check works
+on something other than a fixture I planted myself. A synthetic flawed
+environment can always be accused of being built to be caught.
+
+The risk of keeping it is that someone runs it. That is guarded four ways: it is
+in `UNREGISTERED` so nothing resolving a family by name hands one out, the CLI
+refuses it with the reason, the experiment runner refuses it at config-load
+time, and `grapevine audit split_evidence` reports FAIL with the finding. A test
+asserts the leak itself, so re-registering it without a fix fails.
+
+If this looks like dodging the instruction rather than answering it, delete the
+module, its adapter entry and its tests; nothing else depends on it.
+
+## Self-play without `rollout_func`
+
+*2026-11-15, Step 5.* The plan said shared-policy self-play would go through
+TRL's experimental `rollout_func`, the only hook that puts gradient on every
+turn of an episode. I did not do that.
+
+`rollout_func` makes the caller responsible for generation, token ids and
+log-probabilities for every turn, which is a second generation path to keep
+correct against TRL's own, and it is marked experimental in the version pinned.
+For a release whose RL claim is "wired and smoke-tested", that is a lot of
+surface for no result.
+
+Instead, self-play uses the same plain reward function as the frozen-partner
+mode. Every agent's opening turn is a dataset row; the trainer generates it with
+gradient, and the rest of the episode — every other agent and every later turn
+— is generated by the *current* policy without gradient. One model plays every
+agent, every role is trained, and the manifest records `partners_frozen:
+false`. What is lost is gradient on turns after the opening; `docs/rl.md` says
+so and lists `rollout_func` under what is deliberately not here.
+
+## Linux CI uses CPU torch from the lock
+
+*2026-11-15, Step 5.* PyPI's Linux torch wheel is the CUDA build, several
+gigabytes. The old CI side-stepped the lock with `uv pip install torch
+--index-url .../cpu`, so the tested environment was not the locked one. Now
+`pyproject.toml` routes torch to PyTorch's CPU index on Linux only, via
+`[tool.uv.sources]`, and a lock-time constraint keeps torch on 2.14 everywhere.
+The CPU index carries 2.14.1 rather than 2.14.0, so Linux CI runs 2.14.1+cpu
+where macOS runs 2.14.0 — a patch-level difference, noted rather than chased.
+None of this touches the published package's dependencies.
+
+## Docs on MkDocs and Material, pinned, despite Material's end of life
+
+*2026-11-16, Step 7.* The plan named MkDocs with `--strict`. Material for
+MkDocs' PyPI page, read on 2026-11-16, says it reaches end of life on
+2027-05-05, with critical fixes until then, and names Zensical as its
+maintained successor. The site uses MkDocs 1.6.1, Material 9.8.1,
+mkdocstrings 1.0.8 and mkdocstrings-python 2.0.11, pinned exactly in the `docs`
+extra. A migration is a roadmap item, not v0.2 work: the site is a plain
+configuration with no custom theme code, so it should move with little effort.
+
+`docs/results.md` is excluded from the site, because its figure lives in
+`studies/` outside `docs/` and a strict build refuses the link. It is read on
+GitHub, where the relative path resolves (it had been broken since Step 2 moved
+the figure; fixed now). Anchor validation is raised from `info` to `warn`, so a
+dead in-page link also fails the build.
+
+## Actions pinned by commit SHA
+
+*2026-11-16, Step 7.* Every action in `.github/workflows/` is pinned to the
+commit its release tag pointed to when resolved through the GitHub API on
+2026-11-16, with the tag in a comment: `actions/checkout` v7.0.1,
+`astral-sh/setup-uv` v10.3.3 (the SHA matches its README),
+`actions/upload-artifact` v7.0.2, `actions/download-artifact` v8.0.2,
+`pypa/gh-action-pypi-publish` v1.14.3. A tag can be moved; a SHA cannot.
+
+## The release workflow publishes nothing until Samarth sets it up
+
+*2026-11-16, Step 7.* `release.yml` runs only on a `v*` tag. It checks the tag
+against the package version, runs the tests, builds, runs `twine check
+--strict`, and hands the files to a separate publish job that has
+`id-token: write` and nothing else. Publishing uses PyPI trusted publishing, so
+no token exists to leak. It needs two things that cannot be done from the
+repository and are left to Samarth: a GitHub environment `pypi`, and a trusted
+publisher on PyPI for `grapevine-mas`. Without them the publish job fails before
+uploading anything.
+
+Not handled: the README is the PyPI long description, and its relative links
+(`docs/...`, `studies/...`) will not resolve on PyPI. Rewriting them to absolute
+URLs needs a target branch that has the files, which `main` does not yet.
+Recorded here so it is decided before the first upload rather than discovered
+after it.
+
+## A clean environment fails about one audit in twenty
+
+*2026-11-16, Step 7.* Writing `examples/02_write_an_environment.py` surfaced
+that it passed on its eval seeds and failed `shortcuts` on seeds 9000–9199.
+Measured on it and on the test control over 40 disjoint seed ranges each: 2
+failing audits in 40 for both, all on `shortcuts`
+(`studies/battery_calibration/README.md`). That is the 5% per-check false-alarm
+rate the Bonferroni correction allows, reached in one check because equalised
+name counts leave the content-blind solvers breaking exact ties at random.
+
+Documented in `docs/audit-battery.md` and in the example. Not changed in the
+battery: scoring a tie by its expected value rather than a random draw would
+remove most of this noise, but it changes what every committed card says, and
+that is a decision for Samarth rather than a side effect of packaging.
+
+## Extend the battery; do not add a tolerance to `solo_solvability`
+
+*2026-11-16, after the external review.* Samarth chose to extend the battery
+for the review's M1 (names-only shortcut) and M2 (partial leaks) rather than
+only document them, and to rebuild the clean control and the example so they
+pass "without weakening thresholds to force a pass".
+
+Building the rebuilt control surfaced an architectural limit: when the answer is
+the argmax of summed evidence, some single view always carries information about
+it, so no design can make every single-view solver sit at chance
+(`docs/audit-battery.md`, "Why a pass is a bound"). The tightest construction
+leaves an exact Bayes-optimal single-view accuracy of 29.8% against 25%, and the
+strengthened battery sees that on 17 of 40 seed ranges.
+
+Decision: keep `solo_solvability`'s threshold as it was -- any probe
+significantly above chance fails -- and say what that means, rather than add a
+tolerance that would make the control pass. A tolerance is the principled fix
+(compare the single-view advantage with what pooling adds), but its size is a
+judgement about what counts as "distributed enough", and adopting one changes
+what a pass means for every environment. Left open for Samarth.
+
+Scoring tie-breaks by expectation is not a threshold change: it leaves the null
+rate at its nominal level, gives an uninformative solver exactly chance with no
+variance, and loses no power on a real signal. It removed most of the old
+one-in-twenty false alarms on `shortcuts`.
+
+The control's mentions per option per agent (6) was chosen for prompt size
+before the strengthened audit was run on it, and is not tuned to its verdict.
+
+## Classify, do not threshold: `measured` and `inconclusive`
+
+*2026-11-16.* Samarth chose neither to ship the binary `solo_solvability`
+criterion nor to add a tolerance that would make the clean environments pass.
+Instead the two checks that see the irreducible single-view lean report one of
+three classes: a confirmed shortcut (`fail`), a measured advantage
+(`measured`), or too little evidence (`inconclusive`).
+
+The rules carry no tolerance on the size of an advantage. "Reliable solo
+shortcut" is a probe that commits to one option on at least 20 tasks and is
+never wrong, a zero tolerance for error; 20 is a floor on evidence, chosen so
+that luck is negligible for an uninformative probe (0.25²⁰). *Restated
+2026-11-17:* that figure assumes no information, a uniform answer and
+independent tasks, and a union bound over 19 probes gives about 1.7×10⁻¹¹ per
+audit; against a partly informative probe, 20 of 20 bounds the accuracy when
+committing only to at least 83.2% (95%). `docs/validity-card.md`. The first version of the rule required a probe
+right on *every* task, and missed the `solo_solvable` fixture, whose agents
+sometimes hold nothing; the commit-and-never-wrong rule catches it.
+
+`gold_share_bias`, a planted graded leak, is now declared `measured`: agent 0
+does better than the others alone, but no probe is reliable. That is the class
+the card is meant to report, and its numbers make the leak visible.
+
+The impossibility argument was restated with its assumptions (additive decision
+over per-view terms, unique argmax, finite expectations, uniformly distributed
+answer) after checking it: without the last, it shows only that some view is
+informative, not that accuracy beats chance.
+
+## The surfacing labels are model labels
+
+*2026-11-16.* The repository described the 40 labels behind the v0 surfacing
+metric's precision and recall as hand labels made by one person. The local
+transcript of the session that made them shows the assistant model labelling
+them, with no person involved. Every description is corrected and the original
+wording quoted; the file is kept as committed (`docs/audit_surfacing_labels.md`).

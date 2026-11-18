@@ -1,0 +1,52 @@
+# CPU smoke test for grapevine.rl. Runs in CI.
+#
+# It proves the loop is wired end to end -- audit gate, dataset, TRL
+# GRPOTrainer, episode rollout around each completion, reward, manifest -- on a
+# tiny *random* model with scripted partners, in seconds. It is not training.
+# The model has never seen language, the partners are stubs, and every
+# trajectory it writes is tagged `synthetic: true`. Nothing it produces is a
+# result, and the manifest says `reportable: false` (CLAUDE.md rules 2 and 3).
+
+model:
+  name: hf-internal-testing/tiny-random-LlamaForCausalLM
+
+# venue_choice passes its audit (a measured single-view advantage, no failure),
+# so the gate admits it without --allow-flagged. hidden_profile_v2 is refused.
+environment:
+  name: venue_choice
+  n_train_tasks: 2
+
+# The policy plays agent 1. Agent 0 decides, and is a scripted partner that
+# picks the option named most in the discussion, so the reward does depend on
+# what the policy said.
+trainable_agents: [1]
+
+partners:
+  kind: scripted
+
+reward:
+  outcome_weight: 1.0
+  surfacing_weight: 0.0   # off: a positive value is flagged by the audit gate
+
+rollout:
+  n_rounds: 1
+  max_tokens: 8
+
+audit:
+  n_tasks: 50
+
+grpo:
+  learning_rate: 1.0e-6
+  num_generations: 2
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+  max_steps: 2
+  max_completion_length: 8
+  logging_steps: 1
+  use_cpu: true
+  bf16: false
+  fp16: false
+
+seed: 0
+output_dir: runs/rl_smoke_cpu
+save_policy: false

@@ -138,7 +138,7 @@ episode.
 
 ## 4. Results
 
-![Accuracy by condition](docs/figures/accuracy_by_condition.png)
+![Accuracy by condition](studies/underspecification/figures/accuracy_by_condition.png)
 
 | Condition | Task not stated (N=200) | Task and rule stated (N=100) |
 |---|---|---|
@@ -314,7 +314,7 @@ a copy of that paper and I'm not going to pretend otherwise.
 
 ```bash
 uv sync --locked --extra dev
-uv run python -m grapevine.experiments.report_tables   # all tables + figure, no API calls
+uv run python -m studies.underspecification.reproduce   # all tables + figure, no API calls
 ```
 
 Every run directory is committed with its manifest, full transcripts, git commit

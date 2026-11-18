@@ -1,18 +1,33 @@
 [project]
-name = "grapevine"
-version = "0.0.1"
-description = "A research toolkit for studying and training against the Hidden Profile failure mode in multi-agent LLM teams."
+# Distribution name on PyPI; the import name is `grapevine` (docs/decisions.md).
+name = "grapevine-mas"
+version = "0.2.0"
+description = "Check whether a multi-agent LLM eval or RL environment measures coordination, before you trust a result from it."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Samarth Hiremath" }]
 keywords = [
     "llm",
     "multi-agent",
+    "evaluation",
+    "benchmark-validity",
     "reinforcement-learning",
     "grpo",
     "hidden-profile",
-    "reward-hacking",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
 ]
 dependencies = [
     "httpx>=0.27",
@@ -28,13 +43,25 @@ dependencies = [
 # HTTP endpoint by default and only needs these if you use the SDK clients.
 openai = ["openai>=1.40"]
 anthropic = ["anthropic>=0.34"]
-# Training stack. Heavy; only needed for the GRPO loop.
-train = [
-    "torch>=2.2",
-    "transformers>=4.44",
-    "trl>=0.11",
-    "datasets>=2.20",
-    "accelerate>=0.33",
+# RL and post-training: grapevine.rl. Heavy, and the core install never needs
+# it. TRL is pinned to the minor version whose documentation the code was
+# written against (1.18, read 2026-11-15; see docs/v0.2-plan.md). Bounds below
+# are TRL 1.18.0's own floors, so they cannot conflict with it.
+rl = [
+    "trl>=1.18,<1.19",
+    "peft>=0.17",
+    "torch>=2.6",
+    "transformers>=4.56.2",
+    "datasets>=4.7",
+    "accelerate>=1.11",
+]
+# The documentation site. Material for MkDocs reaches end of life on 2027-05-05
+# (read on its PyPI page, 2026-11-16); pinned to the versions read.
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.8.1",
+    "mkdocstrings==1.0.8",
+    "mkdocstrings-python==2.0.11",
 ]
 dev = [
     "pytest>=8.0",
@@ -47,12 +74,32 @@ dev = [
 [project.scripts]
 grapevine = "grapevine.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/Samarth-Hiremath1/Grapevine"
+Documentation = "https://github.com/Samarth-Hiremath1/Grapevine/tree/main/docs"
+Source = "https://github.com/Samarth-Hiremath1/Grapevine"
+Issues = "https://github.com/Samarth-Hiremath1/Grapevine/issues"
+Changelog = "https://github.com/Samarth-Hiremath1/Grapevine/blob/main/CHANGELOG.md"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["grapevine"]
+
+# The sdist carries the package source only. The tests read the committed runs
+# and studies (about 28 MB), so they run from a clone of the repository, not
+# from the sdist.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/grapevine",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/pyproject.toml",
+]
+exclude = ["**/__pycache__"]
 
 [tool.ruff]
 line-length = 100
@@ -64,7 +111,7 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["grapevine"]
+files = ["grapevine", "studies", "examples"]
 strict = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
@@ -73,6 +120,7 @@ disallow_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [
     "trl.*",
+    "peft.*",
     "transformers.*",
     "datasets.*",
     "torch.*",
@@ -88,3 +136,21 @@ testpaths = ["tests"]
 markers = [
     "slow: end-to-end tests that load a model (deselect with '-m \"not slow\"')",
 ]
+
+# CPU-only torch wheels on Linux. PyPI's Linux torch is the CUDA build, several
+# gigabytes, which CI does not need: this release runs no GPU jobs. macOS wheels
+# on PyPI are already CPU/MPS. This affects only installs made with uv from this
+# repository, never the published package's dependencies.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[tool.uv]
+# Same torch on every platform the lock covers, so CI on Linux tests the version
+# the smoke and isolation tests were developed against on macOS. A lock-time
+# constraint only: published metadata keeps the looser `torch>=2.6`.
+constraint-dependencies = ["torch==2.14.*"]

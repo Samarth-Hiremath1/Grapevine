@@ -165,7 +165,7 @@ since OpenAI caches from 1,024 tokens and the largest prompt here is about 440.
 
 ## Reproducibility
 
-Each run writes a new timestamped directory under `runs/` and never overwrites.
+Each run writes a new timestamped directory under `studies/underspecification/runs/` and never overwrites.
 Its `manifest.json` records the config, seed range, git commit and dirty flag at
 the start of the run and again at the end, timings, per-condition metrics, token
 and cost totals, and failures. `uv.lock` pins the environment. Reruns regenerate

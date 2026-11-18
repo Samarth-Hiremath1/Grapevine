@@ -1,0 +1,64 @@
+# not run
+#
+# A starting point for a real GRPO run on one GPU. It has NOT been run: there
+# are no results from it in this repository, and there will not be until a
+# pre-registration is committed under docs/prereg/ and named below
+# (CLAUDE.md rule 4). The settings are reasonable defaults for a ~0.5B instruct
+# model with LoRA, not tuned values.
+#
+#   grapevine train configs/rl_single_gpu.yaml --dry-run   # gate + plan, no model
+#   grapevine train configs/rl_single_gpu.yaml
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+
+# venue_choice passes its audit (a measured single-view advantage, no failure),
+# so the gate admits it without --allow-flagged. hidden_profile_v2 is refused.
+environment:
+  name: venue_choice
+  n_train_tasks: 2000     # drawn from the environment's declared train seeds
+
+# One trained role against frozen copies of the starting checkpoint. Frozen
+# means a separately loaded model in eval mode with requires_grad off -- never
+# the object the trainer updates.
+trainable_agents: [1]
+
+partners:
+  kind: frozen            # defaults to a fresh load of model.name
+
+reward:
+  outcome_weight: 1.0
+  surfacing_weight: 0.0
+
+rollout:
+  n_rounds: 2
+  max_tokens: 160
+  temperature: 0.7
+  answer_temperature: 0.0
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+audit:
+  n_tasks: 200
+
+grpo:
+  learning_rate: 1.0e-5
+  num_generations: 8
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  max_steps: 500
+  max_completion_length: 160
+  temperature: 1.0
+  beta: 0.0               # TRL 1.18 default; no reference model is loaded
+  loss_type: dapo         # TRL 1.18 default
+  logging_steps: 10
+  bf16: true
+
+seed: 0
+output_dir: runs/rl_single_gpu
+save_policy: true
+preregistration: null     # must name a committed docs/prereg/<name>.md before this is reportable

@@ -10,7 +10,7 @@ CSV, so a plot never becomes separated from the numbers behind it.
 Usage:
     python -m grapevine.experiments.figure --run runs/<dir>
     python -m grapevine.experiments.figure --run runs/<primary> \\
-        --extra-run runs/<rule_arm> --out-dir docs/figures
+        --extra-run runs/<rule_arm> --out-dir <out>
 """
 
 from __future__ import annotations
